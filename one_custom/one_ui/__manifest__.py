@@ -31,6 +31,6 @@
     },
     "post_init_hook": "post_init_hook",
     "uninstall_hook": "uninstall_hook",
-    "application": true,
-    "installable": true
+    "application": True,
+    "installable": True
 }
