@@ -3,66 +3,133 @@
 <t t-name="one_ui.OneDashboard">
     <div class="one_dashboard">
         <section class="one_hero">
-            <div>
-                <span class="one_eyebrow">ONE BUSINESS</span>
-                <h1>ONE ERP</h1>
-                <p>Business operations, finance and compliance in one connected workspace.</p>
-            </div>
-            <div class="one_hero_badge">LIVE</div>
-        </section>
-
-        <section class="one_stats">
-            <button class="one_stat" t-on-click="() => this.open('one_ui.action_one_contacts')"><span>Contacts</span><strong t-esc="state.contacts"/></button>
-            <button class="one_stat" t-on-click="() => this.open('one_ui.action_one_sales')"><span>Sales</span><strong t-esc="state.sales"/></button>
-            <button class="one_stat" t-on-click="() => this.open('one_ui.action_one_purchase')"><span>Purchases</span><strong t-esc="state.purchases"/></button>
-            <button class="one_stat" t-on-click="() => this.open('one_ui.action_one_inventory')"><span>Transfers</span><strong t-esc="state.transfers"/></button>
-            <button class="one_stat" t-on-click="() => this.open('one_ui.action_one_accounting')"><span>Invoices</span><strong t-esc="state.invoices"/></button>
-            <button class="one_stat" t-on-click="() => this.open('one_ui.action_one_mrp')"><span>Manufacturing</span><strong t-esc="state.manufacturing"/></button>
-            <button class="one_stat" t-on-click="() => this.open('one_ui.action_one_crm')"><span>CRM</span><strong t-esc="state.opportunities"/></button>
-            <button class="one_stat" t-on-click="() => this.open('one_ui.action_one_hr')"><span>Employees</span><strong t-esc="state.employees"/></button>
-        </section>
-
-        <section class="one_workspace">
-            <div class="one_section_title">
-                <div>
-                    <span>WORKSPACE</span>
-                    <h2>Run the business from here</h2>
+            <div class="one_hero_copy">
+                <div class="one_brandline">
+                    <span class="one_brandmark">ONE</span>
+                    <span class="one_eyebrow">ONE BUSINESS · BUSINESS OS</span>
                 </div>
+                <h1>ONE ERP</h1>
+                <p>Business operations, finance and Saudi compliance in one connected workspace.</p>
+                <p class="one_hero_ar">إدارة الأعمال والمالية والامتثال السعودي من مكان واحد.</p>
             </div>
-
-            <div class="one_cards">
-                <button class="one_card" t-on-click="() => this.open('one_ui.action_one_contacts')">
-                    <i class="fa fa-address-book"/><b>Contacts</b><small>Customers and suppliers</small>
-                </button>
-                <button class="one_card" t-on-click="() => this.open('one_ui.action_one_sales')">
-                    <i class="fa fa-line-chart"/><b>Sales</b><small>Quotations and orders</small>
-                </button>
-                <button class="one_card" t-on-click="() => this.open('one_ui.action_one_purchase')">
-                    <i class="fa fa-shopping-cart"/><b>Purchases</b><small>RFQs and purchase orders</small>
-                </button>
-                <button class="one_card" t-on-click="() => this.open('one_ui.action_one_inventory')">
-                    <i class="fa fa-cubes"/><b>Inventory</b><small>Stock and transfers</small>
-                </button>
-                <button class="one_card" t-on-click="() => this.open('one_ui.action_one_accounting')">
-                    <i class="fa fa-calculator"/><b>Accounting</b><small>Invoices, bills and finance</small>
-                </button>
-                <button class="one_card" t-on-click="() => this.open('one_ui.action_one_mrp')">
-                    <i class="fa fa-industry"/><b>Manufacturing</b><small>Production operations</small>
-                </button>
-                <button class="one_card" t-on-click="() => this.open('one_ui.action_one_crm')">
-                    <i class="fa fa-bullseye"/><b>CRM</b><small>Pipeline and opportunities</small>
-                </button>
-                <button class="one_card" t-on-click="() => this.open('one_ui.action_one_hr')">
-                    <i class="fa fa-users"/><b>People</b><small>Employees and HR</small>
-                </button>
-                <button class="one_card one_card_saudi" t-on-click="() => this.open('one_ui.action_one_saudi_profile')">
-                    <i class="fa fa-shield"/><b>Saudi Compliance</b><small>VAT, National Address and ZATCA setup</small>
-                </button>
-                <button class="one_card" t-on-click="() => this.open('one_ui.action_one_subscriptions')">
-                    <i class="fa fa-key"/><b>Subscriptions</b><small>Plans and customer access</small>
-                </button>
+            <div class="one_hero_status">
+                <span class="one_live_dot"/>
+                <span>Workspace Ready</span>
             </div>
         </section>
+
+        <section class="one_kpi_grid">
+            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_sales')">
+                <span class="one_kpi_icon"><i class="fa fa-line-chart"/></span>
+                <span class="one_kpi_meta"><small>Sales / المبيعات</small><strong t-esc="state.sales"/></span>
+            </button>
+            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_purchase')">
+                <span class="one_kpi_icon"><i class="fa fa-shopping-cart"/></span>
+                <span class="one_kpi_meta"><small>Purchases / المشتريات</small><strong t-esc="state.purchases"/></span>
+            </button>
+            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_inventory')">
+                <span class="one_kpi_icon"><i class="fa fa-cubes"/></span>
+                <span class="one_kpi_meta"><small>Transfers / التحويلات</small><strong t-esc="state.transfers"/></span>
+            </button>
+            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_accounting')">
+                <span class="one_kpi_icon"><i class="fa fa-calculator"/></span>
+                <span class="one_kpi_meta"><small>Invoices / الفواتير</small><strong t-esc="state.invoices"/></span>
+            </button>
+            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_crm')">
+                <span class="one_kpi_icon"><i class="fa fa-bullseye"/></span>
+                <span class="one_kpi_meta"><small>CRM / الفرص</small><strong t-esc="state.opportunities"/></span>
+            </button>
+            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_hr')">
+                <span class="one_kpi_icon"><i class="fa fa-users"/></span>
+                <span class="one_kpi_meta"><small>People / الموظفون</small><strong t-esc="state.employees"/></span>
+            </button>
+        </section>
+
+        <div class="one_dashboard_layout">
+            <section class="one_workspace">
+                <div class="one_section_title">
+                    <div>
+                        <span>CORE WORKSPACE</span>
+                        <h2>Run the business / إدارة الأعمال</h2>
+                    </div>
+                </div>
+
+                <div class="one_group">
+                    <div class="one_group_label">Operations / العمليات</div>
+                    <div class="one_cards">
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_contacts')">
+                            <i class="fa fa-address-book"/><b>Contacts</b><small>العملاء والموردون</small>
+                        </button>
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_sales')">
+                            <i class="fa fa-line-chart"/><b>Sales</b><small>عروض الأسعار والطلبات</small>
+                        </button>
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_purchase')">
+                            <i class="fa fa-shopping-cart"/><b>Purchases</b><small>طلبات الشراء والموردون</small>
+                        </button>
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_inventory')">
+                            <i class="fa fa-cubes"/><b>Inventory</b><small>المخزون والتحويلات</small>
+                        </button>
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_mrp')">
+                            <i class="fa fa-industry"/><b>Manufacturing</b><small>التصنيع وأوامر الإنتاج</small>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="one_group">
+                    <div class="one_group_label">Finance &amp; Growth / المالية والنمو</div>
+                    <div class="one_cards">
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_accounting')">
+                            <i class="fa fa-calculator"/><b>Accounting</b><small>الفواتير والقيود والمالية</small>
+                        </button>
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_crm')">
+                            <i class="fa fa-bullseye"/><b>CRM</b><small>الفرص وخط المبيعات</small>
+                        </button>
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_hr')">
+                            <i class="fa fa-users"/><b>People</b><small>الموظفون والموارد البشرية</small>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="one_side">
+                <section class="one_panel one_panel_compliance">
+                    <div class="one_panel_head">
+                        <span class="one_panel_icon"><i class="fa fa-shield"/></span>
+                        <div><small>SAUDI COMPLIANCE</small><h3>ZATCA &amp; National Address</h3></div>
+                    </div>
+                    <div class="one_panel_metrics">
+                        <div><span>Profiles</span><strong t-esc="state.saudiProfiles"/></div>
+                        <div><span>ZATCA connected</span><strong t-esc="state.zatcaConnected"/></div>
+                    </div>
+                    <button class="one_primary_btn" t-on-click="() => this.open('one_ui.action_one_saudi_profile')">
+                        Open compliance center
+                    </button>
+                </section>
+
+                <section class="one_panel">
+                    <div class="one_panel_head">
+                        <span class="one_panel_icon"><i class="fa fa-key"/></span>
+                        <div><small>SUBSCRIPTIONS</small><h3>Plans &amp; customer access</h3></div>
+                    </div>
+                    <div class="one_panel_metrics">
+                        <div><span>Total</span><strong t-esc="state.subscriptions"/></div>
+                        <div><span>Active</span><strong t-esc="state.activeSubscriptions"/></div>
+                    </div>
+                    <button class="one_secondary_btn" t-on-click="() => this.open('one_ui.action_one_subscriptions')">
+                        Manage subscriptions
+                    </button>
+                </section>
+
+                <section class="one_quick">
+                    <button t-on-click="() => this.open('one_ui.action_one_settings')">
+                        <i class="fa fa-cog"/><span><b>System Settings</b><small>الإعدادات والصلاحيات</small></span>
+                    </button>
+                    <button t-on-click="() => this.open('one_ui.action_one_contacts')">
+                        <i class="fa fa-plus-circle"/><span><b>Contacts Center</b><small>العملاء والموردون</small></span>
+                    </button>
+                </section>
+            </aside>
+        </div>
     </div>
 </t>
 </templates>
