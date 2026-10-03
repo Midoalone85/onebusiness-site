@@ -74,12 +74,26 @@ class OneApprovalRequest(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         sequence = self.env["ir.sequence"]
+        is_system = self.env.user.has_group("base.group_system")
+        allowed_company_ids = set(self.env.companies.ids)
+
         for vals in vals_list:
+            company_id = vals.get("company_id") or self.env.company.id
+            if not is_system and company_id not in allowed_company_ids:
+                raise AccessError(_("You cannot create approval requests for this company."))
+
+            company = self.env["res.company"].browse(company_id)
             if vals.get("name", _("New")) == _("New"):
                 vals["name"] = sequence.next_by_code("one.approval.request") or _("New")
-            vals.setdefault("requester_id", self.env.user.id)
-            vals.setdefault("company_id", self.env.company.id)
-            vals.setdefault("currency_id", self.env.company.currency_id.id)
+
+            if not is_system:
+                vals["requester_id"] = self.env.user.id
+            else:
+                vals.setdefault("requester_id", self.env.user.id)
+
+            vals["company_id"] = company.id
+            vals["currency_id"] = company.currency_id.id
+
         return super().create(vals_list)
 
     def _is_system_manager(self):
