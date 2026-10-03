@@ -23,9 +23,27 @@ export class OneDashboard extends Component {
             zatcaConnected: "…",
             subscriptions: "…",
             activeSubscriptions: "…",
+            unpaidInvoices: "…",
+            overdueInvoices: "…",
+            draftQuotations: "…",
+            pendingPurchases: "…",
+            pendingReceipts: "…",
         });
 
         onWillStart(async () => {
+            const now = new Date();
+            const today = [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, "0"),
+                String(now.getDate()).padStart(2, "0"),
+            ].join("-");
+
+            const unpaidInvoiceDomain = [
+                ["move_type", "=", "out_invoice"],
+                ["state", "=", "posted"],
+                ["payment_state", "in", ["not_paid", "partial"]],
+            ];
+
             const counters = {
                 contacts: ["res.partner", []],
                 sales: ["sale.order", []],
@@ -39,6 +57,23 @@ export class OneDashboard extends Component {
                 zatcaConnected: ["one.saudi.profile", [["zatca_status", "=", "connected"]]],
                 subscriptions: ["one.subscription", []],
                 activeSubscriptions: ["one.subscription", [["status", "=", "active"]]],
+                unpaidInvoices: ["account.move", unpaidInvoiceDomain],
+                overdueInvoices: [
+                    "account.move",
+                    [...unpaidInvoiceDomain, ["invoice_date_due", "<", today]],
+                ],
+                draftQuotations: ["sale.order", [["state", "in", ["draft", "sent"]]]],
+                pendingPurchases: [
+                    "purchase.order",
+                    [["state", "in", ["draft", "sent", "to approve"]]],
+                ],
+                pendingReceipts: [
+                    "stock.picking",
+                    [
+                        ["picking_type_code", "=", "incoming"],
+                        ["state", "not in", ["done", "cancel"]],
+                    ],
+                ],
             };
 
             await Promise.all(
