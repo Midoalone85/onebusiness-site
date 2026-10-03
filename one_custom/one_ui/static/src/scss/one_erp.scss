@@ -359,3 +359,63 @@ a[href*="odoo.com"],
     .one_kpi_grid,
     .one_cards { grid-template-columns: 1fr; }
 }
+
+
+/* ONE ERP command center */
+.one_panel_attention {
+    background: linear-gradient(145deg, #fffdf8, #fff8e9);
+    border-color: #f1dfb4;
+}
+.one_panel_attention .one_panel_icon {
+    background: #fff0c9;
+    color: #9b6813;
+}
+.one_attention_list {
+    display: grid;
+    gap: 7px;
+    margin-top: 15px;
+}
+.one_attention_list button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 0;
+    border-radius: 11px;
+    background: rgba(255,255,255,.78);
+    color: #102a43;
+    padding: 10px 11px;
+    cursor: pointer;
+    text-align: left;
+}
+.one_attention_list button:hover {
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(16, 42, 67, .06);
+}
+.one_attention_list span {
+    font-size: 11px;
+    color: #5f7183;
+}
+.one_attention_list strong {
+    min-width: 28px;
+    text-align: center;
+    border-radius: 999px;
+    padding: 3px 8px;
+    background: #fff0c9;
+    color: #7a500b;
+    font-size: 12px;
+}
+
+/* Native RTL behavior for Arabic users */
+[dir="rtl"] .one_card,
+[dir="rtl"] .one_kpi,
+[dir="rtl"] .one_quick button,
+[dir="rtl"] .one_attention_list button {
+    text-align: right;
+}
+[dir="rtl"] .one_brandline,
+[dir="rtl"] .one_panel_head,
+[dir="rtl"] .one_kpi {
+    direction: rtl;
+}
