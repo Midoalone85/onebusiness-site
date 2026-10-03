@@ -1,6 +1,7 @@
 import re
 
 from odoo import _, api, fields, models
+from odoo.exceptions import AccessError
 from odoo.tools.misc import format_amount
 
 
@@ -140,7 +141,14 @@ class OneAskWizard(models.TransientModel):
 
     def action_ask(self):
         self.ensure_one()
-        self.answer = self._answer_question(self.question)
+        try:
+            self.answer = self._answer_question(self.question)
+        except AccessError:
+            self.answer = (
+                "ليس لديك صلاحية لعرض البيانات المطلوبة."
+                if self._is_arabic(self.question)
+                else "You do not have permission to view the requested data."
+            )
         return {
             "type": "ir.actions.act_window",
             "res_model": "one.ask.wizard",
