@@ -10,7 +10,6 @@
                 </div>
                 <h1>ONE ERP</h1>
                 <p>Business operations, finance and Saudi compliance in one connected workspace.</p>
-                <p class="one_hero_ar">إدارة الأعمال والمالية والامتثال السعودي من مكان واحد.</p>
             </div>
             <div class="one_hero_status">
                 <span class="one_live_dot"/>
@@ -21,27 +20,27 @@
         <section class="one_kpi_grid">
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_sales')">
                 <span class="one_kpi_icon"><i class="fa fa-line-chart"/></span>
-                <span class="one_kpi_meta"><small>Sales / المبيعات</small><strong t-esc="state.sales"/></span>
+                <span class="one_kpi_meta"><small>Sales</small><strong t-esc="state.sales"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_purchase')">
                 <span class="one_kpi_icon"><i class="fa fa-shopping-cart"/></span>
-                <span class="one_kpi_meta"><small>Purchases / المشتريات</small><strong t-esc="state.purchases"/></span>
+                <span class="one_kpi_meta"><small>Purchases</small><strong t-esc="state.purchases"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_inventory')">
                 <span class="one_kpi_icon"><i class="fa fa-cubes"/></span>
-                <span class="one_kpi_meta"><small>Transfers / التحويلات</small><strong t-esc="state.transfers"/></span>
+                <span class="one_kpi_meta"><small>Transfers</small><strong t-esc="state.transfers"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_accounting')">
                 <span class="one_kpi_icon"><i class="fa fa-calculator"/></span>
-                <span class="one_kpi_meta"><small>Invoices / الفواتير</small><strong t-esc="state.invoices"/></span>
+                <span class="one_kpi_meta"><small>Invoices</small><strong t-esc="state.invoices"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_crm')">
                 <span class="one_kpi_icon"><i class="fa fa-bullseye"/></span>
-                <span class="one_kpi_meta"><small>CRM / الفرص</small><strong t-esc="state.opportunities"/></span>
+                <span class="one_kpi_meta"><small>CRM</small><strong t-esc="state.opportunities"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_hr')">
                 <span class="one_kpi_icon"><i class="fa fa-users"/></span>
-                <span class="one_kpi_meta"><small>People / الموظفون</small><strong t-esc="state.employees"/></span>
+                <span class="one_kpi_meta"><small>People</small><strong t-esc="state.employees"/></span>
             </button>
         </section>
 
@@ -50,48 +49,72 @@
                 <div class="one_section_title">
                     <div>
                         <span>CORE WORKSPACE</span>
-                        <h2>Run the business / إدارة الأعمال</h2>
+                        <h2>Run the business</h2>
                     </div>
                 </div>
 
                 <div class="one_group">
-                    <div class="one_group_label">Operations / العمليات</div>
+                    <div class="one_group_label">Operations</div>
                     <div class="one_cards">
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_contacts')">
-                            <i class="fa fa-address-book"/><b>Contacts</b><small>العملاء والموردون</small>
+                            <i class="fa fa-address-book"/><b>Contacts</b><small>Customers and suppliers</small>
                         </button>
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_sales')">
-                            <i class="fa fa-line-chart"/><b>Sales</b><small>عروض الأسعار والطلبات</small>
+                            <i class="fa fa-line-chart"/><b>Sales</b><small>Quotations and orders</small>
                         </button>
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_purchase')">
-                            <i class="fa fa-shopping-cart"/><b>Purchases</b><small>طلبات الشراء والموردون</small>
+                            <i class="fa fa-shopping-cart"/><b>Purchases</b><small>Purchase orders and suppliers</small>
                         </button>
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_inventory')">
-                            <i class="fa fa-cubes"/><b>Inventory</b><small>المخزون والتحويلات</small>
+                            <i class="fa fa-cubes"/><b>Inventory</b><small>Stock and transfers</small>
                         </button>
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_mrp')">
-                            <i class="fa fa-industry"/><b>Manufacturing</b><small>التصنيع وأوامر الإنتاج</small>
+                            <i class="fa fa-industry"/><b>Manufacturing</b><small>Production and manufacturing orders</small>
                         </button>
                     </div>
                 </div>
 
                 <div class="one_group">
-                    <div class="one_group_label">Finance &amp; Growth / المالية والنمو</div>
+                    <div class="one_group_label">Finance &amp; Growth</div>
                     <div class="one_cards">
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_accounting')">
-                            <i class="fa fa-calculator"/><b>Accounting</b><small>الفواتير والقيود والمالية</small>
+                            <i class="fa fa-calculator"/><b>Accounting</b><small>Invoices, journals and finance</small>
                         </button>
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_crm')">
-                            <i class="fa fa-bullseye"/><b>CRM</b><small>الفرص وخط المبيعات</small>
+                            <i class="fa fa-bullseye"/><b>CRM</b><small>Pipeline and opportunities</small>
                         </button>
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_hr')">
-                            <i class="fa fa-users"/><b>People</b><small>الموظفون والموارد البشرية</small>
+                            <i class="fa fa-users"/><b>People</b><small>Employees and human resources</small>
                         </button>
                     </div>
                 </div>
             </section>
 
             <aside class="one_side">
+                <section class="one_panel one_panel_attention">
+                    <div class="one_panel_head">
+                        <span class="one_panel_icon"><i class="fa fa-bolt"/></span>
+                        <div><small>NEEDS ATTENTION</small><h3>Today's command center</h3></div>
+                    </div>
+                    <div class="one_attention_list">
+                        <button t-on-click="() => this.open('one_ui.action_one_accounting')">
+                            <span>Overdue receivables</span><strong t-esc="state.overdueInvoices"/>
+                        </button>
+                        <button t-on-click="() => this.open('one_ui.action_one_accounting')">
+                            <span>Unpaid customer invoices</span><strong t-esc="state.unpaidInvoices"/>
+                        </button>
+                        <button t-on-click="() => this.open('one_ui.action_one_sales')">
+                            <span>Open quotations</span><strong t-esc="state.draftQuotations"/>
+                        </button>
+                        <button t-on-click="() => this.open('one_ui.action_one_purchase')">
+                            <span>Purchases pending</span><strong t-esc="state.pendingPurchases"/>
+                        </button>
+                        <button t-on-click="() => this.open('one_ui.action_one_inventory')">
+                            <span>Receipts pending</span><strong t-esc="state.pendingReceipts"/>
+                        </button>
+                    </div>
+                </section>
+
                 <section class="one_panel one_panel_compliance">
                     <div class="one_panel_head">
                         <span class="one_panel_icon"><i class="fa fa-shield"/></span>
@@ -122,10 +145,10 @@
 
                 <section class="one_quick">
                     <button t-on-click="() => this.open('one_ui.action_one_settings')">
-                        <i class="fa fa-cog"/><span><b>System Settings</b><small>الإعدادات والصلاحيات</small></span>
+                        <i class="fa fa-cog"/><span><b>System Settings</b><small>Permissions and preferences</small></span>
                     </button>
                     <button t-on-click="() => this.open('one_ui.action_one_contacts')">
-                        <i class="fa fa-plus-circle"/><span><b>Contacts Center</b><small>العملاء والموردون</small></span>
+                        <i class="fa fa-plus-circle"/><span><b>Contacts Center</b><small>Customers and suppliers</small></span>
                     </button>
                 </section>
             </aside>
