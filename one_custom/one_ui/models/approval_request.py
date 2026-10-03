@@ -70,6 +70,15 @@ class OneApprovalRequest(models.Model):
     decision_note = fields.Text(string="Decision Note", copy=False)
     document_reference = fields.Char(string="Document Reference")
     source_url = fields.Char(string="Source Link")
+    can_requester_action = fields.Boolean(compute="_compute_action_permissions")
+    can_approver_action = fields.Boolean(compute="_compute_action_permissions")
+
+    @api.depends("requester_id", "approver_id")
+    def _compute_action_permissions(self):
+        is_system = self.env.user.has_group("base.group_system")
+        for request in self:
+            request.can_requester_action = is_system or request.requester_id == self.env.user
+            request.can_approver_action = is_system or request.approver_id == self.env.user
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -172,6 +181,7 @@ class OneApprovalRequest(models.Model):
                     "state": "draft",
                     "requested_at": False,
                     "decided_at": False,
+                    "decision_note": False,
                 }
             )
         return True
@@ -214,10 +224,15 @@ class OneApprovalRequest(models.Model):
             if business_fields and not (is_requester and request.state == "draft"):
                 raise AccessError(_("Only the requester can edit a draft approval request."))
 
-            if "decision_note" in vals and not (
-                is_approver and request.state == "submitted"
-            ):
-                raise AccessError(_("Only the assigned approver can edit the decision note."))
+            if "decision_note" in vals:
+                approver_can_edit = is_approver and request.state == "submitted"
+                requester_can_clear_on_transition = (
+                    is_requester
+                    and vals.get("decision_note") in (False, "")
+                    and requested_state in ("submitted", "draft")
+                )
+                if not (approver_can_edit or requester_can_clear_on_transition):
+                    raise AccessError(_("Only the assigned approver can edit the decision note."))
 
         return super().write(vals)
 
