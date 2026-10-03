@@ -43,15 +43,17 @@ class ResCompany(models.Model):
         payables = -((payable_group[0][0] if payable_group else 0.0) or 0.0)
         overdue = (overdue_group[0][0] if overdue_group else 0.0) or 0.0
 
-        sales_group = self.env["sale.order"]._read_group(
+        revenue_group = MoveLine._read_group(
             [
                 ("company_id", "=", company.id),
-                ("state", "in", ("sale", "done")),
-                ("date_order", ">=", fields.Datetime.to_datetime(month_start)),
+                ("move_id.state", "=", "posted"),
+                ("date", ">=", month_start),
+                ("date", "<=", today),
+                ("account_id.account_type", "in", ("income", "income_other")),
             ],
-            aggregates=["amount_total:sum"],
+            aggregates=["balance:sum"],
         )
-        month_sales = (sales_group[0][0] if sales_group else 0.0) or 0.0
+        month_revenue = -((revenue_group[0][0] if revenue_group else 0.0) or 0.0)
 
         profit_group = MoveLine._read_group(
             [
@@ -80,7 +82,7 @@ class ResCompany(models.Model):
             "receivables": format_amount(self.env, receivables, currency),
             "overdue": format_amount(self.env, overdue, currency),
             "payables": format_amount(self.env, payables, currency),
-            "month_sales": format_amount(self.env, month_sales, currency),
+            "month_revenue": format_amount(self.env, month_revenue, currency),
             "month_profit": format_amount(self.env, month_profit, currency),
             "currency": currency.name,
         }
