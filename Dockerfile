@@ -2,6 +2,10 @@ FROM odoo:20.0
 
 USER root
 
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY one_erp_bundle /tmp/one_erp_bundle
 COPY start-one-render.sh /usr/local/bin/start-one-render.sh
 
