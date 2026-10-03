@@ -1,5 +1,6 @@
 id,name,model_id,group_id/id,operation,domain
 access_one_saudi_profile_system,one.saudi.profile system,one.saudi.profile,base.group_system,crud,
+access_one_saudi_profile_user,one.saudi.profile user,one.saudi.profile,base.group_user,r,"[('company_id', 'in', company_ids)]"
 access_one_subscription_plan_system,one.subscription.plan system,one.subscription.plan,base.group_system,crud,
 access_one_subscription_system,one.subscription system,one.subscription,base.group_system,crud,
 access_one_subscription_plan_user,one.subscription.plan user,one.subscription.plan,base.group_user,r,
