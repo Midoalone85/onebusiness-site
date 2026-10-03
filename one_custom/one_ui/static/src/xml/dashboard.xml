@@ -145,6 +145,7 @@
                     </div>
                     <div class="one_panel_metrics">
                         <div><span>Profiles</span><strong t-esc="state.saudiProfiles"/></div>
+                        <div><span>Ready for onboarding</span><strong t-esc="state.zatcaReady"/></div>
                         <div><span>ZATCA connected</span><strong t-esc="state.zatcaConnected"/></div>
                     </div>
                     <button class="one_primary_btn" t-on-click="() => this.open('one_ui.action_one_saudi_profile')">
