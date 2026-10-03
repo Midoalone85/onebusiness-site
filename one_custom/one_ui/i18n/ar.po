@@ -1068,3 +1068,99 @@ msgstr "ربح / خسارة الشهر"
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
 msgid "Open financial reports"
 msgstr "فتح التقارير المالية"
+
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__state_id
+msgid "State / Region"
+msgstr "المنطقة"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__configuration_ready
+msgid "Configuration Ready"
+msgstr "الإعدادات جاهزة"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__journal_onboarded
+msgid "Sales Journal Onboarded"
+msgstr "يومية المبيعات مربوطة مع ZATCA"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__readiness_missing
+msgid "Missing Requirements"
+msgstr "المتطلبات الناقصة"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__native_api_mode
+msgid "Native ZATCA API Mode"
+msgstr "بيئة ZATCA الفعلية"
+
+#. module: one_ui
+#: code:addons/one_ui/views/saudi_profile_views.xml:0
+msgid "Load Company Data"
+msgstr "تحميل بيانات الشركة"
+
+#. module: one_ui
+#: code:addons/one_ui/views/saudi_profile_views.xml:0
+msgid "Apply to ZATCA Setup"
+msgstr "تطبيق على إعداد ZATCA"
+
+#. module: one_ui
+#: code:addons/one_ui/views/saudi_profile_views.xml:0
+msgid "Registration"
+msgstr "بيانات التسجيل"
+
+#. module: one_ui
+#: code:addons/one_ui/views/saudi_profile_views.xml:0
+msgid "National Address"
+msgstr "العنوان الوطني"
+
+#. module: one_ui
+#: code:addons/one_ui/views/saudi_profile_views.xml:0
+msgid "ZATCA Readiness"
+msgstr "جاهزية ZATCA"
+
+#. module: one_ui
+#: code:addons/one_ui/views/saudi_profile_views.xml:0
+msgid "Company data is ready for ZATCA onboarding."
+msgstr "بيانات الشركة جاهزة لبدء ربط ZATCA."
+
+#. module: one_ui
+#: code:addons/one_ui/views/saudi_profile_views.xml:0
+msgid "Complete the missing requirements below before ZATCA onboarding."
+msgstr "أكمل المتطلبات الناقصة أدناه قبل بدء ربط ZATCA."
+
+#. module: one_ui
+#: code:addons/one_ui/views/saudi_profile_views.xml:0
+msgid "No missing requirements"
+msgstr "لا توجد متطلبات ناقصة"
+
+#. module: one_ui
+#: code:addons/one_ui/views/saudi_profile_views.xml:0
+msgid "ONE ERP does not submit or onboard a ZATCA journal automatically from this screen. Production onboarding remains an explicit administrator action using the official Saudi e-invoicing workflow."
+msgstr "لا يقوم ONE ERP بإرسال الفواتير أو ربط يومية ZATCA تلقائيًا من هذه الشاشة. يظل ربط بيئة الإنتاج إجراءً صريحًا ينفذه مدير النظام من خلال مسار الفوترة الإلكترونية السعودي الرسمي."
+
+#. module: one_ui
+#: code:addons/one_ui/models/one_saudi_profile.py:0
+msgid "Valid 15-digit Saudi VAT number"
+msgstr "رقم ضريبي سعودي صحيح من 15 رقمًا"
+
+#. module: one_ui
+#: code:addons/one_ui/models/one_saudi_profile.py:0
+msgid "Saudi Arabia country"
+msgstr "الدولة: المملكة العربية السعودية"
+
+#. module: one_ui
+#: code:addons/one_ui/models/one_saudi_profile.py:0
+msgid "4-digit Building Number"
+msgstr "رقم مبنى من 4 أرقام"
+
+#. module: one_ui
+#: code:addons/one_ui/models/one_saudi_profile.py:0
+msgid "4-digit Additional Number"
+msgstr "رقم إضافي من 4 أرقام"
+
+#. module: one_ui
+#: code:addons/one_ui/models/one_saudi_profile.py:0
+msgid "Saudi compliance requires Saudi Arabia as the company country."
+msgstr "يتطلب الامتثال السعودي أن تكون دولة الشركة هي المملكة العربية السعودية."
