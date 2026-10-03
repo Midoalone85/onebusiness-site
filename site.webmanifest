@@ -1,0 +1,11 @@
+{
+  "name": "ONE Business",
+  "short_name": "ONE Business",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#060c1e",
+  "theme_color": "#060c1e",
+  "description": "تطوير الأعمال والأنظمة المالية والمواقع والتطبيقات والأتمتة والمبيعات في مسار واحد واضح."
+}
