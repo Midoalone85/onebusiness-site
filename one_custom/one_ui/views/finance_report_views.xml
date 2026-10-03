@@ -10,6 +10,8 @@
                         <group>
                             <field name="report_type"/>
                             <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="partner_id"
+                                   placeholder="Optional for aging, required for partner statement"/>
                         </group>
                         <group>
                             <field name="date_from"/>
