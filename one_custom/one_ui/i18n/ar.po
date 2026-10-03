@@ -579,3 +579,103 @@ msgstr "لا يمكن أن يكون تاريخ البداية بعد تاريخ 
 #: code:addons/one_ui/models/finance_reports.py:0
 msgid "A valid report date range is required."
 msgstr "يجب تحديد فترة صحيحة للتقرير."
+
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_finance_report_wizard__partner_id
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "Partner"
+msgstr "العميل / المورد"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_finance_report_wizard__report_type__aged_receivable
+#: code:addons/one_ui/models/finance_reports.py:0
+msgid "Aged Receivables"
+msgstr "أعمار الذمم المدينة"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_finance_report_wizard__report_type__aged_payable
+#: code:addons/one_ui/models/finance_reports.py:0
+msgid "Aged Payables"
+msgstr "أعمار الذمم الدائنة"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_finance_report_wizard__report_type__partner_statement
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "Partner Statement"
+msgstr "كشف حساب عميل / مورد"
+
+#. module: one_ui
+#: model:ir.actions.report,name:one_ui.action_report_one_aged_partner
+msgid "ONE ERP Aging"
+msgstr "تقرير أعمار الذمم ONE ERP"
+
+#. module: one_ui
+#: model:ir.actions.report,name:one_ui.action_report_one_partner_statement
+msgid "ONE ERP Partner Statement"
+msgstr "كشف حساب ONE ERP"
+
+#. module: one_ui
+#: code:addons/one_ui/models/finance_reports.py:0
+msgid "Select a partner to print the partner statement."
+msgstr "اختر عميلاً أو مورداً لطباعة كشف الحساب."
+
+#. module: one_ui
+#: code:addons/one_ui/views/finance_report_views.xml:0
+msgid "Optional for aging, required for partner statement"
+msgstr "اختياري لتقرير الأعمار وإجباري لكشف الحساب"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "As of Date"
+msgstr "كما في تاريخ"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "All Partners"
+msgstr "كل العملاء والموردين"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "Current"
+msgstr "غير مستحق"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "1-30 Days"
+msgstr "1-30 يوم"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "31-60 Days"
+msgstr "31-60 يوم"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "61-90 Days"
+msgstr "61-90 يوم"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "91+ Days"
+msgstr "أكثر من 90 يوم"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "VAT:"
+msgstr "الرقم الضريبي:"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "Opening Balance:"
+msgstr "الرصيد الافتتاحي:"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "Description"
+msgstr "البيان"
+
+#. module: one_ui
+#: code:addons/one_ui/report/partner_reports.xml:0
+msgid "Period Total"
+msgstr "إجمالي حركة الفترة"
