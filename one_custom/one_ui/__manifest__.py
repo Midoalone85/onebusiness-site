@@ -10,7 +10,7 @@
         "stock", "account", "mrp", "crm", "hr"
     ],
     "data": [
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "data/branding_data.xml",
         "data/subscription_plans.xml",
         "views/actions.xml",
