@@ -89,7 +89,7 @@
                         <group>
                             <field name="decision_note"
                                    placeholder="Approval or rejection note"
-                                   readonly="state not in ('submitted', 'rejected', 'cancelled')"/>
+                                   readonly="state != 'submitted' or approver_id != uid"/>
                         </group>
                     </group>
                 </sheet>
