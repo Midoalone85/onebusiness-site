@@ -32,7 +32,7 @@ export class OneDashboard extends Component {
             pulseReceivables: "…",
             pulseOverdue: "…",
             pulsePayables: "…",
-            pulseMonthSales: "…",
+            pulseMonthRevenue: "…",
             pulseMonthProfit: "…",
         });
 
@@ -101,13 +101,13 @@ export class OneDashboard extends Component {
                 this.state.pulseReceivables = pulse.receivables;
                 this.state.pulseOverdue = pulse.overdue;
                 this.state.pulsePayables = pulse.payables;
-                this.state.pulseMonthSales = pulse.month_sales;
+                this.state.pulseMonthRevenue = pulse.month_revenue;
                 this.state.pulseMonthProfit = pulse.month_profit;
             } catch {
                 this.state.pulseReceivables = "—";
                 this.state.pulseOverdue = "—";
                 this.state.pulsePayables = "—";
-                this.state.pulseMonthSales = "—";
+                this.state.pulseMonthRevenue = "—";
                 this.state.pulseMonthProfit = "—";
             }
         });
