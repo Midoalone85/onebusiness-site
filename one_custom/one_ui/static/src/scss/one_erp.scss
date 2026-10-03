@@ -419,3 +419,47 @@ a[href*="odoo.com"],
 [dir="rtl"] .one_kpi {
     direction: rtl;
 }
+
+
+/* ONE Pulse */
+.one_panel_pulse {
+    background: linear-gradient(145deg, #f7fbff, #eef6fd);
+    border-color: #cfe0ef;
+}
+.one_panel_pulse .one_panel_icon {
+    background: #e4f1fb;
+    color: #145d8c;
+}
+.one_pulse_grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 15px 0;
+}
+.one_pulse_grid > div {
+    min-width: 0;
+    padding: 11px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.86);
+    border: 1px solid #dce8f3;
+}
+.one_pulse_grid span {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 9px;
+    color: #718096;
+}
+.one_pulse_grid strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    color: #153a5b;
+    white-space: nowrap;
+}
+.one_pulse_wide {
+    grid-column: 1 / -1;
+}
+[dir="rtl"] .one_pulse_grid {
+    direction: rtl;
+}
