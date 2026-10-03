@@ -91,13 +91,20 @@ COMMON=(
   "--http-port=${PORT:-10000}"
 )
 
-# Build the stable ONE ERP core from upstream business modules plus our branded workspace.
-# Legacy custom bundle modules stay available on disk but are deliberately not installed
-# until each one has passed compatibility checks with the current engine.
-odoo "${COMMON[@]}" -d "$DB_NAME" -i contacts,sale_management,purchase_stock,stock,account,mrp,crm,hr,one_ui --stop-after-init
+# Install on a fresh database, update on an existing ONE ERP database.
+# Installing one_ui is enough: Odoo resolves and installs its declared dependencies.
+# This avoids doing a full install and then immediately repeating a module update.
+HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
+  "SELECT CASE WHEN to_regclass('public.ir_module_module') IS NULL THEN '0' ELSE '1' END;" \
+  | tr -d '[:space:]')
 
-# Ensure ONE ERP branding/assets/security settings are refreshed on every immutable deployment.
-odoo "${COMMON[@]}" -d "$DB_NAME" -u one_ui --stop-after-init
+if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
+  echo "ONE ERP: existing Odoo schema detected; updating ONE ERP workspace."
+  odoo "${COMMON[@]}" -d "$DB_NAME" -u one_ui --stop-after-init
+else
+  echo "ONE ERP: fresh database detected; installing ONE ERP workspace and dependencies."
+  odoo "${COMMON[@]}" -d "$DB_NAME" -i one_ui --stop-after-init
+fi
 
 # Generated web bundles can become stale between module updates. Rebuild them in the same lifecycle.
 "$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c   "DELETE FROM ir_attachment WHERE url LIKE '/web/assets/%';"
