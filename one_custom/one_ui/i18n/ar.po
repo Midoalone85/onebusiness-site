@@ -1170,3 +1170,43 @@ msgstr "يتطلب الامتثال السعودي أن تكون دولة الش
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
 msgid "Ready for onboarding"
 msgstr "جاهز للربط"
+
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_ask
+#: model:ir.actions.act_window,name:one_ui.action_one_ask
+#: code:addons/one_ui/views/ask_one_views.xml:0
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Ask ONE"
+msgstr "اسأل ONE"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_ask_wizard__question
+msgid "Ask ONE"
+msgstr "اسأل ONE"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_ask_wizard__answer
+#: code:addons/one_ui/views/ask_one_views.xml:0
+msgid "Answer"
+msgstr "الإجابة"
+
+#. module: one_ui
+#: code:addons/one_ui/views/ask_one_views.xml:0
+msgid "Ask about revenue, profit, receivables, overdue customers, payables, approvals, purchases, quotations or ZATCA."
+msgstr "اسأل عن الإيرادات، الربح، ذمم العملاء، العملاء المتأخرين، الموردين، الموافقات، المشتريات، عروض الأسعار أو ZATCA."
+
+#. module: one_ui
+#: code:addons/one_ui/views/ask_one_views.xml:0
+msgid "Example: Who are the top overdue customers?"
+msgstr "مثال: مين أكبر العملاء المتأخرين؟"
+
+#. module: one_ui
+#: code:addons/one_ui/views/ask_one_views.xml:0
+msgid "Close"
+msgstr "إغلاق"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Instant answers without external API"
+msgstr "إجابات فورية بدون API خارجي"
