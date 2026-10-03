@@ -3,3 +3,4 @@ access_one_saudi_profile_system,one.saudi.profile system,one.saudi.profile,base.
 access_one_subscription_plan_system,one.subscription.plan system,one.subscription.plan,base.group_system,crud,
 access_one_subscription_system,one.subscription system,one.subscription,base.group_system,crud,
 access_one_subscription_plan_user,one.subscription.plan user,one.subscription.plan,base.group_user,r,
+access_one_finance_report_wizard_account,one.finance.report.wizard accounting,one.finance.report.wizard,account.group_account_user,crud,
