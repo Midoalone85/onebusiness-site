@@ -29,6 +29,7 @@
             "one_ui/static/src/scss/one_login.scss"
         ]
     },
+    "post_init_hook": "post_init_hook",
     "application": true,
     "installable": true
 }
