@@ -5,7 +5,6 @@
         <field name="model">one.finance.report.wizard</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">one_ui.report_one_aged_partner</field>
-        <field name="report_file">one_ui.report_one_aged_partner</field>
         <field name="paperformat_id" ref="one_ui.paperformat_one_finance_a4"/>
         <field name="print_report_name">'ONE_Aging_%s' % object.date_to</field>
     </record>
@@ -15,7 +14,6 @@
         <field name="model">one.finance.report.wizard</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">one_ui.report_one_partner_statement</field>
-        <field name="report_file">one_ui.report_one_partner_statement</field>
         <field name="paperformat_id" ref="one_ui.paperformat_one_finance_a4"/>
         <field name="print_report_name">'ONE_Partner_Statement_%s_%s' % (object.partner_id.name or 'Partner', object.date_to)</field>
     </record>
