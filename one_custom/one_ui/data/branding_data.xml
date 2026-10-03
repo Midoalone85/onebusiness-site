@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="0">
+    <record id="base.partner_root" model="res.partner">
+        <field name="name">ONE Assistant</field>
+    </record>
+</odoo>
