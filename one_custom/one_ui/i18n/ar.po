@@ -1,0 +1,173 @@
+# Translation of ONE ERP
+# This file contains the translation of the following module:
+#   * one_ui
+msgid ""
+msgstr ""
+"Project-Id-Version: ONE ERP 20.0\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_dashboard
+msgid "Dashboard"
+msgstr "لوحة التحكم"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_contacts
+#: model:ir.actions.act_window,name:one_ui.action_one_contacts
+msgid "Contacts"
+msgstr "جهات الاتصال"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales
+#: model:ir.actions.act_window,name:one_ui.action_one_sales
+msgid "Sales"
+msgstr "المبيعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_purchase
+#: model:ir.actions.act_window,name:one_ui.action_one_purchase
+msgid "Purchases"
+msgstr "المشتريات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory
+msgid "Inventory"
+msgstr "المخزون"
+
+#. module: one_ui
+#: model:ir.actions.act_window,name:one_ui.action_one_inventory
+msgid "Inventory Transfers"
+msgstr "تحويلات المخزون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_accounting
+msgid "Accounting"
+msgstr "المحاسبة"
+
+#. module: one_ui
+#: model:ir.actions.act_window,name:one_ui.action_one_accounting
+msgid "Invoices & Bills"
+msgstr "الفواتير وفواتير الموردين"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp
+#: model:ir.actions.act_window,name:one_ui.action_one_mrp
+msgid "Manufacturing"
+msgstr "التصنيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_crm
+#: model:ir.actions.act_window,name:one_ui.action_one_crm
+msgid "CRM"
+msgstr "إدارة علاقات العملاء"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_hr
+msgid "Human Resources"
+msgstr "الموارد البشرية"
+
+#. module: one_ui
+#: model:ir.actions.act_window,name:one_ui.action_one_hr
+msgid "Employees"
+msgstr "الموظفون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_saudi_root
+msgid "Saudi Compliance"
+msgstr "الامتثال السعودي"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_saudi_profile
+msgid "ZATCA & National Address"
+msgstr "الزكاة والفوترة والعنوان الوطني"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_taxes
+#: model:ir.actions.act_window,name:one_ui.action_one_taxes
+msgid "Taxes"
+msgstr "الضرائب"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_subscriptions_root
+msgid "Subscriptions"
+msgstr "الاشتراكات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_subscriptions
+msgid "Customer Subscriptions"
+msgstr "اشتراكات العملاء"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_plans
+msgid "Plans & Features"
+msgstr "الباقات والمزايا"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_settings
+#: model:ir.actions.act_window,name:one_ui.action_one_settings
+msgid "Settings"
+msgstr "الإعدادات"
+
+#. module: one_ui
+#: model:ir.actions.act_window,name:one_ui.action_one_saudi_profile
+msgid "Saudi Compliance"
+msgstr "الامتثال السعودي"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__commercial_registration
+msgid "Commercial Registration"
+msgstr "السجل التجاري"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__vat_number
+msgid "VAT Registration Number"
+msgstr "الرقم الضريبي"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__building_number
+msgid "Building Number"
+msgstr "رقم المبنى"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__street_name
+msgid "Street"
+msgstr "الشارع"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__district
+msgid "District"
+msgstr "الحي"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__city
+msgid "City"
+msgstr "المدينة"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__postal_code
+msgid "Postal Code"
+msgstr "الرمز البريدي"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__additional_number
+msgid "Additional Number"
+msgstr "الرقم الإضافي"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__zatca_environment
+msgid "ZATCA Environment"
+msgstr "بيئة هيئة الزكاة والضريبة والجمارك"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__zatca_status
+msgid "ZATCA Status"
+msgstr "حالة الربط مع ZATCA"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__phase
+msgid "E-Invoicing Phase"
+msgstr "مرحلة الفوترة الإلكترونية"
