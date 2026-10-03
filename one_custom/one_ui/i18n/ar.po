@@ -849,3 +849,181 @@ msgstr "إجمالي حقوق الملكية"
 #: code:addons/one_ui/report/statement_reports.xml:0
 msgid "Total Liabilities & Equity"
 msgstr "إجمالي الالتزامات وحقوق الملكية"
+
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_approvals
+#: model:ir.actions.act_window,name:one_ui.action_one_approvals
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Approval Center"
+msgstr "مركز الموافقات"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__name
+msgid "Request Number"
+msgstr "رقم الطلب"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__approval_type
+msgid "Approval Type"
+msgstr "نوع الموافقة"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__approval_type__purchase
+msgid "Purchase"
+msgstr "مشتريات"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__approval_type__payment
+msgid "Payment"
+msgstr "دفعة"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__approval_type__expense
+msgid "Expense"
+msgstr "مصروف"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__approval_type__discount
+msgid "Discount"
+msgstr "خصم"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__approval_type__return
+msgid "Return"
+msgstr "مرتجع"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__approval_type__other
+msgid "Other"
+msgstr "أخرى"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__requested_by
+msgid "Requested By"
+msgstr "مقدم الطلب"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__approver_id
+msgid "Approver"
+msgstr "المعتمد"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__state
+msgid "Status"
+msgstr "الحالة"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__state__draft
+msgid "Draft"
+msgstr "مسودة"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__state__submitted
+msgid "Pending Approval"
+msgstr "بانتظار الموافقة"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__state__approved
+msgid "Approved"
+msgstr "تمت الموافقة"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__state__rejected
+msgid "Rejected"
+msgstr "مرفوض"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_approval_request__state__cancelled
+msgid "Cancelled"
+msgstr "ملغي"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__requested_at
+msgid "Requested At"
+msgstr "تاريخ الطلب"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__decided_at
+msgid "Decision At"
+msgstr "تاريخ القرار"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__decision_note
+msgid "Decision Note"
+msgstr "ملاحظة القرار"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__document_reference
+msgid "Document Reference"
+msgstr "مرجع المستند"
+
+#. module: one_ui
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__source_url
+msgid "Source Link"
+msgstr "رابط المصدر"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "Approval Request"
+msgstr "طلب موافقة"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "Submit"
+msgstr "إرسال للموافقة"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "Approve"
+msgstr "موافقة"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "Reject"
+msgstr "رفض"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "Cancel Request"
+msgstr "إلغاء الطلب"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "Reset to Draft"
+msgstr "إرجاع لمسودة"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "Decision"
+msgstr "القرار"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "What needs approval and why?"
+msgstr "ما المطلوب اعتماده ولماذا؟"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "Approval or rejection note"
+msgstr "ملاحظة الموافقة أو الرفض"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "My Requests"
+msgstr "طلباتي"
+
+#. module: one_ui
+#: code:addons/one_ui/views/approval_views.xml:0
+msgid "Assigned to Me"
+msgstr "المسند إليّ"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Requests, decisions and controls"
+msgstr "الطلبات والقرارات والرقابة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Approvals pending"
+msgstr "موافقات معلقة"
