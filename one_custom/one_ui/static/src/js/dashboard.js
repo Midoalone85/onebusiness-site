@@ -19,23 +19,32 @@ export class OneDashboard extends Component {
             manufacturing: "…",
             opportunities: "…",
             employees: "…",
+            saudiProfiles: "…",
+            zatcaConnected: "…",
+            subscriptions: "…",
+            activeSubscriptions: "…",
         });
 
         onWillStart(async () => {
-            const models = {
-                contacts: "res.partner",
-                sales: "sale.order",
-                purchases: "purchase.order",
-                transfers: "stock.picking",
-                invoices: "account.move",
-                manufacturing: "mrp.production",
-                opportunities: "crm.lead",
-                employees: "hr.employee",
+            const counters = {
+                contacts: ["res.partner", []],
+                sales: ["sale.order", []],
+                purchases: ["purchase.order", []],
+                transfers: ["stock.picking", []],
+                invoices: ["account.move", []],
+                manufacturing: ["mrp.production", []],
+                opportunities: ["crm.lead", []],
+                employees: ["hr.employee", []],
+                saudiProfiles: ["one.saudi.profile", []],
+                zatcaConnected: ["one.saudi.profile", [["zatca_status", "=", "connected"]]],
+                subscriptions: ["one.subscription", []],
+                activeSubscriptions: ["one.subscription", [["status", "=", "active"]]],
             };
+
             await Promise.all(
-                Object.entries(models).map(async ([key, model]) => {
+                Object.entries(counters).map(async ([key, [model, domain]]) => {
                     try {
-                        this.state[key] = await this.orm.searchCount(model, []);
+                        this.state[key] = await this.orm.searchCount(model, domain);
                     } catch {
                         this.state[key] = "—";
                     }
