@@ -8,8 +8,26 @@ PG_BIN=$(dirname "$PG_INITDB")
 PGDATA=/tmp/one-pgdata
 ODOO_DATA=/tmp/one-odoo-data
 DB_NAME="${ONE_DB_NAME:-one_erp_db}"
+LOCAL_PG=0
+ODOO_PID=""
 
 mkdir -p "$ODOO_DATA"
+
+stop_local_pg() {
+  if [[ "$LOCAL_PG" -eq 1 ]] && [[ -s "$PGDATA/PG_VERSION" ]]; then
+    "$PG_BIN/pg_ctl" -D "$PGDATA" -m fast -w stop >/dev/null 2>&1 || true
+  fi
+}
+
+handle_term() {
+  trap - TERM INT
+  if [[ -n "$ODOO_PID" ]]; then
+    kill -TERM "$ODOO_PID" >/dev/null 2>&1 || true
+    wait "$ODOO_PID" >/dev/null 2>&1 || true
+  fi
+  stop_local_pg
+  exit 143
+}
 
 # Persistent database support is opt-in.
 # Do not set ONE_DB_HOST/USER/PASSWORD until the target database has been
@@ -34,6 +52,8 @@ if [[ -n "${ONE_DB_HOST:-}" ]]; then
 
   echo "ONE ERP: persistent PostgreSQL mode enabled for database '$DB_NAME'."
 else
+  LOCAL_PG=1
+
   if [[ ! -s "$PGDATA/PG_VERSION" ]]; then
     rm -rf "$PGDATA"
     mkdir -p "$PGDATA"
@@ -42,6 +62,7 @@ else
 
   # Local fallback for staging/dev only. Data in /tmp is ephemeral on Render.
   "$PG_BIN/pg_ctl" -D "$PGDATA" -o "-h '' -p 5432 -k /tmp" -w start
+  trap handle_term TERM INT
 
   if ! "$PG_BIN/psql" -h /tmp -p 5432 -U odoo -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1; then
     "$PG_BIN/createdb" -h /tmp -p 5432 -U odoo "$DB_NAME"
@@ -80,5 +101,20 @@ odoo "${COMMON[@]}" -d "$DB_NAME" -u one_ui --stop-after-init
 
 # Generated web bundles can become stale between module updates. Rebuild them in the same lifecycle.
 "$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c   "DELETE FROM ir_attachment WHERE url LIKE '/web/assets/%';"
+
+if [[ "$LOCAL_PG" -eq 1 ]]; then
+  # Keep the shell as PID 1 so it can stop the local PostgreSQL child cleanly
+  # when Render replaces or terminates this staging instance.
+  odoo "${COMMON[@]}" -d "$DB_NAME" &
+  ODOO_PID=$!
+
+  set +e
+  wait "$ODOO_PID"
+  STATUS=$?
+  set -e
+
+  stop_local_pg
+  exit "$STATUS"
+fi
 
 exec odoo "${COMMON[@]}" -d "$DB_NAME"
