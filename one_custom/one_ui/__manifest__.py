@@ -13,6 +13,7 @@
         "security/ir.access.csv",
         "data/branding_data.xml",
         "data/subscription_plans.xml",
+        "views/login_templates.xml",
         "views/actions.xml",
         "views/saudi_profile_views.xml",
         "views/subscription_views.xml",
