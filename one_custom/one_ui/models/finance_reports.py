@@ -104,8 +104,13 @@ class OneFinanceReportMixin(models.AbstractModel):
             date_to=fields.Date.subtract(values["date_from"], days=1),
         )
         opening = defaultdict(float)
-        for line in self.env["account.move.line"].search(opening_domain):
-            opening[line.account_id.id] += line.debit - line.credit
+        grouped = self.env["account.move.line"]._read_group(
+            opening_domain,
+            ["account_id"],
+            ["debit:sum", "credit:sum"],
+        )
+        for account, debit, credit in grouped:
+            opening[account.id] = (debit or 0.0) - (credit or 0.0)
         return opening
 
 
@@ -126,22 +131,18 @@ class ReportOneTrialBalance(models.AbstractModel):
             date_to=values["date_to"],
         )
         accounts = {}
-        for line in self.env["account.move.line"].search(
+        grouped = self.env["account.move.line"]._read_group(
             movement_domain,
-            order="account_id, date, id",
-        ):
-            account = line.account_id
-            row = accounts.setdefault(
-                account.id,
-                {
-                    "account": account,
-                    "opening": opening.get(account.id, 0.0),
-                    "debit": 0.0,
-                    "credit": 0.0,
-                },
-            )
-            row["debit"] += line.debit
-            row["credit"] += line.credit
+            ["account_id"],
+            ["debit:sum", "credit:sum"],
+        )
+        for account, debit, credit in grouped:
+            accounts[account.id] = {
+                "account": account,
+                "opening": opening.get(account.id, 0.0),
+                "debit": debit or 0.0,
+                "credit": credit or 0.0,
+            }
 
         for account_id, amount in opening.items():
             if account_id not in accounts and not currency.is_zero(amount):
