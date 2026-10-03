@@ -11,10 +11,13 @@
                             <field name="report_type"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                             <field name="partner_id"
-                                   placeholder="Optional for aging, required for partner statement"/>
+                                   placeholder="Optional for aging, required for partner statement"
+                                   invisible="report_type not in ('aged_receivable', 'aged_payable', 'partner_statement')"
+                                   required="report_type == 'partner_statement'"/>
                         </group>
                         <group>
-                            <field name="date_from"/>
+                            <field name="date_from"
+                                   invisible="report_type in ('aged_receivable', 'aged_payable', 'balance_sheet')"/>
                             <field name="date_to"/>
                             <field name="target_move"/>
                         </group>
