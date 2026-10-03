@@ -26,9 +26,10 @@ class OneSubscriptionPlan(models.Model):
     feature_api = fields.Boolean(string="API")
     feature_multi_company = fields.Boolean(string="Multi Company")
 
-    _sql_constraints = [
-        ("one_plan_code_unique", "unique(code)", "Plan code must be unique.")
-    ]
+    _one_plan_code_unique = models.Constraint(
+        "UNIQUE(code)",
+        "Plan code must be unique.",
+    )
 
 
 class OneSubscription(models.Model):

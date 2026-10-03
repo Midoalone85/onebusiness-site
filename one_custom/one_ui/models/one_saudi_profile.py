@@ -35,9 +35,10 @@ class OneSaudiProfile(models.Model):
     ], default="phase2", required=True, string="E-Invoicing Phase")
     notes = fields.Text(string="Compliance Notes")
 
-    _sql_constraints = [
-        ("one_saudi_company_unique", "unique(company_id)", "Only one Saudi profile is allowed per company.")
-    ]
+    _one_saudi_company_unique = models.Constraint(
+        "UNIQUE(company_id)",
+        "Only one Saudi profile is allowed per company.",
+    )
 
     @api.onchange("vat_number")
     def _onchange_vat_number(self):
