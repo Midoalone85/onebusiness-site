@@ -28,28 +28,30 @@
         <field name="arch" type="xml">
             <form string="Approval Request">
                 <header>
+                    <field name="can_requester_action" invisible="1"/>
+                    <field name="can_approver_action" invisible="1"/>
                     <button name="action_submit"
                             type="object"
                             string="Submit"
                             class="oe_highlight"
-                            invisible="state != 'draft'"/>
+                            invisible="state != 'draft' or not can_requester_action"/>
                     <button name="action_approve"
                             type="object"
                             string="Approve"
                             class="oe_highlight"
-                            invisible="state != 'submitted'"/>
+                            invisible="state != 'submitted' or not can_approver_action"/>
                     <button name="action_reject"
                             type="object"
                             string="Reject"
-                            invisible="state != 'submitted'"/>
+                            invisible="state != 'submitted' or not can_approver_action"/>
                     <button name="action_cancel"
                             type="object"
                             string="Cancel Request"
-                            invisible="state not in ('draft', 'submitted')"/>
+                            invisible="state not in ('draft', 'submitted') or not can_requester_action"/>
                     <button name="action_reset_draft"
                             type="object"
                             string="Reset to Draft"
-                            invisible="state not in ('rejected', 'cancelled')"/>
+                            invisible="state not in ('rejected', 'cancelled') or not can_requester_action"/>
                     <field name="state"
                            widget="statusbar"
                            statusbar_visible="draft,submitted,approved,rejected,cancelled"/>
@@ -89,7 +91,7 @@
                         <group>
                             <field name="decision_note"
                                    placeholder="Approval or rejection note"
-                                   readonly="state != 'submitted' or approver_id != uid"/>
+                                   readonly="state != 'submitted' or not can_approver_action"/>
                         </group>
                     </group>
                 </sheet>
