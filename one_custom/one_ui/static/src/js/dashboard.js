@@ -28,6 +28,7 @@ export class OneDashboard extends Component {
             draftQuotations: "…",
             pendingPurchases: "…",
             pendingReceipts: "…",
+            pendingApprovals: "…",
         });
 
         onWillStart(async () => {
@@ -73,6 +74,10 @@ export class OneDashboard extends Component {
                         ["picking_type_code", "=", "incoming"],
                         ["state", "not in", ["done", "cancel"]],
                     ],
+                ],
+                pendingApprovals: [
+                    "one.approval.request",
+                    [["state", "=", "submitted"]],
                 ],
             };
 
