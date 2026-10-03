@@ -20,7 +20,7 @@ if ! "$PG_BIN/psql" -h /tmp -p 5432 -U odoo -d postgres -tAc "SELECT 1 FROM pg_d
   "$PG_BIN/createdb" -h /tmp -p 5432 -U odoo one_erp_db
 fi
 
-COMMON="--db_host=/tmp --db_port=5432 --db_user=odoo --addons-path=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons --proxy-mode --without-demo=all --workers=0 --max-cron-threads=1 --http-port=${PORT:-10000}"
+COMMON="--db_host=/tmp --db_port=5432 --db_user=odoo --addons-path=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons --proxy-mode --without-demo=all --workers=0 --max-cron-threads=1 --http-interface=0.0.0.0 --http-port=${PORT:-10000}"
 
 odoo $COMMON -d one_erp_db -i base --stop-after-init
 exec odoo $COMMON -d one_erp_db
