@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="paperformat_one_finance_a4" model="report.paperformat">
+        <field name="name">ONE ERP Finance A4</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">34</field>
+        <field name="margin_bottom">22</field>
+        <field name="margin_left">10</field>
+        <field name="margin_right">10</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">8</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_one_journal_entry" model="ir.actions.report">
+        <field name="name">ONE ERP Journal Entry</field>
+        <field name="model">account.move</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">one_ui.report_one_journal_entry</field>
+        <field name="report_file">one_ui.report_one_journal_entry</field>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="binding_type">report</field>
+        <field name="domain">[('move_type', '=', 'entry')]</field>
+        <field name="paperformat_id" ref="one_ui.paperformat_one_finance_a4"/>
+        <field name="print_report_name">'ONE_Journal_Entry_%s' % (object.name or 'Draft')</field>
+    </record>
+
+    <template id="report_one_journal_entry">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="o" t-value="doc"/>
+                <t t-set="company" t-value="doc.company_id"/>
+                <t t-call="web.external_layout">
+                    <div class="page one_finance_report"
+                         t-att-dir="'rtl' if (doc.env.context.get('lang') or '').startswith('ar') else 'ltr'">
+                        <style>
+                            .one_finance_report {
+                                color: #15324b;
+                                font-family: Arial, "Noto Sans Arabic", sans-serif;
+                                font-size: 11px;
+                            }
+                            .one_finance_report .one_report_title {
+                                border-bottom: 3px solid #173f63;
+                                padding-bottom: 10px;
+                                margin-bottom: 14px;
+                            }
+                            .one_finance_report .one_report_title h2 {
+                                margin: 0;
+                                font-size: 24px;
+                                font-weight: 800;
+                                color: #0b2239;
+                            }
+                            .one_finance_report .one_report_title .subtitle {
+                                color: #6b7d8f;
+                                margin-top: 3px;
+                                font-size: 10px;
+                            }
+                            .one_finance_report .one_status {
+                                display: inline-block;
+                                border-radius: 12px;
+                                padding: 4px 10px;
+                                background: #edf4fb;
+                                color: #173f63;
+                                font-weight: 700;
+                                font-size: 10px;
+                            }
+                            .one_finance_report .one_meta {
+                                width: 100%;
+                                margin: 0 0 16px 0;
+                                border-collapse: separate;
+                                border-spacing: 6px 6px;
+                            }
+                            .one_finance_report .one_meta td {
+                                width: 25%;
+                                vertical-align: top;
+                                padding: 8px 10px;
+                                background: #f7f9fc;
+                                border: 1px solid #e2e9f0;
+                                border-radius: 7px;
+                            }
+                            .one_finance_report .one_meta .label {
+                                display: block;
+                                color: #718396;
+                                font-size: 9px;
+                                margin-bottom: 3px;
+                            }
+                            .one_finance_report .one_meta .value {
+                                font-weight: 700;
+                                color: #17324c;
+                            }
+                            .one_finance_report table.one_lines {
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-top: 5px;
+                            }
+                            .one_finance_report table.one_lines thead {
+                                display: table-header-group;
+                            }
+                            .one_finance_report table.one_lines th {
+                                background: #173f63;
+                                color: #fff;
+                                font-size: 9px;
+                                font-weight: 700;
+                                padding: 8px 6px;
+                                border: 1px solid #173f63;
+                                vertical-align: middle;
+                            }
+                            .one_finance_report table.one_lines td {
+                                padding: 7px 6px;
+                                border: 1px solid #dfe7ef;
+                                vertical-align: top;
+                            }
+                            .one_finance_report table.one_lines tbody tr:nth-child(even) td {
+                                background: #fafbfd;
+                            }
+                            .one_finance_report .num {
+                                text-align: right;
+                                white-space: nowrap;
+                            }
+                            [dir="rtl"].one_finance_report .num {
+                                text-align: left;
+                            }
+                            .one_finance_report .account_code {
+                                display: block;
+                                font-weight: 800;
+                                color: #173f63;
+                            }
+                            .one_finance_report .account_name {
+                                display: block;
+                                color: #66798c;
+                                font-size: 9px;
+                            }
+                            .one_finance_report .one_totals td {
+                                font-weight: 800;
+                                background: #eef4fa !important;
+                                border-top: 2px solid #173f63 !important;
+                            }
+                            .one_finance_report .one_balance_box {
+                                margin-top: 14px;
+                                padding: 10px 12px;
+                                border-radius: 8px;
+                                border: 1px solid #dfe7ef;
+                                background: #f8fafc;
+                            }
+                            .one_finance_report .balanced {
+                                color: #157347;
+                                font-weight: 800;
+                            }
+                            .one_finance_report .unbalanced {
+                                color: #b02a37;
+                                font-weight: 800;
+                            }
+                            .one_finance_report .one_signatures {
+                                width: 100%;
+                                margin-top: 32px;
+                                border-collapse: separate;
+                                border-spacing: 18px 0;
+                            }
+                            .one_finance_report .one_signatures td {
+                                width: 33.333%;
+                                text-align: center;
+                                padding-top: 26px;
+                                border-top: 1px solid #aebdca;
+                                color: #62778a;
+                                font-size: 10px;
+                            }
+                            .one_finance_report .one_footer_note {
+                                margin-top: 18px;
+                                color: #8a99a8;
+                                font-size: 8px;
+                                text-align: center;
+                            }
+                        </style>
+
+                        <div class="one_report_title">
+                            <table style="width:100%">
+                                <tr>
+                                    <td>
+                                        <h2>Journal Entry</h2>
+                                        <div class="subtitle">ONE ERP · Accounting Document</div>
+                                    </td>
+                                    <td style="text-align:right; vertical-align:middle">
+                                        <span class="one_status">
+                                            <span t-field="doc.state"/>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <table class="one_meta">
+                            <tr>
+                                <td>
+                                    <span class="label">Entry Number</span>
+                                    <span class="value" t-field="doc.name"/>
+                                </td>
+                                <td>
+                                    <span class="label">Journal</span>
+                                    <span class="value" t-field="doc.journal_id"/>
+                                </td>
+                                <td>
+                                    <span class="label">Date</span>
+                                    <span class="value" t-field="doc.date"/>
+                                </td>
+                                <td>
+                                    <span class="label">Reference</span>
+                                    <span class="value" t-esc="doc.ref or '-'"/>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <table class="one_lines">
+                            <thead>
+                                <tr>
+                                    <th style="width:5%">#</th>
+                                    <th style="width:27%">Account</th>
+                                    <th style="width:28%">Description / Partner</th>
+                                    <th style="width:20%" class="num">Debit</th>
+                                    <th style="width:20%" class="num">Credit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="doc.one_report_lines()" t-as="line">
+                                    <tr>
+                                        <td><span t-esc="line_index + 1"/></td>
+                                        <td>
+                                            <span class="account_code" t-field="line.account_id.code"/>
+                                            <span class="account_name" t-field="line.account_id.name"/>
+                                        </td>
+                                        <td>
+                                            <div t-esc="line.name or '-'"/>
+                                            <div t-if="line.partner_id" style="color:#718396; font-size:9px; margin-top:2px">
+                                                <span t-field="line.partner_id"/>
+                                            </div>
+                                        </td>
+                                        <td class="num">
+                                            <span t-field="line.debit"
+                                                  t-options='{"widget": "monetary", "display_currency": doc.company_id.currency_id}'/>
+                                        </td>
+                                        <td class="num">
+                                            <span t-field="line.credit"
+                                                  t-options='{"widget": "monetary", "display_currency": doc.company_id.currency_id}'/>
+                                        </td>
+                                    </tr>
+                                </t>
+                                <tr class="one_totals">
+                                    <td colspan="3">Total</td>
+                                    <td class="num">
+                                        <span t-out="doc.one_report_total_debit()"
+                                              t-options='{"widget": "monetary", "display_currency": doc.company_id.currency_id}'/>
+                                    </td>
+                                    <td class="num">
+                                        <span t-out="doc.one_report_total_credit()"
+                                              t-options='{"widget": "monetary", "display_currency": doc.company_id.currency_id}'/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="one_balance_box">
+                            <table style="width:100%">
+                                <tr>
+                                    <td>
+                                        <strong>Balance Check</strong>
+                                    </td>
+                                    <td style="text-align:right">
+                                        <t t-if="doc.one_report_is_balanced()">
+                                            <span class="balanced">Balanced</span>
+                                        </t>
+                                        <t t-else="">
+                                            <span class="unbalanced">
+                                                Difference:
+                                                <span t-out="doc.one_report_balance_difference()"
+                                                      t-options='{"widget": "monetary", "display_currency": doc.company_id.currency_id}'/>
+                                            </span>
+                                        </t>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <table class="one_signatures">
+                            <tr>
+                                <td>Prepared by</td>
+                                <td>Reviewed by</td>
+                                <td>Approved by</td>
+                            </tr>
+                        </table>
+
+                        <div class="one_footer_note">
+                            Generated by ONE ERP · <span t-field="doc.company_id.name"/>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
