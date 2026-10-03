@@ -3,4 +3,8 @@
     <record id="base.partner_root" model="res.partner">
         <field name="name">ONE Assistant</field>
     </record>
+
+    <!-- ONE ERP is invitation-only. Public self-signup stays disabled. -->
+    <function model="ir.config_parameter" name="set_str"
+              eval="('auth_signup.invitation_scope', 'b2b')"/>
 </odoo>

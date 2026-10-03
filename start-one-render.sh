@@ -23,14 +23,14 @@ if ! "$PG_BIN/psql" -h /tmp -p 5432 -U odoo -d postgres -tAc "SELECT 1 FROM pg_d
   "$PG_BIN/createdb" -h /tmp -p 5432 -U odoo one_erp_db
 fi
 
-COMMON="--db_host=/tmp --db_port=5432 --db_user=odoo --data-dir=$ODOO_DATA --addons-path=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons --proxy-mode --without-demo=True --workers=0 --max-cron-threads=1 --http-interface=0.0.0.0 --http-port=${PORT:-10000}"
+COMMON="--db_host=/tmp --db_port=5432 --db_user=odoo --data-dir=$ODOO_DATA --addons-path=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons --proxy-mode --no-database-list --without-demo=True --workers=0 --max-cron-threads=1 --http-interface=0.0.0.0 --http-port=${PORT:-10000}"
 
 # Build the stable ONE ERP core from upstream business modules plus our branded workspace.
 # Legacy custom bundle modules stay available on disk but are deliberately not installed
 # until each one has passed compatibility checks with the current engine.
 odoo $COMMON -d one_erp_db -i contacts,sale_management,purchase_stock,stock,account,mrp,crm,hr,one_ui --stop-after-init
 
-# Ensure ONE ERP branding/assets are refreshed on every immutable deployment.
+# Ensure ONE ERP branding/assets/security settings are refreshed on every immutable deployment.
 odoo $COMMON -d one_erp_db -u one_ui --stop-after-init
 
 # Generated web bundles are ephemeral on Render. Rebuild them in the same lifecycle.
