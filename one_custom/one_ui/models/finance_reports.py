@@ -42,6 +42,8 @@ class OneFinanceReportWizard(models.TransientModel):
         [
             ("trial_balance", "Trial Balance"),
             ("general_ledger", "General Ledger"),
+            ("profit_loss", "Profit & Loss"),
+            ("balance_sheet", "Balance Sheet"),
             ("aged_receivable", "Aged Receivables"),
             ("aged_payable", "Aged Payables"),
             ("partner_statement", "Partner Statement"),
@@ -76,6 +78,8 @@ class OneFinanceReportWizard(models.TransientModel):
         report_xmlids = {
             "trial_balance": "one_ui.action_report_one_trial_balance",
             "general_ledger": "one_ui.action_report_one_general_ledger",
+            "profit_loss": "one_ui.action_report_one_profit_loss",
+            "balance_sheet": "one_ui.action_report_one_balance_sheet",
             "aged_receivable": "one_ui.action_report_one_aged_partner",
             "aged_payable": "one_ui.action_report_one_aged_partner",
             "partner_statement": "one_ui.action_report_one_partner_statement",
@@ -162,6 +166,29 @@ class OneFinanceReportMixin(models.AbstractModel):
             + credit_matched.get(line.id, 0.0)
             for line in lines
         }
+
+
+    def _one_accounts_by_type(self, values, account_types, date_from=None, date_to=None):
+        domain = self._one_move_line_domain(values, date_from=date_from, date_to=date_to)
+        domain.append(("account_id.account_type", "in", tuple(account_types)))
+        grouped = self.env["account.move.line"]._read_group(
+            domain,
+            ["account_id"],
+            ["debit:sum", "credit:sum"],
+        )
+        result = []
+        for account, debit, credit in grouped:
+            balance = (debit or 0.0) - (credit or 0.0)
+            if not values["company"].currency_id.is_zero(balance):
+                result.append(
+                    {
+                        "account": account,
+                        "account_type": account.account_type,
+                        "balance": balance,
+                    }
+                )
+        result.sort(key=lambda row: (row["account"].code or "", row["account"].name or ""))
+        return result
 
 
 class ReportOneTrialBalance(models.AbstractModel):
@@ -304,6 +331,174 @@ class ReportOneGeneralLedger(models.AbstractModel):
             "date_from": values["date_from"],
             "date_to": values["date_to"],
             "target_move": values["target_move"],
+        }
+
+
+class ReportOneProfitLoss(models.AbstractModel):
+    _name = "report.one_ui.report_one_profit_loss"
+    _inherit = "one.finance.report.mixin"
+    _description = "ONE ERP Profit and Loss Report"
+
+    @api.model
+    def _get_report_values(self, docids, data=None):
+        values = self._one_form_values(data)
+        rows = self._one_accounts_by_type(
+            values,
+            (
+                "income",
+                "income_other",
+                "expense_direct_cost",
+                "expense",
+                "expense_other",
+                "expense_depreciation",
+            ),
+            date_from=values["date_from"],
+            date_to=values["date_to"],
+        )
+
+        sections = {
+            "revenue": [],
+            "other_income": [],
+            "cost_of_revenue": [],
+            "operating_expenses": [],
+            "other_expenses": [],
+        }
+        for row in rows:
+            account_type = row["account_type"]
+            display = -row["balance"] if account_type in ("income", "income_other") else row["balance"]
+            item = {**row, "amount": display}
+            if account_type == "income":
+                sections["revenue"].append(item)
+            elif account_type == "income_other":
+                sections["other_income"].append(item)
+            elif account_type == "expense_direct_cost":
+                sections["cost_of_revenue"].append(item)
+            elif account_type in ("expense", "expense_depreciation"):
+                sections["operating_expenses"].append(item)
+            else:
+                sections["other_expenses"].append(item)
+
+        totals = {
+            key: sum(item["amount"] for item in items)
+            for key, items in sections.items()
+        }
+        gross_profit = totals["revenue"] - totals["cost_of_revenue"]
+        operating_profit = gross_profit - totals["operating_expenses"]
+        net_profit = (
+            operating_profit
+            + totals["other_income"]
+            - totals["other_expenses"]
+        )
+
+        return {
+            "doc_ids": docids,
+            "doc_model": "one.finance.report.wizard",
+            "docs": self.env["one.finance.report.wizard"].browse(docids),
+            "company": values["company"],
+            "currency": values["company"].currency_id,
+            "date_from": values["date_from"],
+            "date_to": values["date_to"],
+            "sections": sections,
+            "totals": totals,
+            "gross_profit": gross_profit,
+            "operating_profit": operating_profit,
+            "net_profit": net_profit,
+        }
+
+
+class ReportOneBalanceSheet(models.AbstractModel):
+    _name = "report.one_ui.report_one_balance_sheet"
+    _inherit = "one.finance.report.mixin"
+    _description = "ONE ERP Balance Sheet Report"
+
+    @api.model
+    def _get_report_values(self, docids, data=None):
+        values = self._one_form_values(data)
+        rows = self._one_accounts_by_type(
+            values,
+            (
+                "asset_receivable",
+                "asset_cash",
+                "asset_current",
+                "asset_prepayments",
+                "asset_fixed",
+                "asset_non_current",
+                "liability_payable",
+                "liability_credit_card",
+                "liability_current",
+                "liability_non_current",
+                "equity",
+                "equity_unaffected",
+            ),
+            date_to=values["date_to"],
+        )
+
+        sections = {
+            "current_assets": [],
+            "non_current_assets": [],
+            "current_liabilities": [],
+            "non_current_liabilities": [],
+            "equity": [],
+        }
+        for row in rows:
+            account_type = row["account_type"]
+            if account_type in ("asset_receivable", "asset_cash", "asset_current", "asset_prepayments"):
+                section = "current_assets"
+                amount = row["balance"]
+            elif account_type in ("asset_fixed", "asset_non_current"):
+                section = "non_current_assets"
+                amount = row["balance"]
+            elif account_type in ("liability_payable", "liability_credit_card", "liability_current"):
+                section = "current_liabilities"
+                amount = -row["balance"]
+            elif account_type == "liability_non_current":
+                section = "non_current_liabilities"
+                amount = -row["balance"]
+            else:
+                section = "equity"
+                amount = -row["balance"]
+            sections[section].append({**row, "amount": amount})
+
+        fiscal_year = values["company"].compute_fiscalyear_dates(values["date_to"])
+        pnl_rows = self._one_accounts_by_type(
+            values,
+            (
+                "income",
+                "income_other",
+                "expense_direct_cost",
+                "expense",
+                "expense_other",
+                "expense_depreciation",
+            ),
+            date_from=fiscal_year["date_from"],
+            date_to=values["date_to"],
+        )
+        current_year_earnings = -sum(row["balance"] for row in pnl_rows)
+
+        totals = {
+            key: sum(item["amount"] for item in items)
+            for key, items in sections.items()
+        }
+        total_assets = totals["current_assets"] + totals["non_current_assets"]
+        total_liabilities = totals["current_liabilities"] + totals["non_current_liabilities"]
+        total_equity = totals["equity"] + current_year_earnings
+        difference = total_assets - total_liabilities - total_equity
+
+        return {
+            "doc_ids": docids,
+            "doc_model": "one.finance.report.wizard",
+            "docs": self.env["one.finance.report.wizard"].browse(docids),
+            "company": values["company"],
+            "currency": values["company"].currency_id,
+            "date_to": values["date_to"],
+            "sections": sections,
+            "totals": totals,
+            "current_year_earnings": current_year_earnings,
+            "total_assets": total_assets,
+            "total_liabilities": total_liabilities,
+            "total_equity": total_equity,
+            "difference": difference,
+            "is_balanced": values["company"].currency_id.is_zero(difference),
         }
 
 
