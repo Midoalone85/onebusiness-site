@@ -136,6 +136,22 @@ class OneSaudiProfile(models.Model):
             else:
                 profile.zatca_status = "not_connected"
 
+
+    @api.model
+    def one_get_readiness_summary(self):
+        profiles = self.search([("company_id", "in", self.env.companies.ids)])
+        ready = connected = 0
+        for profile in profiles:
+            if profile.configuration_ready:
+                ready += 1
+            if profile.journal_onboarded:
+                connected += 1
+        return {
+            "profiles": len(profiles),
+            "ready": ready,
+            "connected": connected,
+        }
+
     def action_apply_to_company(self):
         self.ensure_one()
         company = self.company_id
