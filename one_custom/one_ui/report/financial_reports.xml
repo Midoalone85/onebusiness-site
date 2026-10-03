@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_one_trial_balance" model="ir.actions.report">
+        <field name="name">ONE ERP Trial Balance</field>
+        <field name="model">one.finance.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">one_ui.report_one_trial_balance</field>
+        <field name="report_file">one_ui.report_one_trial_balance</field>
+        <field name="paperformat_id" ref="one_ui.paperformat_one_finance_a4"/>
+        <field name="print_report_name">'ONE_Trial_Balance_%s_%s' % (object.date_from, object.date_to)</field>
+    </record>
+
+    <record id="action_report_one_general_ledger" model="ir.actions.report">
+        <field name="name">ONE ERP General Ledger</field>
+        <field name="model">one.finance.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">one_ui.report_one_general_ledger</field>
+        <field name="report_file">one_ui.report_one_general_ledger</field>
+        <field name="paperformat_id" ref="one_ui.paperformat_one_finance_a4"/>
+        <field name="print_report_name">'ONE_General_Ledger_%s_%s' % (object.date_from, object.date_to)</field>
+    </record>
+
+    <template id="one_finance_pdf_styles">
+        <style>
+            .one_fin_pdf {
+                color: #15324b;
+                font-family: Arial, "Noto Sans Arabic", sans-serif;
+                font-size: 10px;
+            }
+            .one_fin_pdf .one_fin_title {
+                border-bottom: 3px solid #173f63;
+                padding-bottom: 9px;
+                margin-bottom: 12px;
+            }
+            .one_fin_pdf .one_fin_title h2 {
+                margin: 0;
+                font-size: 22px;
+                font-weight: 800;
+                color: #0b2239;
+            }
+            .one_fin_pdf .one_fin_subtitle {
+                margin-top: 3px;
+                color: #718396;
+                font-size: 9px;
+            }
+            .one_fin_pdf .one_fin_meta {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 5px;
+                margin: 0 0 12px 0;
+            }
+            .one_fin_pdf .one_fin_meta td {
+                padding: 7px 9px;
+                border: 1px solid #e0e8ef;
+                background: #f7f9fc;
+                border-radius: 6px;
+                vertical-align: top;
+            }
+            .one_fin_pdf .label {
+                display: block;
+                font-size: 8px;
+                color: #7a8998;
+                margin-bottom: 2px;
+            }
+            .one_fin_pdf .value {
+                font-weight: 700;
+                color: #16344f;
+            }
+            .one_fin_pdf table.one_fin_table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .one_fin_pdf table.one_fin_table thead {
+                display: table-header-group;
+            }
+            .one_fin_pdf table.one_fin_table th {
+                padding: 7px 5px;
+                background: #173f63;
+                color: #fff;
+                border: 1px solid #173f63;
+                font-size: 8px;
+                font-weight: 700;
+                vertical-align: middle;
+            }
+            .one_fin_pdf table.one_fin_table td {
+                padding: 6px 5px;
+                border: 1px solid #dfe7ef;
+                vertical-align: top;
+            }
+            .one_fin_pdf table.one_fin_table tbody tr:nth-child(even) td {
+                background: #fafbfd;
+            }
+            .one_fin_pdf .num {
+                text-align: right;
+                white-space: nowrap;
+            }
+            [dir="rtl"].one_fin_pdf .num {
+                text-align: left;
+            }
+            .one_fin_pdf .one_total td {
+                font-weight: 800;
+                background: #edf4fa !important;
+                border-top: 2px solid #173f63 !important;
+            }
+            .one_fin_pdf .account_code {
+                font-weight: 800;
+                color: #173f63;
+            }
+            .one_fin_pdf .account_name {
+                color: #60758a;
+                font-size: 9px;
+            }
+            .one_fin_pdf .one_account_header {
+                margin-top: 14px;
+                padding: 8px 10px;
+                background: #edf4fa;
+                border: 1px solid #cddce9;
+                border-radius: 6px;
+                font-weight: 800;
+                color: #173f63;
+            }
+            .one_fin_pdf .one_account_meta {
+                float: right;
+                font-weight: 600;
+                color: #60758a;
+            }
+            [dir="rtl"].one_fin_pdf .one_account_meta {
+                float: left;
+            }
+            .one_fin_pdf .one_footer_note {
+                margin-top: 16px;
+                text-align: center;
+                color: #8998a7;
+                font-size: 8px;
+            }
+        </style>
+    </template>
+
+    <template id="report_one_trial_balance">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="o" t-value="doc"/>
+                <t t-set="company" t-value="company"/>
+                <t t-call="web.external_layout">
+                    <div class="page one_fin_pdf"
+                         t-att-dir="'rtl' if (doc.env.context.get('lang') or '').startswith('ar') else 'ltr'">
+                        <t t-call="one_ui.one_finance_pdf_styles"/>
+
+                        <div class="one_fin_title">
+                            <h2>Trial Balance</h2>
+                            <div class="one_fin_subtitle">ONE ERP · Financial Report</div>
+                        </div>
+
+                        <table class="one_fin_meta">
+                            <tr>
+                                <td>
+                                    <span class="label">Company</span>
+                                    <span class="value" t-field="company.name"/>
+                                </td>
+                                <td>
+                                    <span class="label">From Date</span>
+                                    <span class="value" t-out="date_from" t-options='{"widget": "date"}'/>
+                                </td>
+                                <td>
+                                    <span class="label">To Date</span>
+                                    <span class="value" t-out="date_to" t-options='{"widget": "date"}'/>
+                                </td>
+                                <td>
+                                    <span class="label">Entries</span>
+                                    <span class="value" t-if="target_move == 'posted'">Posted Entries</span>
+                                    <span class="value" t-else="">All Entries</span>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <table class="one_fin_table">
+                            <thead>
+                                <tr>
+                                    <th style="width:13%">Account Code</th>
+                                    <th style="width:31%">Account Name</th>
+                                    <th style="width:14%" class="num">Opening</th>
+                                    <th style="width:14%" class="num">Debit</th>
+                                    <th style="width:14%" class="num">Credit</th>
+                                    <th style="width:14%" class="num">Closing</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="rows" t-as="row">
+                                    <tr>
+                                        <td class="account_code" t-out="row['account'].code or '-'"/>
+                                        <td class="account_name" t-field="row['account'].name"/>
+                                        <td class="num">
+                                            <span t-out="row['opening']"
+                                                  t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                        </td>
+                                        <td class="num">
+                                            <span t-out="row['debit']"
+                                                  t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                        </td>
+                                        <td class="num">
+                                            <span t-out="row['credit']"
+                                                  t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                        </td>
+                                        <td class="num">
+                                            <span t-out="row['closing']"
+                                                  t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                        </td>
+                                    </tr>
+                                </t>
+                                <tr class="one_total">
+                                    <td colspan="2">Total</td>
+                                    <td class="num">
+                                        <span t-out="totals['opening']"
+                                              t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                    <td class="num">
+                                        <span t-out="totals['debit']"
+                                              t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                    <td class="num">
+                                        <span t-out="totals['credit']"
+                                              t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                    <td class="num">
+                                        <span t-out="totals['closing']"
+                                              t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="one_footer_note">
+                            Generated by ONE ERP
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_one_general_ledger">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="o" t-value="doc"/>
+                <t t-set="company" t-value="company"/>
+                <t t-call="web.external_layout">
+                    <div class="page one_fin_pdf"
+                         t-att-dir="'rtl' if (doc.env.context.get('lang') or '').startswith('ar') else 'ltr'">
+                        <t t-call="one_ui.one_finance_pdf_styles"/>
+
+                        <div class="one_fin_title">
+                            <h2>General Ledger</h2>
+                            <div class="one_fin_subtitle">ONE ERP · Financial Report</div>
+                        </div>
+
+                        <table class="one_fin_meta">
+                            <tr>
+                                <td>
+                                    <span class="label">Company</span>
+                                    <span class="value" t-field="company.name"/>
+                                </td>
+                                <td>
+                                    <span class="label">From Date</span>
+                                    <span class="value" t-out="date_from" t-options='{"widget": "date"}'/>
+                                </td>
+                                <td>
+                                    <span class="label">To Date</span>
+                                    <span class="value" t-out="date_to" t-options='{"widget": "date"}'/>
+                                </td>
+                                <td>
+                                    <span class="label">Entries</span>
+                                    <span class="value" t-if="target_move == 'posted'">Posted Entries</span>
+                                    <span class="value" t-else="">All Entries</span>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <t t-foreach="sections" t-as="section">
+                            <div class="one_account_header">
+                                <span class="account_code" t-out="section['account'].code or '-'"/>
+                                <span> · </span>
+                                <span t-field="section['account'].name"/>
+                                <span class="one_account_meta">
+                                    Opening:
+                                    <span t-out="section['opening']"
+                                          t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                </span>
+                            </div>
+
+                            <table class="one_fin_table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:10%">Date</th>
+                                        <th style="width:13%">Entry</th>
+                                        <th style="width:13%">Reference</th>
+                                        <th style="width:28%">Description / Partner</th>
+                                        <th style="width:12%" class="num">Debit</th>
+                                        <th style="width:12%" class="num">Credit</th>
+                                        <th style="width:12%" class="num">Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="section['rows']" t-as="row">
+                                        <t t-set="line" t-value="row['line']"/>
+                                        <tr>
+                                            <td><span t-field="line.date"/></td>
+                                            <td><span t-field="line.move_id.name"/></td>
+                                            <td t-out="line.ref or line.move_id.ref or '-'"/>
+                                            <td>
+                                                <div t-esc="line.name or '-'"/>
+                                                <div t-if="line.partner_id" class="account_name">
+                                                    <span t-field="line.partner_id"/>
+                                                </div>
+                                            </td>
+                                            <td class="num">
+                                                <span t-field="line.debit"
+                                                      t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                            </td>
+                                            <td class="num">
+                                                <span t-field="line.credit"
+                                                      t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                            </td>
+                                            <td class="num">
+                                                <span t-out="row['balance']"
+                                                      t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                    <tr class="one_total">
+                                        <td colspan="4">Account Total</td>
+                                        <td class="num">
+                                            <span t-out="section['debit']"
+                                                  t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                        </td>
+                                        <td class="num">
+                                            <span t-out="section['credit']"
+                                                  t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                        </td>
+                                        <td class="num">
+                                            <span t-out="section['closing']"
+                                                  t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <div class="one_footer_note">
+                            Generated by ONE ERP
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
