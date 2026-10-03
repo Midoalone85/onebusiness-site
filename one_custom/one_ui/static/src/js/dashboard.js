@@ -29,6 +29,11 @@ export class OneDashboard extends Component {
             pendingPurchases: "…",
             pendingReceipts: "…",
             pendingApprovals: "…",
+            pulseReceivables: "…",
+            pulseOverdue: "…",
+            pulsePayables: "…",
+            pulseMonthSales: "…",
+            pulseMonthProfit: "…",
         });
 
         onWillStart(async () => {
@@ -90,6 +95,21 @@ export class OneDashboard extends Component {
                     }
                 })
             );
+
+            try {
+                const pulse = await this.orm.call("res.company", "one_get_pulse", []);
+                this.state.pulseReceivables = pulse.receivables;
+                this.state.pulseOverdue = pulse.overdue;
+                this.state.pulsePayables = pulse.payables;
+                this.state.pulseMonthSales = pulse.month_sales;
+                this.state.pulseMonthProfit = pulse.month_profit;
+            } catch {
+                this.state.pulseReceivables = "—";
+                this.state.pulseOverdue = "—";
+                this.state.pulsePayables = "—";
+                this.state.pulseMonthSales = "—";
+                this.state.pulseMonthProfit = "—";
+            }
         });
     }
 
