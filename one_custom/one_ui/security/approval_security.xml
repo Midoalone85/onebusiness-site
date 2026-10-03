@@ -10,4 +10,14 @@
         <field name="perm_create" eval="True"/>
         <field name="perm_unlink" eval="True"/>
     </record>
+    <record id="rule_one_approval_request_system" model="ir.rule">
+        <field name="name">ONE ERP approvals: system manager full access</field>
+        <field name="model_id" ref="model_one_approval_request"/>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
 </odoo>
