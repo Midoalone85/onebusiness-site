@@ -1056,8 +1056,8 @@ msgstr "ذمم الموردين"
 
 #. module: one_ui
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
-msgid "Month sales"
-msgstr "مبيعات الشهر"
+msgid "Month revenue"
+msgstr "إيرادات الشهر"
 
 #. module: one_ui
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
