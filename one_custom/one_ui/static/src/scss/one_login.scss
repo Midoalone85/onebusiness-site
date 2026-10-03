@@ -1,40 +1,36 @@
 body.bg-100 {
     background: radial-gradient(circle at 20% 20%, #eaf3ff 0, #f6f9fc 35%, #eef3f8 100%) !important;
 }
-.oe_login_form, .o_database_list {
+
+.o_database_list {
+    max-width: 420px !important;
+}
+
+.oe_login_form,
+.o_database_list {
     background: #fff;
     border: 1px solid #dbe5ef;
     border-radius: 22px !important;
     padding: 30px !important;
     box-shadow: 0 18px 50px rgba(16, 42, 67, .12);
 }
-.oe_login_form:before {
-    content: "ONE ERP";
-    display: block;
-    text-align: center;
-    color: #102a43;
-    font-size: 30px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    margin-bottom: 22px;
+
+.one-login-brand img {
+    filter: drop-shadow(0 10px 18px rgba(16, 42, 67, .15));
 }
-.oe_login_form:after {
-    content: "ONE Business";
-    display: block;
-    text-align: center;
-    color: #8796a5;
-    font-size: 11px;
-    letter-spacing: 1.8px;
-    margin-top: 18px;
-    text-transform: uppercase;
-}
-.oe_login_form a[href*="odoo.com"],
-.o_database_list a[href*="odoo.com"],
-.oe_login_footer a[href*="odoo.com"] {
-    display: none !important;
-}
+
 .oe_login_buttons .btn-primary {
     background: #1f4e78 !important;
     border-color: #1f4e78 !important;
     border-radius: 10px;
+    min-height: 44px;
+}
+
+.oe_login_form .form-control {
+    border-radius: 10px;
+    min-height: 44px;
+}
+
+.oe_login_form a {
+    color: #1f4e78;
 }
