@@ -3,3 +3,5 @@
 !start-one-render.sh
 !one_erp_bundle/
 !one_erp_bundle/**
+!one_custom/
+!one_custom/**
