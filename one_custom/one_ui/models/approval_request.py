@@ -162,6 +162,52 @@ class OneApprovalRequest(models.Model):
             )
         return True
 
+    def write(self, vals):
+        if self._is_system_manager():
+            return super().write(vals)
+
+        protected = {"name", "requester_id", "company_id", "currency_id"}
+        if protected.intersection(vals):
+            raise AccessError(_("These approval fields cannot be changed directly."))
+
+        for request in self:
+            is_requester = request.requester_id == self.env.user
+            is_approver = request.approver_id == self.env.user
+
+            if not is_requester and not is_approver:
+                raise AccessError(_("You do not have permission to edit this approval request."))
+
+            requested_state = vals.get("state")
+            if requested_state and requested_state != request.state:
+                allowed_transition = False
+                if is_requester:
+                    allowed_transition = (
+                        (request.state == "draft" and requested_state == "submitted")
+                        or (request.state in ("draft", "submitted") and requested_state == "cancelled")
+                        or (request.state in ("rejected", "cancelled") and requested_state == "draft")
+                    )
+                if is_approver:
+                    allowed_transition = allowed_transition or (
+                        request.state == "submitted"
+                        and requested_state in ("approved", "rejected")
+                    )
+                if not allowed_transition:
+                    raise AccessError(_("This approval status change is not allowed."))
+
+            state_fields = {"state", "requested_at", "decided_at", "decision_note"}
+            business_fields = set(vals) - state_fields
+
+            if business_fields and not (is_requester and request.state == "draft"):
+                raise AccessError(_("Only the requester can edit a draft approval request."))
+
+            if "decision_note" in vals and not (
+                (is_approver and request.state == "submitted")
+                or (is_requester and request.state in ("draft", "rejected", "cancelled"))
+            ):
+                raise AccessError(_("You cannot edit the decision note at this stage."))
+
+        return super().write(vals)
+
     def unlink(self):
         for request in self:
             if request.state != "draft" and not request._is_system_manager():
