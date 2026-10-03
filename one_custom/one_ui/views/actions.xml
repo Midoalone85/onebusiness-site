@@ -4,32 +4,65 @@
         <field name="name">ONE ERP</field>
         <field name="tag">one_ui.dashboard</field>
     </record>
+
     <record id="action_one_contacts" model="ir.actions.act_window">
-        <field name="name">Contacts</field><field name="res_model">res.partner</field><field name="view_mode">kanban,list,form</field>
+        <field name="name">Contacts</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">kanban,list,form</field>
     </record>
+
     <record id="action_one_sales" model="ir.actions.act_window">
-        <field name="name">Sales</field><field name="res_model">sale.order</field><field name="view_mode">list,kanban,form</field>
+        <field name="name">Sales</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">list,kanban,form</field>
     </record>
+
     <record id="action_one_purchase" model="ir.actions.act_window">
-        <field name="name">Purchases</field><field name="res_model">purchase.order</field><field name="view_mode">list,kanban,form</field>
+        <field name="name">Purchases</field>
+        <field name="res_model">purchase.order</field>
+        <field name="view_mode">list,kanban,form</field>
     </record>
+
     <record id="action_one_inventory" model="ir.actions.act_window">
-        <field name="name">Inventory Transfers</field><field name="res_model">stock.picking</field><field name="view_mode">list,kanban,form</field>
+        <field name="name">Inventory Transfers</field>
+        <field name="res_model">stock.picking</field>
+        <field name="view_mode">list,kanban,form</field>
     </record>
+
     <record id="action_one_accounting" model="ir.actions.act_window">
-        <field name="name">Invoices &amp; Bills</field><field name="res_model">account.move</field><field name="view_mode">list,kanban,form</field>
+        <field name="name">Invoices &amp; Bills</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">list,kanban,form</field>
     </record>
+
+    <record id="action_one_taxes" model="ir.actions.act_window">
+        <field name="name">Taxes</field>
+        <field name="res_model">account.tax</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
     <record id="action_one_mrp" model="ir.actions.act_window">
-        <field name="name">Manufacturing</field><field name="res_model">mrp.production</field><field name="view_mode">list,kanban,form</field>
+        <field name="name">Manufacturing</field>
+        <field name="res_model">mrp.production</field>
+        <field name="view_mode">list,kanban,form</field>
     </record>
+
     <record id="action_one_crm" model="ir.actions.act_window">
-        <field name="name">CRM</field><field name="res_model">crm.lead</field><field name="view_mode">kanban,list,form</field>
+        <field name="name">CRM</field>
+        <field name="res_model">crm.lead</field>
+        <field name="view_mode">kanban,list,form</field>
     </record>
+
     <record id="action_one_hr" model="ir.actions.act_window">
-        <field name="name">Employees</field><field name="res_model">hr.employee</field><field name="view_mode">kanban,list,form</field>
+        <field name="name">Employees</field>
+        <field name="res_model">hr.employee</field>
+        <field name="view_mode">kanban,list,form</field>
     </record>
+
     <record id="action_one_settings" model="ir.actions.act_window">
-        <field name="name">Settings</field><field name="res_model">res.config.settings</field><field name="view_mode">form</field>
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
         <field name="target">current</field>
     </record>
 </odoo>
