@@ -33,10 +33,18 @@ class OneFinanceReportWizard(models.TransientModel):
         required=True,
         default="posted",
     )
+    partner_id = fields.Many2one(
+        "res.partner",
+        string="Partner",
+        help="Optional for aging reports and required for the partner statement.",
+    )
     report_type = fields.Selection(
         [
             ("trial_balance", "Trial Balance"),
             ("general_ledger", "General Ledger"),
+            ("aged_receivable", "Aged Receivables"),
+            ("aged_payable", "Aged Payables"),
+            ("partner_statement", "Partner Statement"),
         ],
         string="Report",
         required=True,
@@ -51,19 +59,28 @@ class OneFinanceReportWizard(models.TransientModel):
 
     def action_print(self):
         self.ensure_one()
+        if self.report_type == "partner_statement" and not self.partner_id:
+            raise UserError(_("Select a partner to print the partner statement."))
+
         data = {
             "form": {
                 "date_from": fields.Date.to_string(self.date_from),
                 "date_to": fields.Date.to_string(self.date_to),
                 "company_id": self.company_id.id,
                 "target_move": self.target_move,
+                "partner_id": self.partner_id.id or False,
+                "report_type": self.report_type,
             }
         }
-        if self.report_type == "general_ledger":
-            report = self.env.ref("one_ui.action_report_one_general_ledger")
-        else:
-            report = self.env.ref("one_ui.action_report_one_trial_balance")
-        return report.report_action(self, data=data)
+
+        report_xmlids = {
+            "trial_balance": "one_ui.action_report_one_trial_balance",
+            "general_ledger": "one_ui.action_report_one_general_ledger",
+            "aged_receivable": "one_ui.action_report_one_aged_partner",
+            "aged_payable": "one_ui.action_report_one_aged_partner",
+            "partner_statement": "one_ui.action_report_one_partner_statement",
+        }
+        return self.env.ref(report_xmlids[self.report_type]).report_action(self, data=data)
 
 
 class OneFinanceReportMixin(models.AbstractModel):
@@ -86,6 +103,8 @@ class OneFinanceReportMixin(models.AbstractModel):
             "date_from": date_from,
             "date_to": date_to,
             "target_move": form.get("target_move") or "posted",
+            "partner": self.env["res.partner"].browse(form.get("partner_id")).exists(),
+            "report_type": form.get("report_type"),
         }
 
     def _one_move_line_domain(self, values, date_from=None, date_to=None):
@@ -112,6 +131,37 @@ class OneFinanceReportMixin(models.AbstractModel):
         for account, debit, credit in grouped:
             opening[account.id] = (debit or 0.0) - (credit or 0.0)
         return opening
+
+    def _one_historical_residuals(self, lines, as_of_date):
+        """Return company-currency residuals as they stood on a historical date."""
+        if not lines:
+            return {}
+
+        debit_reconciles = self.env["account.partial.reconcile"]._read_group(
+            [
+                ("debit_move_id", "in", lines.ids),
+                ("max_date", "<=", as_of_date),
+            ],
+            ["debit_move_id"],
+            ["amount:sum"],
+        )
+        credit_reconciles = self.env["account.partial.reconcile"]._read_group(
+            [
+                ("credit_move_id", "in", lines.ids),
+                ("max_date", "<=", as_of_date),
+            ],
+            ["credit_move_id"],
+            ["amount:sum"],
+        )
+        debit_matched = {line.id: amount or 0.0 for line, amount in debit_reconciles}
+        credit_matched = {line.id: amount or 0.0 for line, amount in credit_reconciles}
+
+        return {
+            line.id: line.balance
+            - debit_matched.get(line.id, 0.0)
+            + credit_matched.get(line.id, 0.0)
+            for line in lines
+        }
 
 
 class ReportOneTrialBalance(models.AbstractModel):
@@ -229,12 +279,7 @@ class ReportOneGeneralLedger(models.AbstractModel):
                 running += line.debit - line.credit
                 debit_total += line.debit
                 credit_total += line.credit
-                rows.append(
-                    {
-                        "line": line,
-                        "balance": running,
-                    }
-                )
+                rows.append({"line": line, "balance": running})
 
             sections.append(
                 {
@@ -259,4 +304,159 @@ class ReportOneGeneralLedger(models.AbstractModel):
             "date_from": values["date_from"],
             "date_to": values["date_to"],
             "target_move": values["target_move"],
+        }
+
+
+class ReportOneAgedPartner(models.AbstractModel):
+    _name = "report.one_ui.report_one_aged_partner"
+    _inherit = "one.finance.report.mixin"
+    _description = "ONE ERP Aged Receivable Payable Report"
+
+    @api.model
+    def _get_report_values(self, docids, data=None):
+        values = self._one_form_values(data)
+        currency = values["company"].currency_id
+        receivable = values["report_type"] == "aged_receivable"
+        account_type = "asset_receivable" if receivable else "liability_payable"
+
+        domain = self._one_move_line_domain(values, date_to=values["date_to"])
+        domain += [
+            ("account_id.account_type", "=", account_type),
+            ("partner_id", "!=", False),
+        ]
+        if values["partner"]:
+            domain.append(("partner_id", "=", values["partner"].id))
+
+        lines = self.env["account.move.line"].search(
+            domain,
+            order="partner_id, date_maturity, date, id",
+        )
+        historical = self._one_historical_residuals(lines, values["date_to"])
+        sign = 1.0 if receivable else -1.0
+
+        partners = {}
+        for line in lines:
+            outstanding = historical.get(line.id, 0.0) * sign
+            if currency.is_zero(outstanding):
+                continue
+
+            due_date = line.date_maturity or line.date
+            days_overdue = (values["date_to"] - due_date).days
+            row = partners.setdefault(
+                line.partner_id.id,
+                {
+                    "partner": line.partner_id,
+                    "current": 0.0,
+                    "days_1_30": 0.0,
+                    "days_31_60": 0.0,
+                    "days_61_90": 0.0,
+                    "days_91_plus": 0.0,
+                    "total": 0.0,
+                },
+            )
+            if days_overdue <= 0:
+                row["current"] += outstanding
+            elif days_overdue <= 30:
+                row["days_1_30"] += outstanding
+            elif days_overdue <= 60:
+                row["days_31_60"] += outstanding
+            elif days_overdue <= 90:
+                row["days_61_90"] += outstanding
+            else:
+                row["days_91_plus"] += outstanding
+            row["total"] += outstanding
+
+        rows = sorted(
+            partners.values(),
+            key=lambda row: (row["partner"].name or "").lower(),
+        )
+        totals = {
+            key: sum(row[key] for row in rows)
+            for key in (
+                "current",
+                "days_1_30",
+                "days_31_60",
+                "days_61_90",
+                "days_91_plus",
+                "total",
+            )
+        }
+
+        return {
+            "doc_ids": docids,
+            "doc_model": "one.finance.report.wizard",
+            "docs": self.env["one.finance.report.wizard"].browse(docids),
+            "rows": rows,
+            "totals": totals,
+            "company": values["company"],
+            "currency": currency,
+            "date_to": values["date_to"],
+            "partner": values["partner"],
+            "report_title": _("Aged Receivables") if receivable else _("Aged Payables"),
+        }
+
+
+class ReportOnePartnerStatement(models.AbstractModel):
+    _name = "report.one_ui.report_one_partner_statement"
+    _inherit = "one.finance.report.mixin"
+    _description = "ONE ERP Partner Statement"
+
+    @api.model
+    def _get_report_values(self, docids, data=None):
+        values = self._one_form_values(data)
+        partner = values["partner"]
+        if not partner:
+            raise UserError(_("Select a partner to print the partner statement."))
+
+        base_domain = [
+            ("company_id", "=", values["company"].id),
+            ("partner_id", "=", partner.id),
+            ("account_id.account_type", "in", ("asset_receivable", "liability_payable")),
+        ]
+        if values["target_move"] == "posted":
+            base_domain.append(("move_id.state", "=", "posted"))
+
+        opening_grouped = self.env["account.move.line"]._read_group(
+            base_domain + [("date", "<", values["date_from"])],
+            aggregates=["debit:sum", "credit:sum"],
+        )
+        if opening_grouped:
+            opening_debit, opening_credit = opening_grouped[0]
+        else:
+            opening_debit = opening_credit = 0.0
+        opening = (opening_debit or 0.0) - (opening_credit or 0.0)
+
+        lines = self.env["account.move.line"].search(
+            base_domain
+            + [
+                ("date", ">=", values["date_from"]),
+                ("date", "<=", values["date_to"]),
+            ],
+            order="date, move_id, id",
+        )
+
+        running = opening
+        rows = []
+        debit_total = 0.0
+        credit_total = 0.0
+        for line in lines:
+            running += line.debit - line.credit
+            debit_total += line.debit
+            credit_total += line.credit
+            rows.append({"line": line, "balance": running})
+
+        return {
+            "doc_ids": docids,
+            "doc_model": "one.finance.report.wizard",
+            "docs": self.env["one.finance.report.wizard"].browse(docids),
+            "company": values["company"],
+            "currency": values["company"].currency_id,
+            "partner": partner,
+            "date_from": values["date_from"],
+            "date_to": values["date_to"],
+            "opening": opening,
+            "rows": rows,
+            "debit_total": debit_total,
+            "credit_total": credit_total,
+            "closing": running,
         }
