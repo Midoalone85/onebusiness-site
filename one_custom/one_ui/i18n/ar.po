@@ -1164,3 +1164,9 @@ msgstr "رقم إضافي من 4 أرقام"
 #: code:addons/one_ui/models/one_saudi_profile.py:0
 msgid "Saudi compliance requires Saudi Arabia as the company country."
 msgstr "يتطلب الامتثال السعودي أن تكون دولة الشركة هي المملكة العربية السعودية."
+
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Ready for onboarding"
+msgstr "جاهز للربط"
