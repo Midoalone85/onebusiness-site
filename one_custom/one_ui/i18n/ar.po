@@ -679,3 +679,173 @@ msgstr "البيان"
 #: code:addons/one_ui/report/partner_reports.xml:0
 msgid "Period Total"
 msgstr "إجمالي حركة الفترة"
+
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_finance_report_wizard__report_type__profit_loss
+#: model:ir.actions.report,name:one_ui.action_report_one_profit_loss
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Profit & Loss"
+msgstr "قائمة الدخل"
+
+#. module: one_ui
+#: model:ir.model.fields.selection,name:one_ui.selection__one_finance_report_wizard__report_type__balance_sheet
+#: model:ir.actions.report,name:one_ui.action_report_one_balance_sheet
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Balance Sheet"
+msgstr "قائمة المركز المالي"
+
+#. module: one_ui
+#: model:ir.actions.report,name:one_ui.action_report_one_profit_loss
+msgid "ONE ERP Profit & Loss"
+msgstr "قائمة الدخل ONE ERP"
+
+#. module: one_ui
+#: model:ir.actions.report,name:one_ui.action_report_one_balance_sheet
+msgid "ONE ERP Balance Sheet"
+msgstr "قائمة المركز المالي ONE ERP"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Amount"
+msgstr "المبلغ"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Revenue"
+msgstr "الإيرادات"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Revenue"
+msgstr "إجمالي الإيرادات"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Cost of Revenue"
+msgstr "تكلفة الإيراد"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Cost of Revenue"
+msgstr "إجمالي تكلفة الإيراد"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Gross Profit"
+msgstr "مجمل الربح"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Operating Expenses"
+msgstr "المصروفات التشغيلية"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Operating Expenses"
+msgstr "إجمالي المصروفات التشغيلية"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Operating Profit"
+msgstr "الربح التشغيلي"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Other Income"
+msgstr "إيرادات أخرى"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Other Income"
+msgstr "إجمالي الإيرادات الأخرى"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Other Expenses"
+msgstr "مصروفات أخرى"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Other Expenses"
+msgstr "إجمالي المصروفات الأخرى"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Net Profit / Loss"
+msgstr "صافي الربح / الخسارة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Current Assets"
+msgstr "الأصول المتداولة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Current Assets"
+msgstr "إجمالي الأصول المتداولة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Non-current Assets"
+msgstr "الأصول غير المتداولة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Non-current Assets"
+msgstr "إجمالي الأصول غير المتداولة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Assets"
+msgstr "إجمالي الأصول"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Current Liabilities"
+msgstr "الالتزامات المتداولة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Current Liabilities"
+msgstr "إجمالي الالتزامات المتداولة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Non-current Liabilities"
+msgstr "الالتزامات غير المتداولة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Non-current Liabilities"
+msgstr "إجمالي الالتزامات غير المتداولة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Liabilities"
+msgstr "إجمالي الالتزامات"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Equity"
+msgstr "حقوق الملكية"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Recorded Equity"
+msgstr "حقوق الملكية المسجلة"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Current Year Earnings"
+msgstr "أرباح / خسائر السنة الحالية"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Equity"
+msgstr "إجمالي حقوق الملكية"
+
+#. module: one_ui
+#: code:addons/one_ui/report/statement_reports.xml:0
+msgid "Total Liabilities & Equity"
+msgstr "إجمالي الالتزامات وحقوق الملكية"
