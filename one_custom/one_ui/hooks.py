@@ -1,17 +1,12 @@
 def post_init_hook(env):
-    dashboard = env.ref("one_ui.action_one_dashboard", raise_if_not_found=False)
-    admin = env.ref("base.user_admin", raise_if_not_found=False)
-    if dashboard and admin and hasattr(admin, "action_id"):
-        admin.action_id = dashboard
+    """Keep installation side effects minimal on Odoo 20.
 
-    one_root = env.ref("one_ui.menu_one_root", raise_if_not_found=False)
-    if one_root:
-        other_roots = env["ir.ui.menu"].sudo().search([
-            ("parent_id", "=", False),
-            ("id", "!=", one_root.id),
-        ])
-        other_roots.write({"active": False})
+    The ONE ERP dashboard remains available through its client action and menu.
+    Login redirection is handled by the web layer instead of res.users.action_id,
+    whose accepted action model changed in Odoo 20.
+    """
+    return
 
 
 def uninstall_hook(env):
-    env["ir.ui.menu"].sudo().search([("parent_id", "=", False)]).write({"active": True})
+    return
