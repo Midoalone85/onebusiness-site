@@ -2,12 +2,6 @@ FROM odoo:20.0
 
 USER root
 
-RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ noble-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
-    && apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-16 \
-    && rm -f /etc/apt/sources.list.d/pgdg.list \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY one_erp_bundle /tmp/one_erp_bundle
 COPY start-one-render.sh /usr/local/bin/start-one-render.sh
 
