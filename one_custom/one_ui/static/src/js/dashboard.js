@@ -61,8 +61,6 @@ export class OneDashboard extends Component {
                 opportunities: ["crm.lead", []],
                 employees: ["hr.employee", []],
                 saudiProfiles: ["one.saudi.profile", []],
-                zatcaConnected: ["one.saudi.profile", [["zatca_status", "=", "connected"]]],
-                zatcaReady: ["one.saudi.profile", [["configuration_ready", "=", true]]],
                 subscriptions: ["one.subscription", []],
                 activeSubscriptions: ["one.subscription", [["status", "=", "active"]]],
                 unpaidInvoices: ["account.move", unpaidInvoiceDomain],
@@ -111,6 +109,16 @@ export class OneDashboard extends Component {
                 this.state.pulsePayables = "—";
                 this.state.pulseMonthRevenue = "—";
                 this.state.pulseMonthProfit = "—";
+            }
+
+            try {
+                const zatca = await this.orm.call("one.saudi.profile", "one_get_readiness_summary", []);
+                this.state.saudiProfiles = zatca.profiles;
+                this.state.zatcaReady = zatca.ready;
+                this.state.zatcaConnected = zatca.connected;
+            } catch {
+                this.state.zatcaReady = "—";
+                this.state.zatcaConnected = "—";
             }
         });
     }
