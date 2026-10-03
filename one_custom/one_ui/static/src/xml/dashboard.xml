@@ -103,7 +103,7 @@
                         <div><span>Receivables</span><strong t-esc="state.pulseReceivables"/></div>
                         <div><span>Overdue</span><strong t-esc="state.pulseOverdue"/></div>
                         <div><span>Payables</span><strong t-esc="state.pulsePayables"/></div>
-                        <div><span>Month sales</span><strong t-esc="state.pulseMonthSales"/></div>
+                        <div><span>Month revenue</span><strong t-esc="state.pulseMonthRevenue"/></div>
                         <div class="one_pulse_wide"><span>Month profit / loss</span><strong t-esc="state.pulseMonthProfit"/></div>
                     </div>
                     <button class="one_secondary_btn" t-on-click="() => this.open('one_ui.action_one_financial_reports')">
