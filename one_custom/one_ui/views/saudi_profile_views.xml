@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_one_saudi_profile_list" model="ir.ui.view">
+        <field name="name">one.saudi.profile.list</field>
+        <field name="model">one.saudi.profile</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="company_id"/><field name="commercial_registration"/><field name="vat_number"/>
+                <field name="phase"/><field name="zatca_environment"/><field name="zatca_status"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_one_saudi_profile_form" model="ir.ui.view">
+        <field name="name">one.saudi.profile.form</field>
+        <field name="model">one.saudi.profile</field>
+        <field name="arch" type="xml">
+            <form string="Saudi Compliance">
+                <sheet>
+                    <div class="oe_title"><h1><field name="company_id"/></h1></div>
+                    <group string="Registration">
+                        <group><field name="commercial_registration"/><field name="vat_number"/></group>
+                        <group><field name="phase"/><field name="zatca_environment"/><field name="zatca_status"/></group>
+                    </group>
+                    <group string="National Address">
+                        <group><field name="building_number"/><field name="street_name"/><field name="district"/><field name="city"/></group>
+                        <group><field name="postal_code"/><field name="additional_number"/><field name="country_code"/></group>
+                    </group>
+                    <group string="ZATCA &amp; Compliance Notes">
+                        <field name="notes" placeholder="Certificates, onboarding notes and compliance checkpoints..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_one_saudi_profile" model="ir.actions.act_window">
+        <field name="name">Saudi Compliance</field>
+        <field name="res_model">one.saudi.profile</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
