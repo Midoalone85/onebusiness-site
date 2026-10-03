@@ -11,7 +11,6 @@
     ],
     "data": [
         "security/ir.access.csv",
-        "security/approval_security.xml",
         "data/branding_data.xml",
         "data/subscription_plans.xml",
         "data/approval_data.xml",
