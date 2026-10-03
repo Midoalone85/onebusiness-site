@@ -19,7 +19,6 @@
         <field name="model">account.move</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">one_ui.report_one_journal_entry</field>
-        <field name="report_file">one_ui.report_one_journal_entry</field>
         <field name="binding_model_id" ref="account.model_account_move"/>
         <field name="binding_type">report</field>
         <field name="domain">[('move_type', '=', 'entry')]</field>
