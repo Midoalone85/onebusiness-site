@@ -94,6 +94,23 @@
             </section>
 
             <aside class="one_side">
+                <section class="one_panel one_panel_pulse">
+                    <div class="one_panel_head">
+                        <span class="one_panel_icon"><i class="fa fa-heartbeat"/></span>
+                        <div><small>ONE PULSE</small><h3>Financial snapshot</h3></div>
+                    </div>
+                    <div class="one_pulse_grid">
+                        <div><span>Receivables</span><strong t-esc="state.pulseReceivables"/></div>
+                        <div><span>Overdue</span><strong t-esc="state.pulseOverdue"/></div>
+                        <div><span>Payables</span><strong t-esc="state.pulsePayables"/></div>
+                        <div><span>Month sales</span><strong t-esc="state.pulseMonthSales"/></div>
+                        <div class="one_pulse_wide"><span>Month profit / loss</span><strong t-esc="state.pulseMonthProfit"/></div>
+                    </div>
+                    <button class="one_secondary_btn" t-on-click="() => this.open('one_ui.action_one_financial_reports')">
+                        Open financial reports
+                    </button>
+                </section>
+
                 <section class="one_panel one_panel_attention">
                     <div class="one_panel_head">
                         <span class="one_panel_icon"><i class="fa fa-bolt"/></span>
