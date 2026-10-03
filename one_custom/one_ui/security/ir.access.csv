@@ -4,3 +4,4 @@ access_one_subscription_plan_system,one.subscription.plan system,one.subscriptio
 access_one_subscription_system,one.subscription system,one.subscription,base.group_system,crud,
 access_one_subscription_plan_user,one.subscription.plan user,one.subscription.plan,base.group_user,r,
 access_one_finance_report_wizard_account,one.finance.report.wizard accounting,one.finance.report.wizard,account.group_account_user,crud,
+access_one_approval_request_user,one.approval.request user,one.approval.request,base.group_user,crud,
