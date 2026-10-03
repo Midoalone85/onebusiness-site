@@ -19,3 +19,7 @@ class AccountMove(models.Model):
     def one_report_balance_difference(self):
         self.ensure_one()
         return self.one_report_total_debit() - self.one_report_total_credit()
+
+    def one_report_is_balanced(self):
+        self.ensure_one()
+        return self.company_id.currency_id.is_zero(self.one_report_balance_difference())
