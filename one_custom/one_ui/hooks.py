@@ -1,11 +1,7 @@
 def post_init_hook(env):
-    """Keep installation side effects minimal on Odoo 20.
-
-    The ONE ERP dashboard remains available through its client action and menu.
-    Login redirection is handled by the web layer instead of res.users.action_id,
-    whose accepted action model changed in Odoo 20.
-    """
-    return
+    """Prepare ONE ERP defaults after installation on Odoo 20."""
+    # Keep Arabic available from day one while English remains the base language.
+    env["res.lang"]._activate_and_install_lang("ar_001")
 
 
 def uninstall_hook(env):
