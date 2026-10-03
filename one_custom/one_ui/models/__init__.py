@@ -4,3 +4,4 @@ from . import res_users
 from . import account_move
 from . import finance_reports
 from . import approval_request
+from . import dashboard_pulse
