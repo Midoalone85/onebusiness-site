@@ -899,7 +899,7 @@ msgid "Other"
 msgstr "أخرى"
 
 #. module: one_ui
-#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__requested_by
+#: model:ir.model.fields,field_description:one_ui.field_one_approval_request__requester_id
 msgid "Requested By"
 msgstr "مقدم الطلب"
 
@@ -1027,3 +1027,44 @@ msgstr "الطلبات والقرارات والرقابة"
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
 msgid "Approvals pending"
 msgstr "موافقات معلقة"
+
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "ONE PULSE"
+msgstr "نبض ONE"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Financial snapshot"
+msgstr "ملخص مالي سريع"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Receivables"
+msgstr "ذمم العملاء"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Overdue"
+msgstr "متأخر"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Payables"
+msgstr "ذمم الموردين"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Month sales"
+msgstr "مبيعات الشهر"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Month profit / loss"
+msgstr "ربح / خسارة الشهر"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Open financial reports"
+msgstr "فتح التقارير المالية"
