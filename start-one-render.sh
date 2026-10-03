@@ -27,7 +27,8 @@ COMMON="--db_host=/tmp --db_port=5432 --db_user=odoo --data-dir=$ODOO_DATA --add
 
 # Install the ONE ERP umbrella module and all of its declared dependencies.
 # This turns the raw Odoo engine into the ONE ERP application set.
-odoo $COMMON -d one_erp_db -i one_all --stop-after-init
+odoo $COMMON -d one_erp_db -i one_all,one_ui --stop-after-init
+odoo $COMMON -d one_erp_db -u one_ui --stop-after-init
 
 # Web bundles are cached as attachment records. On Render's ephemeral filesystem
 # an older record can point to a file that no longer exists, which produces a
