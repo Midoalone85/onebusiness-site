@@ -167,3 +167,184 @@ msgstr "حالة الربط مع ZATCA"
 #: model:ir.model.fields,field_description:one_ui.field_one_saudi_profile__phase
 msgid "E-Invoicing Phase"
 msgstr "مرحلة الفوترة الإلكترونية"
+
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Business operations, finance and Saudi compliance in one connected workspace."
+msgstr "إدارة العمليات والمالية والامتثال السعودي في مساحة عمل موحدة."
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Workspace Ready"
+msgstr "مساحة العمل جاهزة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Transfers"
+msgstr "التحويلات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Invoices"
+msgstr "الفواتير"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "People"
+msgstr "الموظفون"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "CORE WORKSPACE"
+msgstr "مساحة العمل الرئيسية"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Run the business"
+msgstr "إدارة أعمالك"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Operations"
+msgstr "العمليات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Customers and suppliers"
+msgstr "العملاء والموردون"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Quotations and orders"
+msgstr "عروض الأسعار والطلبات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Purchase orders and suppliers"
+msgstr "أوامر الشراء والموردون"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Stock and transfers"
+msgstr "المخزون والتحويلات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Production and manufacturing orders"
+msgstr "الإنتاج وأوامر التصنيع"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Finance & Growth"
+msgstr "المالية والنمو"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Invoices, journals and finance"
+msgstr "الفواتير والقيود والمالية"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Pipeline and opportunities"
+msgstr "مسار المبيعات والفرص"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Employees and human resources"
+msgstr "الموظفون والموارد البشرية"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "NEEDS ATTENTION"
+msgstr "يحتاج انتباهك"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Today's command center"
+msgstr "مركز متابعة اليوم"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Overdue receivables"
+msgstr "المستحقات المتأخرة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Unpaid customer invoices"
+msgstr "فواتير العملاء غير المحصلة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Open quotations"
+msgstr "عروض الأسعار المفتوحة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Purchases pending"
+msgstr "المشتريات المعلقة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Receipts pending"
+msgstr "الاستلامات المعلقة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "SAUDI COMPLIANCE"
+msgstr "الامتثال السعودي"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Profiles"
+msgstr "ملفات الشركات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "ZATCA connected"
+msgstr "مرتبط مع ZATCA"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Open compliance center"
+msgstr "فتح مركز الامتثال"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "SUBSCRIPTIONS"
+msgstr "الاشتراكات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Plans & customer access"
+msgstr "الباقات وصلاحيات العملاء"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Total"
+msgstr "الإجمالي"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Active"
+msgstr "النشطة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Manage subscriptions"
+msgstr "إدارة الاشتراكات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "System Settings"
+msgstr "إعدادات النظام"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Permissions and preferences"
+msgstr "الصلاحيات والتفضيلات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Contacts Center"
+msgstr "مركز جهات الاتصال"
