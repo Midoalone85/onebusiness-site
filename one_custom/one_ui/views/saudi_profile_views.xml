@@ -4,34 +4,104 @@
         <field name="name">one.saudi.profile.list</field>
         <field name="model">one.saudi.profile</field>
         <field name="arch" type="xml">
-            <list>
-                <field name="company_id"/><field name="commercial_registration"/><field name="vat_number"/>
-                <field name="phase"/><field name="zatca_environment"/><field name="zatca_status"/>
+            <list decoration-success="zatca_status == 'connected'"
+                  decoration-warning="zatca_status == 'configuration_ready'">
+                <field name="company_id"/>
+                <field name="commercial_registration"/>
+                <field name="vat_number"/>
+                <field name="phase"/>
+                <field name="zatca_environment"/>
+                <field name="zatca_status" widget="badge"/>
+                <field name="journal_onboarded"/>
             </list>
         </field>
     </record>
+
     <record id="view_one_saudi_profile_form" model="ir.ui.view">
         <field name="name">one.saudi.profile.form</field>
         <field name="model">one.saudi.profile</field>
         <field name="arch" type="xml">
             <form string="Saudi Compliance">
+                <header>
+                    <button name="action_pull_from_company"
+                            type="object"
+                            string="Load Company Data"
+                            class="btn-secondary"/>
+                    <button name="action_apply_to_company"
+                            type="object"
+                            string="Apply to ZATCA Setup"
+                            class="oe_highlight"/>
+                    <field name="zatca_status"
+                           widget="statusbar"
+                           statusbar_visible="not_connected,configuration_ready,connected"/>
+                </header>
+
                 <sheet>
-                    <div class="oe_title"><h1><field name="company_id"/></h1></div>
+                    <div class="oe_title">
+                        <h1><field name="company_id"/></h1>
+                    </div>
+
+                    <div class="alert alert-success"
+                         role="alert"
+                         invisible="not configuration_ready">
+                        Company data is ready for ZATCA onboarding.
+                    </div>
+                    <div class="alert alert-warning"
+                         role="alert"
+                         invisible="configuration_ready">
+                        Complete the missing requirements below before ZATCA onboarding.
+                    </div>
+
                     <group string="Registration">
-                        <group><field name="commercial_registration"/><field name="vat_number"/></group>
-                        <group><field name="phase"/><field name="zatca_environment"/><field name="zatca_status"/></group>
+                        <group>
+                            <field name="commercial_registration"/>
+                            <field name="vat_number"/>
+                            <field name="phase"/>
+                        </group>
+                        <group>
+                            <field name="zatca_environment"/>
+                            <field name="native_api_mode" readonly="1"/>
+                            <field name="journal_onboarded" readonly="1"/>
+                        </group>
                     </group>
+
                     <group string="National Address">
-                        <group><field name="building_number"/><field name="street_name"/><field name="district"/><field name="city"/></group>
-                        <group><field name="postal_code"/><field name="additional_number"/><field name="country_code"/></group>
+                        <group>
+                            <field name="building_number"/>
+                            <field name="street_name"/>
+                            <field name="district"/>
+                            <field name="city"/>
+                        </group>
+                        <group>
+                            <field name="state_id"
+                                   domain="[('country_id.code', '=', 'SA')]"/>
+                            <field name="postal_code"/>
+                            <field name="additional_number"/>
+                            <field name="country_code"/>
+                        </group>
                     </group>
+
+                    <group string="ZATCA Readiness">
+                        <field name="configuration_ready" readonly="1"/>
+                        <field name="readiness_missing"
+                               readonly="1"
+                               placeholder="No missing requirements"/>
+                    </group>
+
                     <group string="ZATCA &amp; Compliance Notes">
-                        <field name="notes" placeholder="Certificates, onboarding notes and compliance checkpoints..."/>
+                        <field name="notes"
+                               placeholder="Certificates, onboarding notes and compliance checkpoints..."/>
                     </group>
+
+                    <div class="alert alert-info" role="alert">
+                        ONE ERP does not submit or onboard a ZATCA journal automatically from this screen.
+                        Production onboarding remains an explicit administrator action using the official Saudi e-invoicing workflow.
+                    </div>
                 </sheet>
             </form>
         </field>
     </record>
+
     <record id="action_one_saudi_profile" model="ir.actions.act_window">
         <field name="name">Saudi Compliance</field>
         <field name="res_model">one.saudi.profile</field>
