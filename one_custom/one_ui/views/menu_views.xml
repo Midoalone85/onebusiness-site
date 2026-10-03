@@ -12,6 +12,7 @@
     <menuitem id="menu_one_reports_root" name="Reports" parent="menu_one_root" sequence="55" groups="account.group_account_user"/>
     <menuitem id="menu_one_financial_reports" name="Financial Reports" parent="menu_one_reports_root" action="action_one_financial_reports" sequence="10" groups="account.group_account_user"/>
 
+    <menuitem id="menu_one_approvals" name="Approval Center" parent="menu_one_root" action="action_one_approvals" sequence="57"/>
     <menuitem id="menu_one_mrp" name="Manufacturing" parent="menu_one_root" action="action_one_mrp" sequence="60"/>
     <menuitem id="menu_one_crm" name="CRM" parent="menu_one_root" action="action_one_crm" sequence="70"/>
     <menuitem id="menu_one_hr" name="Human Resources" parent="menu_one_root" action="action_one_hr" sequence="80"/>
