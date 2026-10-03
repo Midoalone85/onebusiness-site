@@ -215,10 +215,9 @@ class OneApprovalRequest(models.Model):
                 raise AccessError(_("Only the requester can edit a draft approval request."))
 
             if "decision_note" in vals and not (
-                (is_approver and request.state == "submitted")
-                or (is_requester and request.state in ("draft", "rejected", "cancelled"))
+                is_approver and request.state == "submitted"
             ):
-                raise AccessError(_("You cannot edit the decision note at this stage."))
+                raise AccessError(_("Only the assigned approver can edit the decision note."))
 
         return super().write(vals)
 
