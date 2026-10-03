@@ -1,0 +1,52 @@
+/** @odoo-module **/
+
+import { Component, onWillStart, useState } from "@odoo/owl";
+import { registry } from "@web/core/registry";
+import { useService } from "@web/core/utils/hooks";
+
+export class OneDashboard extends Component {
+    static template = "one_ui.OneDashboard";
+
+    setup() {
+        this.action = useService("action");
+        this.orm = useService("orm");
+        this.state = useState({
+            contacts: "…",
+            sales: "…",
+            purchases: "…",
+            transfers: "…",
+            invoices: "…",
+            manufacturing: "…",
+            opportunities: "…",
+            employees: "…",
+        });
+
+        onWillStart(async () => {
+            const models = {
+                contacts: "res.partner",
+                sales: "sale.order",
+                purchases: "purchase.order",
+                transfers: "stock.picking",
+                invoices: "account.move",
+                manufacturing: "mrp.production",
+                opportunities: "crm.lead",
+                employees: "hr.employee",
+            };
+            await Promise.all(
+                Object.entries(models).map(async ([key, model]) => {
+                    try {
+                        this.state[key] = await this.orm.searchCount(model, []);
+                    } catch {
+                        this.state[key] = "—";
+                    }
+                })
+            );
+        });
+    }
+
+    open(xmlId) {
+        return this.action.doAction(xmlId);
+    }
+}
+
+registry.category("actions").add("one_ui.dashboard", OneDashboard);
