@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_one_finance_report_wizard_form" model="ir.ui.view">
+        <field name="name">one.finance.report.wizard.form</field>
+        <field name="model">one.finance.report.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Financial Reports">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="report_type"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="target_move"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        Choose the report, period, company and entry status, then print a ONE ERP PDF.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_print" type="object" string="Print PDF" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_one_financial_reports" model="ir.actions.act_window">
+        <field name="name">Financial Reports</field>
+        <field name="res_model">one.finance.report.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_one_finance_report_wizard_form"/>
+        <field name="target">new</field>
+    </record>
+</odoo>
