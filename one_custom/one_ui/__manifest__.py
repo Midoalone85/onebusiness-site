@@ -20,6 +20,7 @@
         "views/subscription_views.xml",
         "views/finance_report_views.xml",
         "views/approval_views.xml",
+        "views/ask_one_views.xml",
         "report/journal_entry_report.xml",
         "report/financial_reports.xml",
         "report/partner_reports.xml",
