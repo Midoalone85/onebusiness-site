@@ -1,7 +1,7 @@
 {
     "name": "ONE ERP Experience",
-    "version": "20.0.1.0.1",
-    "summary": "ONE ERP branded workspace, dashboard, Saudi setup and subscriptions",
+    "version": "20.0.1.1.0",
+    "summary": "ONE ERP branded workspace, dashboard, Saudi setup, subscriptions and finance printing",
     "author": "ONE Business",
     "license": "LGPL-3",
     "category": "ONE Business",
@@ -17,6 +17,7 @@
         "views/actions.xml",
         "views/saudi_profile_views.xml",
         "views/subscription_views.xml",
+        "report/journal_entry_report.xml",
         "views/menu_views.xml"
     ],
     "assets": {
