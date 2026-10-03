@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_one_profit_loss" model="ir.actions.report">
+        <field name="name">ONE ERP Profit &amp; Loss</field>
+        <field name="model">one.finance.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">one_ui.report_one_profit_loss</field>
+        <field name="report_file">one_ui.report_one_profit_loss</field>
+        <field name="paperformat_id" ref="one_ui.paperformat_one_finance_a4"/>
+        <field name="print_report_name">'ONE_Profit_Loss_%s_%s' % (object.date_from, object.date_to)</field>
+    </record>
+
+    <record id="action_report_one_balance_sheet" model="ir.actions.report">
+        <field name="name">ONE ERP Balance Sheet</field>
+        <field name="model">one.finance.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">one_ui.report_one_balance_sheet</field>
+        <field name="report_file">one_ui.report_one_balance_sheet</field>
+        <field name="paperformat_id" ref="one_ui.paperformat_one_finance_a4"/>
+        <field name="print_report_name">'ONE_Balance_Sheet_%s' % object.date_to</field>
+    </record>
+
+    <template id="one_statement_section">
+        <t t-set="section_rows" t-value="rows"/>
+        <tr>
+            <td colspan="2" style="background:#eaf2f8; font-weight:800; color:#173f63; padding:7px 6px;">
+                <span t-out="title"/>
+            </td>
+        </tr>
+        <t t-foreach="section_rows" t-as="row">
+            <tr>
+                <td>
+                    <span class="account_code" t-out="row['account'].code or '-'"/>
+                    <span> · </span>
+                    <span class="account_name" t-out="row['account'].name"/>
+                </td>
+                <td class="num">
+                    <span t-out="row['amount']"
+                          t-options='{"widget": "monetary", "display_currency": currency}'/>
+                </td>
+            </tr>
+        </t>
+        <tr class="one_total">
+            <td><span t-out="subtotal_label"/></td>
+            <td class="num">
+                <strong t-out="subtotal"
+                        t-options='{"widget": "monetary", "display_currency": currency}'/>
+            </td>
+        </tr>
+    </template>
+
+    <template id="report_one_profit_loss">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="o" t-value="doc"/>
+                <t t-set="company" t-value="doc.company_id"/>
+                <t t-call="web.external_layout">
+                    <div class="page one_fin_pdf"
+                         t-att-dir="'rtl' if (doc.env.context.get('lang') or '').startswith('ar') else 'ltr'">
+                        <t t-call="one_ui.one_finance_pdf_styles"/>
+
+                        <div class="one_fin_title">
+                            <h2>Profit &amp; Loss</h2>
+                            <div class="one_fin_subtitle">ONE ERP · Financial Report</div>
+                        </div>
+
+                        <table class="one_fin_meta">
+                            <tr>
+                                <td>
+                                    <span class="label">Company</span>
+                                    <span class="value" t-field="company.name"/>
+                                </td>
+                                <td>
+                                    <span class="label">From Date</span>
+                                    <span class="value" t-out="date_from" t-options='{"widget": "date"}'/>
+                                </td>
+                                <td>
+                                    <span class="label">To Date</span>
+                                    <span class="value" t-out="date_to" t-options='{"widget": "date"}'/>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <table class="one_fin_table">
+                            <thead>
+                                <tr>
+                                    <th style="width:72%">Account</th>
+                                    <th style="width:28%" class="num">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Revenue</t>
+                                    <t t-set="rows" t-value="sections['revenue']"/>
+                                    <t t-set="subtotal_label">Total Revenue</t>
+                                    <t t-set="subtotal" t-value="totals['revenue']"/>
+                                </t>
+
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Cost of Revenue</t>
+                                    <t t-set="rows" t-value="sections['cost_of_revenue']"/>
+                                    <t t-set="subtotal_label">Total Cost of Revenue</t>
+                                    <t t-set="subtotal" t-value="totals['cost_of_revenue']"/>
+                                </t>
+
+                                <tr style="background:#f3f8fc; font-weight:800;">
+                                    <td>Gross Profit</td>
+                                    <td class="num">
+                                        <strong t-out="gross_profit"
+                                                t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                </tr>
+
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Operating Expenses</t>
+                                    <t t-set="rows" t-value="sections['operating_expenses']"/>
+                                    <t t-set="subtotal_label">Total Operating Expenses</t>
+                                    <t t-set="subtotal" t-value="totals['operating_expenses']"/>
+                                </t>
+
+                                <tr style="background:#f3f8fc; font-weight:800;">
+                                    <td>Operating Profit</td>
+                                    <td class="num">
+                                        <strong t-out="operating_profit"
+                                                t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                </tr>
+
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Other Income</t>
+                                    <t t-set="rows" t-value="sections['other_income']"/>
+                                    <t t-set="subtotal_label">Total Other Income</t>
+                                    <t t-set="subtotal" t-value="totals['other_income']"/>
+                                </t>
+
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Other Expenses</t>
+                                    <t t-set="rows" t-value="sections['other_expenses']"/>
+                                    <t t-set="subtotal_label">Total Other Expenses</t>
+                                    <t t-set="subtotal" t-value="totals['other_expenses']"/>
+                                </t>
+
+                                <tr style="background:#173f63; color:#fff; font-weight:900; font-size:12px;">
+                                    <td>Net Profit / Loss</td>
+                                    <td class="num">
+                                        <strong t-out="net_profit"
+                                                t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="one_footer_note">Generated by ONE ERP</div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_one_balance_sheet">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="o" t-value="doc"/>
+                <t t-set="company" t-value="doc.company_id"/>
+                <t t-call="web.external_layout">
+                    <div class="page one_fin_pdf"
+                         t-att-dir="'rtl' if (doc.env.context.get('lang') or '').startswith('ar') else 'ltr'">
+                        <t t-call="one_ui.one_finance_pdf_styles"/>
+
+                        <div class="one_fin_title">
+                            <h2>Balance Sheet</h2>
+                            <div class="one_fin_subtitle">ONE ERP · Financial Report</div>
+                        </div>
+
+                        <table class="one_fin_meta">
+                            <tr>
+                                <td>
+                                    <span class="label">Company</span>
+                                    <span class="value" t-field="company.name"/>
+                                </td>
+                                <td>
+                                    <span class="label">As of Date</span>
+                                    <span class="value" t-out="date_to" t-options='{"widget": "date"}'/>
+                                </td>
+                                <td>
+                                    <span class="label">Balance Check</span>
+                                    <span class="value" t-if="is_balanced" style="color:#157347;">Balanced</span>
+                                    <span class="value" t-else="" style="color:#b02a37;">
+                                        Difference:
+                                        <span t-out="difference"
+                                              t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <table class="one_fin_table">
+                            <thead>
+                                <tr>
+                                    <th style="width:72%">Account</th>
+                                    <th style="width:28%" class="num">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Current Assets</t>
+                                    <t t-set="rows" t-value="sections['current_assets']"/>
+                                    <t t-set="subtotal_label">Total Current Assets</t>
+                                    <t t-set="subtotal" t-value="totals['current_assets']"/>
+                                </t>
+
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Non-current Assets</t>
+                                    <t t-set="rows" t-value="sections['non_current_assets']"/>
+                                    <t t-set="subtotal_label">Total Non-current Assets</t>
+                                    <t t-set="subtotal" t-value="totals['non_current_assets']"/>
+                                </t>
+
+                                <tr style="background:#173f63; color:#fff; font-weight:900;">
+                                    <td>Total Assets</td>
+                                    <td class="num">
+                                        <strong t-out="total_assets"
+                                                t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                </tr>
+
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Current Liabilities</t>
+                                    <t t-set="rows" t-value="sections['current_liabilities']"/>
+                                    <t t-set="subtotal_label">Total Current Liabilities</t>
+                                    <t t-set="subtotal" t-value="totals['current_liabilities']"/>
+                                </t>
+
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Non-current Liabilities</t>
+                                    <t t-set="rows" t-value="sections['non_current_liabilities']"/>
+                                    <t t-set="subtotal_label">Total Non-current Liabilities</t>
+                                    <t t-set="subtotal" t-value="totals['non_current_liabilities']"/>
+                                </t>
+
+                                <tr style="background:#f3f8fc; font-weight:800;">
+                                    <td>Total Liabilities</td>
+                                    <td class="num">
+                                        <strong t-out="total_liabilities"
+                                                t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                </tr>
+
+                                <t t-call="one_ui.one_statement_section">
+                                    <t t-set="title">Equity</t>
+                                    <t t-set="rows" t-value="sections['equity']"/>
+                                    <t t-set="subtotal_label">Recorded Equity</t>
+                                    <t t-set="subtotal" t-value="totals['equity']"/>
+                                </t>
+
+                                <tr>
+                                    <td>Current Year Earnings</td>
+                                    <td class="num">
+                                        <strong t-out="current_year_earnings"
+                                                t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                </tr>
+
+                                <tr style="background:#173f63; color:#fff; font-weight:900;">
+                                    <td>Total Equity</td>
+                                    <td class="num">
+                                        <strong t-out="total_equity"
+                                                t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                </tr>
+
+                                <tr style="background:#0b2239; color:#fff; font-weight:900; font-size:12px;">
+                                    <td>Total Liabilities &amp; Equity</td>
+                                    <td class="num">
+                                        <strong t-out="total_liabilities + total_equity"
+                                                t-options='{"widget": "monetary", "display_currency": currency}'/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="one_footer_note">Generated by ONE ERP</div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
