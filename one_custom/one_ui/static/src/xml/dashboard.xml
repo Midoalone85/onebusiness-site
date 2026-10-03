@@ -86,6 +86,9 @@
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_hr')">
                             <i class="fa fa-users"/><b>People</b><small>Employees and human resources</small>
                         </button>
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_approvals')">
+                            <i class="fa fa-check-square-o"/><b>Approval Center</b><small>Requests, decisions and controls</small>
+                        </button>
                     </div>
                 </div>
             </section>
@@ -111,6 +114,9 @@
                         </button>
                         <button t-on-click="() => this.open('one_ui.action_one_inventory')">
                             <span>Receipts pending</span><strong t-esc="state.pendingReceipts"/>
+                        </button>
+                        <button t-on-click="() => this.open('one_ui.action_one_approvals')">
+                            <span>Approvals pending</span><strong t-esc="state.pendingApprovals"/>
                         </button>
                     </div>
                 </section>
