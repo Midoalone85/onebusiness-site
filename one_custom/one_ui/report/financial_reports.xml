@@ -5,7 +5,6 @@
         <field name="model">one.finance.report.wizard</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">one_ui.report_one_trial_balance</field>
-        <field name="report_file">one_ui.report_one_trial_balance</field>
         <field name="paperformat_id" ref="one_ui.paperformat_one_finance_a4"/>
         <field name="print_report_name">'ONE_Trial_Balance_%s_%s' % (object.date_from, object.date_to)</field>
     </record>
@@ -15,7 +14,6 @@
         <field name="model">one.finance.report.wizard</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">one_ui.report_one_general_ledger</field>
-        <field name="report_file">one_ui.report_one_general_ledger</field>
         <field name="paperformat_id" ref="one_ui.paperformat_one_finance_a4"/>
         <field name="print_report_name">'ONE_General_Ledger_%s_%s' % (object.date_from, object.date_to)</field>
     </record>
