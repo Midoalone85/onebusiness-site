@@ -82,7 +82,7 @@ fi
 # credential at runtime when no hosting secret is configured. The password is
 # never committed to Git and is regenerated whenever the ephemeral database is
 # recreated.
-if [[ "$LOCAL_PG" -eq 1 ]] && [[ -z "${ONE_ADMIN_PASSWORD:-}" ]] && [[ -z "${ONE_BOOTSTRAP_ADMIN_PASSWORD:-}" ]]; then
+if [[ "$LOCAL_PG" -eq 1 ]]; then
   export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
   export ONE_ADMIN_PASSWORD="$(python3 - <<'PY'
 import secrets
