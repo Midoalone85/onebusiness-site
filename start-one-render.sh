@@ -92,12 +92,19 @@ provision_admin() {
   echo "ONE ERP: waiting to provision the administrator account..."
   for _ in $(seq 1 180); do
     READY=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
-      "SELECT CASE WHEN EXISTS (
-         SELECT 1
-         FROM ir_model_data d
-         JOIN res_users u ON u.id = d.res_id
-         WHERE d.module='base' AND d.name='user_admin' AND d.model='res.users'
-       ) THEN '1' ELSE '0' END;" 2>/dev/null | tr -d '[:space:]' || true)
+      "SELECT CASE
+         WHEN to_regclass('public.ir_model_data') IS NULL
+           OR to_regclass('public.res_users') IS NULL
+         THEN '0'
+         WHEN EXISTS (
+           SELECT 1
+           FROM ir_model_data d
+           JOIN res_users u ON u.id = d.res_id
+           WHERE d.module='base' AND d.name='user_admin' AND d.model='res.users'
+         )
+         THEN '1'
+         ELSE '0'
+       END;" 2>/dev/null | tr -d '[:space:]' || true)
 
     if [[ "$READY" == "1" ]]; then
       cat >/tmp/one_set_admin.py <<'PY'
