@@ -1,4 +1,4 @@
-const C="afia-market-v18";
+const C="afia-market-v19";
 const A=["./","./index.html","./admin.html","./manifest.webmanifest","./icon.svg"];
 self.addEventListener("install",e=>{
   self.skipWaiting();
