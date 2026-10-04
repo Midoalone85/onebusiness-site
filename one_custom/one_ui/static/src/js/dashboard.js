@@ -36,6 +36,7 @@ export class OneDashboard extends Component {
             pendingApprovals: "…",
             posAccess: false,
             adminAccess: false,
+            persistentDatabase: true,
             posConfigs: "…",
             products: "…",
             warehouses: "…",
@@ -79,6 +80,7 @@ export class OneDashboard extends Component {
 
             this.state.posAccess = Boolean(summary.posAccess);
             this.state.adminAccess = Boolean(summary.adminAccess);
+            this.state.persistentDatabase = summary.persistentDatabase !== false;
 
             this.state.pulseReceivables = pulse.receivables || "—";
             this.state.pulseOverdue = pulse.overdue || "—";
@@ -97,6 +99,7 @@ export class OneDashboard extends Component {
         } catch {
             this.state.posAccess = false;
             this.state.adminAccess = false;
+            this.state.persistentDatabase = true;
             this.state.pulseReceivables = "—";
             this.state.pulseOverdue = "—";
             this.state.pulsePayables = "—";
