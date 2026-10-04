@@ -88,6 +88,12 @@
         <field name="view_mode">kanban,list,form</field>
     </record>
 
+    <record id="action_one_pos" model="ir.actions.act_window">
+        <field name="name">Point of Sale</field>
+        <field name="res_model">pos.config</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
     <record id="action_one_hr" model="ir.actions.act_window">
         <field name="name">Employees</field>
         <field name="res_model">hr.employee</field>
