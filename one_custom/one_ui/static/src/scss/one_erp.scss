@@ -1032,3 +1032,35 @@ a[href*="odoo.com"],
 [dir="rtl"] .o_main_navbar .o_menu_sections .o-dropdown--menu {
     text-align: right;
 }
+
+
+/* ONE ERP 20.0.1.26 — unified in-app identity */
+.one_brandmark{padding:0!important;overflow:hidden;background:transparent!important;border:0!important;box-shadow:0 8px 22px rgba(0,0,0,.16)}
+.one_brandmark img{display:block;width:34px;height:34px;object-fit:cover;border-radius:10px}
+.o_main_navbar{position:relative;isolation:isolate}
+.o_main_navbar:after{content:"ONE";position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:900;letter-spacing:2.2px;color:rgba(255,255,255,.30);pointer-events:none}
+[dir="rtl"] .o_main_navbar:after{right:auto;left:18px}
+.one_hero{position:relative;overflow:hidden}
+.one_hero:after{content:"";position:absolute;width:310px;height:310px;right:-125px;top:-170px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.16),transparent 68%);pointer-events:none}
+.one_hero_copy,.one_hero_actions{position:relative;z-index:1}
+.one_hero_status{box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.one_kpi,.one_card,.one_panel,.one_quick,.one_workspace{box-shadow:0 7px 24px rgba(15,42,67,.045)}
+.one_kpi:hover,.one_card:hover{box-shadow:0 16px 34px rgba(15,42,67,.10)}
+.one_kpi_icon,.one_panel_icon{background:linear-gradient(145deg,#edf5fc,#e6f0fa)}
+.one_workspace{position:relative;overflow:hidden}
+.one_workspace:before{content:"";position:absolute;left:0;top:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,#246aa5,#20c997,transparent);opacity:.65}
+.one_panel_pulse{box-shadow:0 12px 30px rgba(20,93,140,.07)}
+.one_panel_radar{box-shadow:0 12px 30px rgba(64,86,161,.07)}
+.one_panel_compliance{box-shadow:0 12px 30px rgba(22,133,95,.07)}
+.one_panel_attention{box-shadow:0 12px 30px rgba(155,104,19,.07)}
+.one_primary_btn,.one_secondary_btn{transition:transform .16s ease,box-shadow .16s ease}
+.one_primary_btn:hover,.one_secondary_btn:hover{transform:translateY(-1px)}
+.one_primary_btn:hover{box-shadow:0 8px 18px rgba(21,58,91,.18)}
+.o_form_view .o_form_sheet,.o_kanban_renderer .o_kanban_record,.o-dropdown--menu{box-shadow:0 12px 32px rgba(15,42,67,.075)!important}
+.o_list_renderer .o_list_table tbody tr{transition:background .14s ease}
+@media(max-width:700px){
+  .o_main_navbar:after{display:none}
+  .one_dashboard{padding:10px}
+  .one_hero{padding:20px;border-radius:18px}
+  .one_kpi,.one_card,.one_panel,.one_workspace{border-radius:15px}
+}
