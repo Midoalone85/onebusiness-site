@@ -137,9 +137,25 @@ provision_admin() {
        THEN '1' ELSE '0' END;" 2>/dev/null | tr -d '[:space:]' || true)
 
     if [[ "$READY" == "1" ]]; then
-      # Give the module transaction a moment to fully release install-time locks
-      # before starting a second Odoo process for credential provisioning.
-      sleep 3
+      # Wait until Odoo releases the registry-loading advisory lock. The module
+      # can already be marked installed while registry finalization is still in
+      # progress, and starting a second Odoo process during that window causes
+      # a lock timeout.
+      REGISTRY_READY=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
+        "SELECT CASE
+           WHEN pg_try_advisory_lock_shared(hashtext('registry_loading'))
+           THEN CASE
+             WHEN pg_advisory_unlock_shared(hashtext('registry_loading'))
+             THEN '1' ELSE '0'
+           END
+           ELSE '0'
+         END;" 2>/dev/null | tr -d '[:space:]' || true)
+
+      if [[ "$REGISTRY_READY" != "1" ]]; then
+        sleep 2
+        continue
+      fi
+
       cat >/tmp/one_set_admin.py <<'PY'
 import os
 user = env.ref("base.user_admin", raise_if_not_found=False)
