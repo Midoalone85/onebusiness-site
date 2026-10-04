@@ -225,6 +225,9 @@
                         <i class="fa fa-tags"/><span><b>Product Catalog</b><small>Products, services and pricing</small></span>
                     </button>
                     <t t-if="this.state.adminAccess">
+                        <button t-on-click="() => this.open('one_ui.action_one_control_center')">
+                            <i class="fa fa-sliders"/><span><b>Control Center</b><small>Company, finance, compliance and platform setup</small></span>
+                        </button>
                         <button t-on-click="() => this.open('one_ui.action_one_company_profile')">
                             <i class="fa fa-building"/><span><b>Company Profile</b><small>Legal identity and company data</small></span>
                         </button>
