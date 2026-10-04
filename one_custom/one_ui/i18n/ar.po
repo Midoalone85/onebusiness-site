@@ -1238,3 +1238,16 @@ msgstr "دليل الحسابات"
 #: model:ir.actions.act_window,name:one_ui.action_one_journals
 msgid "Journals"
 msgstr "اليوميات"
+
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos
+#: model:ir.actions.act_window,name:one_ui.action_one_pos
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Point of Sale"
+msgstr "نقطة البيع"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Registers and checkout"
+msgstr "الكاشير وعمليات البيع"
