@@ -1540,3 +1540,33 @@ msgstr "مركز التحكم"
 #: code:addons/one_ui:0
 msgid "Company, finance, compliance and platform setup"
 msgstr "إعداد الشركة والمالية والامتثال والمنصة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Cost Centers & Analytic Accounts"
+msgstr "مراكز التكلفة والحسابات التحليلية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Cost Centers"
+msgstr "مراكز التكلفة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Analytic accounts and management reporting dimensions"
+msgstr "الحسابات التحليلية وأبعاد التقارير الإدارية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Bank & Cash Journals"
+msgstr "دفاتر البنوك والنقدية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Bank & Cash"
+msgstr "البنوك والنقدية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Bank and cash journals"
+msgstr "دفاتر البنوك والصناديق"
