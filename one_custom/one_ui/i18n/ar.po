@@ -1926,3 +1926,8 @@ msgstr "مساحة أعمال آمنة"
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
 msgid "ONE Business · Secure Business Workspace"
 msgstr "ONE Business · مساحة أعمال آمنة"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_contacts
+msgid "All Contacts"
+msgstr "كل جهات الاتصال"
