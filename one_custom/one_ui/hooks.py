@@ -79,8 +79,8 @@ def _run_trial_smoke_test(env):
 
             raise _RollbackTrialSmoke()
     except _RollbackTrialSmoke:
-        env["ir.config_parameter"].sudo().set_param("one.trial_smoke_test", "passed")
-        env["ir.config_parameter"].sudo().set_param(
+        env["ir.config_parameter"].sudo().set_str("one.trial_smoke_test", "passed")
+        env["ir.config_parameter"].sudo().set_str(
             "one.trial_smoke_test_at", fields.Datetime.to_string(fields.Datetime.now())
         )
         _logger.info("ONE ERP 24-hour trial smoke test passed.")
