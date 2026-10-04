@@ -1926,3 +1926,99 @@ msgstr "مساحة أعمال آمنة"
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
 msgid "ONE Business · Secure Business Workspace"
 msgstr "ONE Business · مساحة أعمال آمنة"
+
+#. module: one_ui
+msgid "ONE DECISION BRIEF"
+msgstr "موجز قرار ONE"
+
+#. module: one_ui
+msgid "Top management priorities"
+msgstr "أهم أولويات الإدارة"
+
+#. module: one_ui
+msgid "Building today's decision brief…"
+msgstr "يتم إعداد موجز قرارات اليوم…"
+
+#. module: one_ui
+msgid "Ask ONE for more detail"
+msgstr "اسأل ONE لمزيد من التفاصيل"
+
+#. module: one_ui
+msgid "Accelerate collections"
+msgstr "سرّع التحصيلات"
+
+#. module: one_ui
+msgid "Start with the highest overdue balances and assign a follow-up date."
+msgstr "ابدأ بأكبر الأرصدة المتأخرة وحدد تاريخ متابعة لكل حالة."
+
+#. module: one_ui
+msgid "Protect gross margin"
+msgstr "احمِ هامش الربح"
+
+#. module: one_ui
+msgid "Review negative-margin sales before approving more pricing or orders."
+msgstr "راجع المبيعات ذات الهامش السلبي قبل اعتماد أسعار أو طلبات جديدة."
+
+#. module: one_ui
+msgid "Clear decision bottlenecks"
+msgstr "أزل اختناقات القرار"
+
+#. module: one_ui
+msgid "Resolve pending approvals that can block purchasing or operations."
+msgstr "احسم الموافقات المعلقة التي قد تعطل المشتريات أو التشغيل."
+
+#. module: one_ui
+msgid "Unblock incoming stock"
+msgstr "حرّك الاستلامات المعلقة"
+
+#. module: one_ui
+msgid "Review open receipts and identify anything delaying supply or delivery."
+msgstr "راجع الاستلامات المفتوحة وحدد ما يؤخر التوريد أو التسليم."
+
+#. module: one_ui
+msgid "Complete Saudi compliance setup"
+msgstr "أكمل إعداد الامتثال السعودي"
+
+#. module: one_ui
+msgid "Finish the ZATCA and National Address profile before relying on e-invoicing."
+msgstr "أكمل ملف ZATCA والعنوان الوطني قبل الاعتماد على الفوترة الإلكترونية."
+
+#. module: one_ui
+msgid "Close compliance gaps"
+msgstr "أغلق فجوات الامتثال"
+
+#. module: one_ui
+msgid "Complete the remaining Saudi readiness items in the compliance center."
+msgstr "أكمل عناصر الجاهزية السعودية المتبقية في مركز الامتثال."
+
+#. module: one_ui
+msgid "Move quotations forward"
+msgstr "حرّك عروض الأسعار للأمام"
+
+#. module: one_ui
+msgid "%(count)s open quotation(s) need a next step or follow-up."
+msgstr "%(count)s عرض سعر مفتوح يحتاج خطوة تالية أو متابعة."
+
+#. module: one_ui
+msgid "Review pending purchases"
+msgstr "راجع المشتريات المعلقة"
+
+#. module: one_ui
+msgid "%(count)s purchase order(s) are still waiting in the pipeline."
+msgstr "%(count)s أمر شراء ما زال معلقًا في دورة العمل."
+
+#. module: one_ui
+msgid "Prioritize unpaid invoices"
+msgstr "رتّب الفواتير غير المحصلة"
+
+#. module: one_ui
+msgid "%(count)s unpaid invoice(s) should be ranked by value and due date."
+msgstr "رتّب %(count)s فاتورة غير محصلة حسب القيمة وتاريخ الاستحقاق."
+
+#. module: one_ui
+msgid "Maintain commercial momentum"
+msgstr "حافظ على زخم المبيعات"
+
+#. module: one_ui
+msgid "No critical signal is dominating; focus on CRM opportunities and open quotations."
+msgstr "لا توجد إشارة حرجة مسيطرة؛ ركز على فرص CRM وعروض الأسعار المفتوحة."
