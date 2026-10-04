@@ -3,14 +3,14 @@ import re
 import secrets
 
 from odoo import fields
-from odoo.http import request, route
+from odoo.http import Controller, request, route
 from odoo.addons.web.controllers.utils import ensure_db
 
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-class OneMarketing:
+class OneMarketing(Controller):
     """Public ONE ERP trial flow. Trial users are isolated by company and expire automatically."""
 
     def _trial_values(self, is_ar, error=None):
