@@ -1,6 +1,6 @@
 {
     "name": "ONE ERP Experience",
-    "version": "20.0.1.13.0",
+    "version": "20.0.1.14.0",
     "summary": "ONE ERP branded workspace, Saudi setup, subscriptions and professional finance reporting",
     "author": "ONE Business",
     "license": "LGPL-3",
