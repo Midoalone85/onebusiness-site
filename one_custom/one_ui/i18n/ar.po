@@ -1400,3 +1400,173 @@ msgstr "المستودعات"
 #: code:addons/one_ui:0
 msgid "Storage locations and logistics setup"
 msgstr "مواقع التخزين وإعداد اللوجستيات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "ONE Control Center"
+msgstr "مركز تحكم ONE"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Configure the company, finance, operations, compliance and platform from one place."
+msgstr "إدارة الشركة والمالية والتشغيل والامتثال والمنصة من مكان واحد."
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Administrator Workspace"
+msgstr "مساحة عمل المدير"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Companies"
+msgstr "الشركات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Users"
+msgstr "المستخدمون"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Active Taxes"
+msgstr "الضرائب النشطة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company & access"
+msgstr "الشركة والصلاحيات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Companies & Branches"
+msgstr "الشركات والفروع"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Multi-company structure and branches"
+msgstr "هيكل الشركات المتعددة والفروع"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Users, permissions and access control"
+msgstr "المستخدمون والصلاحيات والتحكم في الوصول"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Financial foundations"
+msgstr "الأسس المالية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Payment Terms"
+msgstr "شروط الدفع"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Customer and supplier payment schedules"
+msgstr "جداول سداد العملاء والموردين"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Fiscal Positions"
+msgstr "الأوضاع الضريبية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Tax mapping and fiscal treatment"
+msgstr "خرائط الضرائب والمعالجة الضريبية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Currencies"
+msgstr "العملات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Active currencies and rates"
+msgstr "العملات النشطة وأسعار الصرف"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Products & execution"
+msgstr "المنتجات والتنفيذ"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Units of Measure"
+msgstr "وحدات القياس"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Units used in sales, purchase and inventory"
+msgstr "الوحدات المستخدمة في المبيعات والمشتريات والمخزون"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Compliance & e-invoicing"
+msgstr "الامتثال والفوترة الإلكترونية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "VAT Configuration"
+msgstr "إعداد ضريبة القيمة المضافة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Review Saudi VAT setup"
+msgstr "مراجعة إعداد ضريبة القيمة المضافة السعودية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "System & commercial setup"
+msgstr "إعداد النظام والتجاري"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Languages"
+msgstr "اللغات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Enabled user interface languages"
+msgstr "لغات واجهة المستخدم المفعلة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Control Center"
+msgstr "مركز التحكم"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company, finance, compliance and platform setup"
+msgstr "إعداد الشركة والمالية والامتثال والمنصة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Cost Centers & Analytic Accounts"
+msgstr "مراكز التكلفة والحسابات التحليلية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Cost Centers"
+msgstr "مراكز التكلفة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Analytic accounts and management reporting dimensions"
+msgstr "الحسابات التحليلية وأبعاد التقارير الإدارية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Bank & Cash Journals"
+msgstr "دفاتر البنوك والنقدية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Bank & Cash"
+msgstr "البنوك والنقدية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Bank and cash journals"
+msgstr "دفاتر البنوك والصناديق"

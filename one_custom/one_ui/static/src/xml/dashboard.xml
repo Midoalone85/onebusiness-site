@@ -225,6 +225,9 @@
                         <i class="fa fa-tags"/><span><b>Product Catalog</b><small>Products, services and pricing</small></span>
                     </button>
                     <t t-if="this.state.adminAccess">
+                        <button t-on-click="() => this.open('one_ui.action_one_control_center')">
+                            <i class="fa fa-sliders"/><span><b>Control Center</b><small>Company, finance, compliance and platform setup</small></span>
+                        </button>
                         <button t-on-click="() => this.open('one_ui.action_one_company_profile')">
                             <i class="fa fa-building"/><span><b>Company Profile</b><small>Legal identity and company data</small></span>
                         </button>
@@ -243,4 +246,100 @@
         </div>
     </div>
 </t>
+
+<t t-name="one_ui.OneControlCenter">
+    <div class="one_control_center">
+        <section class="one_cc_hero">
+            <div>
+                <div class="one_cc_eyebrow">ONE BUSINESS · ADMINISTRATION</div>
+                <h1>ONE Control Center</h1>
+                <p>Configure the company, finance, operations, compliance and platform from one place.</p>
+            </div>
+            <div class="one_cc_badge"><i class="fa fa-shield"/> Administrator Workspace</div>
+        </section>
+
+        <section class="one_cc_stats">
+            <div class="one_cc_stat"><span>Companies</span><strong t-out="this.state.companies"/></div>
+            <div class="one_cc_stat"><span>Users</span><strong t-out="this.state.users"/></div>
+            <div class="one_cc_stat"><span>Warehouses</span><strong t-out="this.state.warehouses"/></div>
+            <div class="one_cc_stat"><span>Active Taxes</span><strong t-out="this.state.taxes"/></div>
+            <div class="one_cc_stat"><span>Currencies</span><strong t-out="this.state.currencies"/></div>
+            <div class="one_cc_stat"><span>Languages</span><strong t-out="this.state.languages"/></div>
+        </section>
+
+        <div class="one_cc_grid">
+            <section class="one_cc_section">
+                <div class="one_cc_section_head">
+                    <span class="one_cc_icon"><i class="fa fa-building"/></span>
+                    <div><small>ORGANIZATION</small><h2>Company &amp; access</h2></div>
+                </div>
+                <div class="one_cc_cards">
+                    <button t-on-click="() => this.open('one_ui.action_one_company_profile')"><i class="fa fa-id-card"/><b>Company Profile</b><small>Legal identity, address and core company data</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_companies')"><i class="fa fa-sitemap"/><b>Companies &amp; Branches</b><small>Multi-company structure and branches</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_users')"><i class="fa fa-user-circle"/><b>Users &amp; Access</b><small>Users, permissions and access control</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_warehouses')"><i class="fa fa-home"/><b>Warehouses</b><small>Warehouses and logistics foundations</small></button>
+                </div>
+            </section>
+
+            <section class="one_cc_section">
+                <div class="one_cc_section_head">
+                    <span class="one_cc_icon"><i class="fa fa-calculator"/></span>
+                    <div><small>FINANCE &amp; TAX</small><h2>Financial foundations</h2></div>
+                </div>
+                <div class="one_cc_cards">
+                    <button t-on-click="() => this.open('one_ui.action_one_chart_accounts')"><i class="fa fa-list-alt"/><b>Chart of Accounts</b><small>Accounting structure and classifications</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_journals')"><i class="fa fa-book"/><b>Journals</b><small>Sales, purchase, bank and miscellaneous journals</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_analytic_accounts')"><i class="fa fa-pie-chart"/><b>Cost Centers</b><small>Analytic accounts and management reporting dimensions</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_bank_cash')"><i class="fa fa-bank"/><b>Bank &amp; Cash</b><small>Bank and cash journals</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_taxes')"><i class="fa fa-percent"/><b>Taxes</b><small>VAT and tax configuration</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_payment_terms')"><i class="fa fa-calendar-check-o"/><b>Payment Terms</b><small>Customer and supplier payment schedules</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_fiscal_positions')"><i class="fa fa-random"/><b>Fiscal Positions</b><small>Tax mapping and fiscal treatment</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_currencies')"><i class="fa fa-money"/><b>Currencies</b><small>Active currencies and rates</small></button>
+                </div>
+            </section>
+
+            <section class="one_cc_section">
+                <div class="one_cc_section_head">
+                    <span class="one_cc_icon"><i class="fa fa-cubes"/></span>
+                    <div><small>OPERATIONS</small><h2>Products &amp; execution</h2></div>
+                </div>
+                <div class="one_cc_cards">
+                    <button t-on-click="() => this.open('one_ui.action_one_products')"><i class="fa fa-tags"/><b>Product Catalog</b><small>Products, services and pricing master data</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_uom')"><i class="fa fa-balance-scale"/><b>Units of Measure</b><small>Units used in sales, purchase and inventory</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_mrp')"><i class="fa fa-industry"/><b>Manufacturing</b><small>Production and manufacturing setup</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_pos')"><i class="fa fa-credit-card"/><b>Point of Sale</b><small>Retail points and POS configuration</small></button>
+                </div>
+            </section>
+
+            <section class="one_cc_section one_cc_section_saudi">
+                <div class="one_cc_section_head">
+                    <span class="one_cc_icon"><i class="fa fa-certificate"/></span>
+                    <div><small>SAUDI ARABIA</small><h2>Compliance &amp; e-invoicing</h2></div>
+                </div>
+                <div class="one_cc_cards">
+                    <button t-on-click="() => this.open('one_ui.action_one_saudi_profile')"><i class="fa fa-map-marker"/><b>Saudi Compliance</b><small>National Address, VAT and ZATCA readiness</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_taxes')"><i class="fa fa-percent"/><b>VAT Configuration</b><small>Review Saudi VAT setup</small></button>
+                </div>
+                <div class="one_cc_inline_status">
+                    <span><b t-out="this.state.saudiProfiles"/> profiles</span>
+                    <span><b t-out="this.state.plans"/> active plans</span>
+                </div>
+            </section>
+
+            <section class="one_cc_section">
+                <div class="one_cc_section_head">
+                    <span class="one_cc_icon"><i class="fa fa-sliders"/></span>
+                    <div><small>PLATFORM</small><h2>System &amp; commercial setup</h2></div>
+                </div>
+                <div class="one_cc_cards">
+                    <button t-on-click="() => this.open('one_ui.action_one_languages')"><i class="fa fa-language"/><b>Languages</b><small>Enabled user interface languages</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_subscription_plans')"><i class="fa fa-diamond"/><b>Plans &amp; Features</b><small>Subscription packages and feature matrix</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_subscriptions')"><i class="fa fa-users"/><b>Customer Subscriptions</b><small>Customer plans and commercial terms</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_settings')"><i class="fa fa-cog"/><b>System Settings</b><small>Advanced configuration and integrations</small></button>
+                </div>
+            </section>
+        </div>
+    </div>
+</t>
+
 </templates>

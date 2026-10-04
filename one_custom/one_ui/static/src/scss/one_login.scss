@@ -34,3 +34,59 @@ body.bg-100 {
 .oe_login_form a {
     color: #1f4e78;
 }
+
+
+/* ONE Login 2.0 */
+body.bg-100 {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 14% 18%, rgba(36,106,165,.16), transparent 26%),
+        radial-gradient(circle at 86% 82%, rgba(18,58,92,.12), transparent 28%),
+        linear-gradient(145deg, #edf4fa 0%, #f8fafc 45%, #e8eff6 100%) !important;
+}
+
+.o_database_list {
+    max-width: 440px !important;
+}
+
+.oe_login_form,
+.o_database_list {
+    border: 1px solid rgba(204,219,232,.95) !important;
+    border-radius: 26px !important;
+    padding: 34px !important;
+    background: rgba(255,255,255,.95) !important;
+    box-shadow: 0 26px 70px rgba(7,26,43,.15) !important;
+    backdrop-filter: blur(14px);
+}
+
+.one-login-brand {
+    margin-bottom: 22px !important;
+}
+
+.one-login-brand img {
+    width: 78px !important;
+    height: 78px !important;
+    filter: drop-shadow(0 12px 24px rgba(18,58,92,.18));
+}
+
+.oe_login_form .form-control {
+    min-height: 48px;
+    border: 1px solid #d6e1eb;
+    border-radius: 12px;
+    background: #fbfdff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.oe_login_form .form-control:focus {
+    border-color: #246aa5;
+    box-shadow: 0 0 0 4px rgba(36,106,165,.10);
+}
+
+.oe_login_buttons .btn-primary {
+    min-height: 48px;
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, #123a5c, #246aa5) !important;
+    border-color: transparent !important;
+    font-weight: 800;
+    box-shadow: 0 8px 20px rgba(31,78,120,.2);
+}

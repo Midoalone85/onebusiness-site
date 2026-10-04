@@ -186,3 +186,56 @@ export class OneDashboard extends Component {
 }
 
 registry.category("actions").add("one_ui.dashboard", OneDashboard);
+
+
+export class OneControlCenter extends Component {
+    static template = "one_ui.OneControlCenter";
+
+    setup() {
+        this.action = useService("action");
+        this.orm = useService("orm");
+        this.state = proxy({
+            companies: "…",
+            users: "…",
+            warehouses: "…",
+            taxes: "…",
+            currencies: "…",
+            languages: "…",
+            saudiProfiles: "…",
+            plans: "…",
+        });
+
+        onMounted(() => {
+            void this.loadControlCenter();
+        });
+    }
+
+    async loadControlCenter() {
+        const counters = {
+            companies: ["res.company", []],
+            users: ["res.users", [["active", "=", true], ["share", "=", false]]],
+            warehouses: ["stock.warehouse", []],
+            taxes: ["account.tax", [["active", "=", true]]],
+            currencies: ["res.currency", [["active", "=", true]]],
+            languages: ["res.lang", [["active", "=", true]]],
+            saudiProfiles: ["one.saudi.profile", []],
+            plans: ["one.subscription.plan", [["active", "=", true]]],
+        };
+
+        await Promise.all(
+            Object.entries(counters).map(async ([key, [model, domain]]) => {
+                try {
+                    this.state[key] = await this.orm.searchCount(model, domain);
+                } catch {
+                    this.state[key] = "—";
+                }
+            })
+        );
+    }
+
+    open(xmlId) {
+        return this.action.doAction(xmlId);
+    }
+}
+
+registry.category("actions").add("one_ui.control_center", OneControlCenter);

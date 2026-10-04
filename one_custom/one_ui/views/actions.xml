@@ -5,6 +5,11 @@
         <field name="tag">one_ui.dashboard</field>
     </record>
 
+    <record id="action_one_control_center" model="ir.actions.client">
+        <field name="name">ONE Control Center</field>
+        <field name="tag">one_ui.control_center</field>
+    </record>
+
     <record id="action_one_contacts" model="ir.actions.act_window">
         <field name="name">Contacts</field>
         <field name="res_model">res.partner</field>
@@ -121,6 +126,55 @@
     <record id="action_one_users" model="ir.actions.act_window">
         <field name="name">Users &amp; Access</field>
         <field name="res_model">res.users</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_companies" model="ir.actions.act_window">
+        <field name="name">Companies &amp; Branches</field>
+        <field name="res_model">res.company</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_analytic_accounts" model="ir.actions.act_window">
+        <field name="name">Cost Centers &amp; Analytic Accounts</field>
+        <field name="res_model">account.analytic.account</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_bank_cash" model="ir.actions.act_window">
+        <field name="name">Bank &amp; Cash Journals</field>
+        <field name="res_model">account.journal</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('type', 'in', ('bank', 'cash'))]</field>
+    </record>
+
+    <record id="action_one_payment_terms" model="ir.actions.act_window">
+        <field name="name">Payment Terms</field>
+        <field name="res_model">account.payment.term</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_fiscal_positions" model="ir.actions.act_window">
+        <field name="name">Fiscal Positions</field>
+        <field name="res_model">account.fiscal.position</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_currencies" model="ir.actions.act_window">
+        <field name="name">Currencies</field>
+        <field name="res_model">res.currency</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_uom" model="ir.actions.act_window">
+        <field name="name">Units of Measure</field>
+        <field name="res_model">uom.uom</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_languages" model="ir.actions.act_window">
+        <field name="name">Languages</field>
+        <field name="res_model">res.lang</field>
         <field name="view_mode">list,form</field>
     </record>
 

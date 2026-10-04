@@ -35,10 +35,18 @@
     <menuitem id="menu_one_subscriptions" name="Customer Subscriptions" parent="menu_one_subscriptions_root" action="action_one_subscriptions" sequence="10"/>
     <menuitem id="menu_one_plans" name="Plans &amp; Features" parent="menu_one_subscriptions_root" action="action_one_subscription_plans" sequence="20"/>
 
-    <menuitem id="menu_one_admin_root" name="Administration" parent="menu_one_root" sequence="105" groups="base.group_system"/>
+    <menuitem id="menu_one_admin_root" name="Control Center" parent="menu_one_root" action="action_one_control_center" sequence="105" groups="base.group_system"/>
     <menuitem id="menu_one_company_profile" name="Company Profile" parent="menu_one_admin_root" action="action_one_company_profile" sequence="10"/>
+    <menuitem id="menu_one_companies" name="Companies &amp; Branches" parent="menu_one_admin_root" action="action_one_companies" sequence="15"/>
     <menuitem id="menu_one_users" name="Users &amp; Access" parent="menu_one_admin_root" action="action_one_users" sequence="20"/>
     <menuitem id="menu_one_admin_saudi" name="Saudi Compliance" parent="menu_one_admin_root" action="action_one_saudi_profile" sequence="30"/>
     <menuitem id="menu_one_admin_plans" name="Plans &amp; Features" parent="menu_one_admin_root" action="action_one_subscription_plans" sequence="40"/>
+    <menuitem id="menu_one_analytic_accounts" name="Cost Centers" parent="menu_one_admin_root" action="action_one_analytic_accounts" sequence="43" groups="account.group_account_user"/>
+    <menuitem id="menu_one_bank_cash" name="Bank &amp; Cash" parent="menu_one_admin_root" action="action_one_bank_cash" sequence="44" groups="account.group_account_user"/>
+    <menuitem id="menu_one_payment_terms" name="Payment Terms" parent="menu_one_admin_root" action="action_one_payment_terms" sequence="45" groups="account.group_account_user"/>
+    <menuitem id="menu_one_fiscal_positions" name="Fiscal Positions" parent="menu_one_admin_root" action="action_one_fiscal_positions" sequence="46" groups="account.group_account_user"/>
+    <menuitem id="menu_one_currencies" name="Currencies" parent="menu_one_admin_root" action="action_one_currencies" sequence="47"/>
+    <menuitem id="menu_one_uom" name="Units of Measure" parent="menu_one_admin_root" action="action_one_uom" sequence="48"/>
+    <menuitem id="menu_one_languages" name="Languages" parent="menu_one_admin_root" action="action_one_languages" sequence="49"/>
     <menuitem id="menu_one_settings" name="System Settings" parent="menu_one_admin_root" action="action_one_settings" sequence="50"/>
 </odoo>
