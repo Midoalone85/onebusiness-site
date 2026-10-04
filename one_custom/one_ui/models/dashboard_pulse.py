@@ -1,3 +1,5 @@
+import os
+
 from odoo import _, api, fields, models
 from odoo.tools.misc import format_amount
 
@@ -66,6 +68,9 @@ class ResCompany(models.Model):
         )
         result["posAccess"] = pos_access
         result["adminAccess"] = self.env.user.has_group("base.group_system")
+        result["persistentDatabase"] = bool(
+            os.environ.get("DATABASE_URL") or os.environ.get("ONE_DB_HOST")
+        )
         if pos_access:
             try:
                 result["posConfigs"] = self.env["pos.config"].search_count([])
