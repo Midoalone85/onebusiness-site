@@ -22,6 +22,7 @@
     <menuitem id="menu_one_approvals" name="Approval Center" parent="menu_one_root" action="action_one_approvals" sequence="57"/>
     <menuitem id="menu_one_mrp" name="Manufacturing" parent="menu_one_root" action="action_one_mrp" sequence="60"/>
     <menuitem id="menu_one_crm" name="CRM" parent="menu_one_root" action="action_one_crm" sequence="70"/>
+    <menuitem id="menu_one_pos" name="Point of Sale" parent="menu_one_root" action="action_one_pos" sequence="75" groups="point_of_sale.group_pos_user,point_of_sale.group_pos_manager"/>
     <menuitem id="menu_one_hr" name="Human Resources" parent="menu_one_root" action="action_one_hr" sequence="80"/>
 
     <menuitem id="menu_one_saudi_root" name="Saudi Compliance" parent="menu_one_root" sequence="90" groups="base.group_system"/>
