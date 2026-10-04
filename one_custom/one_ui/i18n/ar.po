@@ -1570,3 +1570,238 @@ msgstr "البنوك والنقدية"
 #: code:addons/one_ui:0
 msgid "Bank and cash journals"
 msgstr "دفاتر البنوك والصناديق"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_cycle
+msgid "Sales Cycle"
+msgstr "دورة المبيعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_quotations
+msgid "Quotations"
+msgstr "عروض الأسعار"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_orders
+msgid "Sales Orders"
+msgstr "أوامر البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_customers_group
+msgid "Customers & Billing"
+msgstr "العملاء والفوترة"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_customers
+msgid "Customers"
+msgstr "العملاء"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_insights
+msgid "Sales Insights"
+msgstr "تحليلات المبيعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_analysis
+msgid "Sales Analysis"
+msgstr "تحليل المبيعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_procurement
+msgid "Procurement"
+msgstr "التوريد والمشتريات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_purchase_rfqs
+msgid "Requests for Quotation"
+msgstr "طلبات عروض الأسعار"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_purchase_orders
+msgid "Purchase Orders"
+msgstr "أوامر الشراء"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_supplier_billing
+msgid "Suppliers & Bills"
+msgstr "الموردون والفواتير"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_vendors
+msgid "Vendors"
+msgstr "الموردون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_purchase_insights
+msgid "Purchase Insights"
+msgstr "تحليلات المشتريات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_purchase_analysis
+msgid "Purchase Analysis"
+msgstr "تحليل المشتريات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_operations
+msgid "Inventory Operations"
+msgstr "عمليات المخزون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_receipts
+msgid "Receipts"
+msgstr "الاستلامات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_deliveries
+msgid "Deliveries"
+msgstr "التسليمات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_internal
+msgid "Internal Transfers"
+msgstr "التحويلات الداخلية"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_products_group
+msgid "Products & Replenishment"
+msgstr "الأصناف وإعادة الطلب"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_stock_on_hand
+msgid "On Hand"
+msgstr "الرصيد المتاح"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_reordering_rules
+msgid "Reordering Rules"
+msgstr "قواعد إعادة الطلب"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_config
+msgid "Inventory Configuration"
+msgstr "إعدادات المخزون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_accounting_transactions
+msgid "Accounting Transactions"
+msgstr "الحركات المحاسبية"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_account_payments
+msgid "Payments"
+msgstr "المدفوعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_accounting_setup
+msgid "Accounting Setup"
+msgstr "إعدادات المحاسبة"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_account_cost_centers
+msgid "Cost Centers"
+msgstr "مراكز التكلفة"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_account_bank_cash
+msgid "Bank & Cash"
+msgstr "البنوك والصندوق"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_account_reports_group
+msgid "Accounting Reports"
+msgstr "تقارير المحاسبة"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_production_group
+msgid "Production"
+msgstr "الإنتاج"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_orders
+msgid "Manufacturing Orders"
+msgstr "أوامر التصنيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_workorders
+msgid "Work Orders"
+msgstr "أوامر العمل"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_master_group
+msgid "Manufacturing Master Data"
+msgstr "بيانات التصنيع الأساسية"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_bom
+msgid "Bills of Materials"
+msgstr "قوائم المواد"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_workcenters
+msgid "Work Centers"
+msgstr "مراكز العمل"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_crm_pipeline_group
+msgid "Pipeline"
+msgstr "مسار المبيعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_crm_opportunities
+msgid "Opportunities"
+msgstr "الفرص"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_crm_leads
+msgid "Leads"
+msgstr "العملاء المحتملون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_crm_relationships
+msgid "Relationships"
+msgstr "العلاقات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_operations
+msgid "POS Operations"
+msgstr "عمليات نقاط البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_terminals
+msgid "POS Terminals"
+msgstr "أجهزة نقاط البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_orders
+msgid "POS Orders"
+msgstr "طلبات نقاط البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_setup
+msgid "POS Setup"
+msgstr "إعدادات نقاط البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_payment_methods
+msgid "Payment Methods"
+msgstr "طرق الدفع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_hr_people_group
+msgid "People"
+msgstr "الأفراد"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_hr_employees
+msgid "Employees"
+msgstr "الموظفون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_hr_departments
+msgid "Departments"
+msgstr "الأقسام"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_hr_jobs
+msgid "Job Positions"
+msgstr "المسميات الوظيفية"
