@@ -1,4 +1,5 @@
-from odoo import fields, models
+from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class OneSubscriptionPlan(models.Model):
@@ -31,6 +32,12 @@ class OneSubscriptionPlan(models.Model):
         "Plan code must be unique.",
     )
 
+    @api.constrains("monthly_price")
+    def _check_monthly_price(self):
+        for plan in self:
+            if plan.monthly_price < 0:
+                raise ValidationError("Monthly price cannot be negative.")
+
 
 class OneSubscription(models.Model):
     _name = "one.subscription"
@@ -50,3 +57,19 @@ class OneSubscription(models.Model):
     ], default="trial", required=True)
     users_limit = fields.Integer(default=1)
     notes = fields.Text()
+
+    @api.constrains("date_start", "date_end")
+    def _check_subscription_dates(self):
+        for subscription in self:
+            if (
+                subscription.date_start
+                and subscription.date_end
+                and subscription.date_end < subscription.date_start
+            ):
+                raise ValidationError("Subscription end date cannot be earlier than its start date.")
+
+    @api.constrains("users_limit")
+    def _check_users_limit(self):
+        for subscription in self:
+            if subscription.users_limit < 1:
+                raise ValidationError("User limit must be at least 1.")
