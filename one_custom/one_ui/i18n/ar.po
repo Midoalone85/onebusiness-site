@@ -1350,3 +1350,53 @@ msgstr "%(ready)s من %(profiles)s ملف جاهز"
 #: code:addons/one_ui:0
 msgid "company health"
 msgstr "صحة الشركة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Product Catalog"
+msgstr "دليل المنتجات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Items, services, prices and master data"
+msgstr "الأصناف والخدمات والأسعار والبيانات الأساسية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Products, services and pricing"
+msgstr "المنتجات والخدمات والتسعير"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Administration"
+msgstr "الإدارة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company Profile"
+msgstr "بيانات الشركة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Legal identity and company data"
+msgstr "الهوية القانونية وبيانات الشركة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Users & Access"
+msgstr "المستخدمون والصلاحيات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Team permissions and security"
+msgstr "صلاحيات الفريق والأمان"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Warehouses"
+msgstr "المستودعات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Storage locations and logistics setup"
+msgstr "مواقع التخزين وإعداد اللوجستيات"
