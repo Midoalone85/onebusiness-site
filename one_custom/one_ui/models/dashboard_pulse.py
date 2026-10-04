@@ -6,6 +6,77 @@ class ResCompany(models.Model):
     _inherit = "res.company"
 
     @api.model
+    def one_get_dashboard_summary(self):
+        """Return dashboard counters in one RPC to avoid browser-side request storms."""
+        today = fields.Date.context_today(self)
+
+        unpaid_invoice_domain = [
+            ("move_type", "=", "out_invoice"),
+            ("state", "=", "posted"),
+            ("payment_state", "in", ("not_paid", "partial")),
+        ]
+
+        counters = {
+            "contacts": ("res.partner", []),
+            "products": ("product.template", []),
+            "warehouses": ("stock.warehouse", []),
+            "sales": ("sale.order", []),
+            "purchases": ("purchase.order", []),
+            "transfers": ("stock.picking", []),
+            "invoices": ("account.move", []),
+            "manufacturing": ("mrp.production", []),
+            "opportunities": ("crm.lead", []),
+            "employees": ("hr.employee", []),
+            "saudiProfiles": ("one.saudi.profile", []),
+            "subscriptions": ("one.subscription", []),
+            "activeSubscriptions": ("one.subscription", [("status", "=", "active")]),
+            "unpaidInvoices": ("account.move", unpaid_invoice_domain),
+            "overdueInvoices": (
+                "account.move",
+                unpaid_invoice_domain + [("invoice_date_due", "<", today)],
+            ),
+            "draftQuotations": ("sale.order", [("state", "in", ("draft", "sent"))]),
+            "pendingPurchases": (
+                "purchase.order",
+                [("state", "in", ("draft", "sent", "to approve"))],
+            ),
+            "pendingReceipts": (
+                "stock.picking",
+                [
+                    ("picking_type_code", "=", "incoming"),
+                    ("state", "not in", ("done", "cancel")),
+                ],
+            ),
+            "pendingApprovals": (
+                "one.approval.request",
+                [("state", "=", "submitted")],
+            ),
+        }
+
+        result = {}
+        for key, (model_name, domain) in counters.items():
+            try:
+                result[key] = self.env[model_name].search_count(domain)
+            except Exception:
+                result[key] = False
+
+        pos_access = (
+            self.env.user.has_group("point_of_sale.group_pos_user")
+            or self.env.user.has_group("point_of_sale.group_pos_manager")
+        )
+        result["posAccess"] = pos_access
+        result["adminAccess"] = self.env.user.has_group("base.group_system")
+        if pos_access:
+            try:
+                result["posConfigs"] = self.env["pos.config"].search_count([])
+            except Exception:
+                result["posConfigs"] = False
+        else:
+            result["posConfigs"] = False
+
+        return result
+
+    @api.model
     def one_get_pulse(self):
         company = self.env.company
         currency = company.currency_id
