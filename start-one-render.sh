@@ -193,27 +193,46 @@ COMMON=(
   "--without-demo=True"
   "--workers=0"
   "--max-cron-threads=1"
+)
+
+HTTP_ARGS=(
   "--http-interface=0.0.0.0"
   "--http-port=${PORT:-10000}"
 )
 
-# Install on a fresh database; start existing databases without migrations.
-# IMPORTANT FOR RENDER:
-# Do not use --stop-after-init here. Odoo opens the HTTP port before the module
-# install/update finishes, which lets Render detect the service immediately
-# instead of timing out while waiting for the database bootstrap to complete.
-HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
-  "SELECT CASE WHEN to_regclass('public.ir_module_module') IS NULL THEN '0' ELSE '1' END;" \
-  | tr -d '[:space:]')
+bootstrap_batch() {
+  local modules="$1"
+  echo "ONE ERP bootstrap: installing batch [$modules]..."
+  odoo "${COMMON[@]}"     -d "$DB_NAME"     -i "$modules"     --stop-after-init     --no-http
+  echo "ONE ERP bootstrap: batch [$modules] complete."
+}
 
-INIT_ARGS=()
+# Install a fresh local staging database in small batches. Running all ONE ERP
+# dependencies in one Odoo process can exceed the memory available on Render's
+# free web service. A tiny temporary HTTP server keeps Render's port detector
+# satisfied while the database is prepared offline in memory-bounded batches.
+HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc   "SELECT CASE WHEN to_regclass('public.ir_module_module') IS NULL THEN '0' ELSE '1' END;"   | tr -d '[:space:]')
+
 if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
   echo "ONE ERP: existing schema detected; normal startup without module updates or asset deletion."
-  # Run module upgrades separately during maintenance, only after a verified
-  # database AND filestore backup. A restart must not perform that upgrade.
 elif [[ "$HAS_ODOO_SCHEMA" == "0" && "$LOCAL_PG" -eq 1 ]]; then
-  echo "ONE ERP: fresh database detected; installing ONE ERP workspace while HTTP is online."
-  INIT_ARGS=(-i one_ui)
+  echo "ONE ERP: fresh staging database detected; starting memory-safe batched bootstrap."
+
+  python3 -m http.server "${PORT:-10000}" --bind 0.0.0.0 >/tmp/one-bootstrap-http.log 2>&1 &
+  BOOTSTRAP_HTTP_PID=$!
+
+  # Keep each install process deliberately small so memory is released between
+  # groups. Odoo resolves each group's transitive dependencies automatically.
+  bootstrap_batch "web"
+  bootstrap_batch "contacts,account"
+  bootstrap_batch "stock,sale_management,purchase_stock"
+  bootstrap_batch "crm,hr,mrp"
+  bootstrap_batch "point_of_sale,l10n_sa_edi"
+  bootstrap_batch "one_ui"
+
+  kill "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
+  wait "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
+  echo "ONE ERP: batched bootstrap complete."
 elif [[ "$HAS_ODOO_SCHEMA" == "0" ]]; then
   echo "ONE ERP: external database has no application schema; initialize it explicitly after verifying the target and backups." >&2
   exit 1
@@ -223,10 +242,12 @@ else
   exit 1
 fi
 
+RUN_ARGS=("${COMMON[@]}" "${HTTP_ARGS[@]}")
+
 if [[ "$LOCAL_PG" -eq 1 ]]; then
   # Keep the shell as PID 1 so it can stop the local PostgreSQL child cleanly
   # when Render replaces or terminates this staging instance.
-  odoo "${COMMON[@]}" -d "$DB_NAME" "${INIT_ARGS[@]}" &
+  odoo "${RUN_ARGS[@]}" -d "$DB_NAME" &
   ODOO_PID=$!
   provision_admin &
 
@@ -240,4 +261,4 @@ if [[ "$LOCAL_PG" -eq 1 ]]; then
 fi
 
 provision_admin &
-exec odoo "${COMMON[@]}" -d "$DB_NAME" "${INIT_ARGS[@]}"
+exec odoo "${RUN_ARGS[@]}" -d "$DB_NAME"
