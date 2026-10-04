@@ -151,10 +151,10 @@
                         </div>
                         <div class="one-plan-grid">
                             <article t-foreach="plans" t-as="plan" t-att-class="'one-plan one-plan--featured' if plan['featured'] else 'one-plan'">
-                                <div class="one-plan-top"><span t-esc="plan['tag']"/><h3 t-esc="plan['name']"/></div>
-                                <div class="one-price" t-if="not plan['custom']"><strong t-esc="'%g' % plan['price']"/><small><t t-if="is_ar">ر.س / شهر</t><t t-else="">SAR / month</t></small></div>
+                                <div class="one-plan-top"><span t-out="plan['tag']"/><h3 t-out="plan['name']"/></div>
+                                <div class="one-price" t-if="not plan['custom']"><strong t-out="'%g' % plan['price']"/><small><t t-if="is_ar">ر.س / شهر</t><t t-else="">SAR / month</t></small></div>
                                 <div class="one-price one-price--custom" t-if="plan['custom']"><strong><t t-if="is_ar">حسب الاحتياج</t><t t-else="">Custom</t></strong><small><t t-if="is_ar">للشركات الكبيرة</t><t t-else="">for larger teams</t></small></div>
-                                <ul><li t-foreach="plan['features']" t-as="feature"><span>✓</span><t t-esc="feature"/></li></ul>
+                                <ul><li t-foreach="plan['features']" t-as="feature"><span>✓</span><t t-out="feature"/></li></ul>
                                 <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--plan"><t t-if="is_ar">جرّبها يومًا كاملًا</t><t t-else="">Try it for a full day</t></a>
                             </article>
                         </div>
@@ -197,7 +197,7 @@
                     <section class="one-trial-card">
                         <h2><t t-if="is_ar">ابدأ التجربة</t><t t-else="">Start your trial</t></h2>
                         <p><t t-if="is_ar">هنعرض لك بيانات الدخول فورًا بعد إنشاء المساحة.</t><t t-else="">Your temporary credentials appear immediately after the workspace is created.</t></p>
-                        <div class="one-form-error" t-if="error" t-esc="error"/>
+                        <div class="one-form-error" t-if="error" t-out="error"/>
                         <form action="/one/trial/start" method="post">
                             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                             <input type="hidden" name="lang" t-att-value="'ar' if is_ar else 'en'"/>
@@ -228,9 +228,9 @@
                     <span class="one-eyebrow">WORKSPACE READY</span>
                     <h1><t t-if="is_ar">مساحة ONE ERP بتاعتك جاهزة.</t><t t-else="">Your ONE ERP workspace is ready.</t></h1>
                     <p><t t-if="is_ar">احفظ بيانات الدخول الآن. كلمة المرور المؤقتة تظهر في هذه الصفحة مرة واحدة.</t><t t-else="">Save these credentials now. The temporary password is shown on this page once.</t></p>
-                    <div class="one-credential"><small><t t-if="is_ar">المستخدم</t><t t-else="">Login</t></small><strong t-esc="login"/></div>
-                    <div class="one-credential"><small><t t-if="is_ar">كلمة المرور المؤقتة</t><t t-else="">Temporary password</t></small><strong t-esc="password"/></div>
-                    <div class="one-expiry"><t t-if="is_ar">ينتهي الوصول بعد 24 ساعة · </t><t t-else="">Access expires after 24 hours · </t><span t-esc="expires_at"/></div>
+                    <div class="one-credential"><small><t t-if="is_ar">المستخدم</t><t t-else="">Login</t></small><strong t-out="login"/></div>
+                    <div class="one-credential"><small><t t-if="is_ar">كلمة المرور المؤقتة</t><t t-else="">Temporary password</t></small><strong t-out="password"/></div>
+                    <div class="one-expiry"><t t-if="is_ar">ينتهي الوصول بعد 24 ساعة · </t><t t-else="">Access expires after 24 hours · </t><span t-out="expires_at"/></div>
                     <a href="/web/login?redirect=/" class="one-btn one-btn--xl one-btn--primary"><t t-if="is_ar">ادخل ONE ERP الآن</t><t t-else="">Open ONE ERP now</t></a>
                 </main>
             </body>
