@@ -91,7 +91,7 @@ COMMON=(
   "--http-port=${PORT:-10000}"
 )
 
-# Install on a fresh database, update on an existing ONE ERP database.
+# Install on a fresh database; start existing databases without migrations.
 # IMPORTANT FOR RENDER:
 # Do not use --stop-after-init here. Odoo opens the HTTP port before the module
 # install/update finishes, which lets Render detect the service immediately
@@ -102,16 +102,19 @@ HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
 
 INIT_ARGS=()
 if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
-  echo "ONE ERP: existing Odoo schema detected; updating ONE ERP workspace while HTTP is online."
-  INIT_ARGS=(-u one_ui)
-
-  # Generated web bundles can become stale between module updates.
-  # Clear only generated web assets; business data is untouched.
-  "$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c \
-    "DELETE FROM ir_attachment WHERE url LIKE '/web/assets/%';"
-else
+  echo "ONE ERP: existing schema detected; normal startup without module updates or asset deletion."
+  # Run module upgrades separately during maintenance, only after a verified
+  # database AND filestore backup. A restart must not perform that upgrade.
+elif [[ "$HAS_ODOO_SCHEMA" == "0" && "$LOCAL_PG" -eq 1 ]]; then
   echo "ONE ERP: fresh database detected; installing ONE ERP workspace while HTTP is online."
   INIT_ARGS=(-i one_ui)
+elif [[ "$HAS_ODOO_SCHEMA" == "0" ]]; then
+  echo "ONE ERP: external database has no application schema; initialize it explicitly after verifying the target and backups." >&2
+  exit 1
+else
+  echo "ONE ERP: database schema check returned an unexpected result; refusing initialization." >&2
+  stop_local_pg
+  exit 1
 fi
 
 if [[ "$LOCAL_PG" -eq 1 ]]; then
