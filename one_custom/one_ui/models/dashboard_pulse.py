@@ -102,9 +102,12 @@ class ResCompany(models.Model):
             ("payment_state", "in", ("not_paid", "partial")),
             ("invoice_date_due", "<", today),
         ]
-        overdue_moves = Move.search(overdue_domain)
-        overdue_count = len(overdue_moves)
-        overdue_amount = sum(abs(move.amount_residual_signed) for move in overdue_moves)
+        overdue_count = Move.search_count(overdue_domain)
+        overdue_group = Move._read_group(
+            overdue_domain,
+            aggregates=["amount_residual_signed:sum"],
+        )
+        overdue_amount = abs((overdue_group[0][0] if overdue_group else 0.0) or 0.0)
 
         pending_receipts = self.env["stock.picking"].search_count([
             ("company_id", "=", company.id),
@@ -112,6 +115,7 @@ class ResCompany(models.Model):
             ("state", "not in", ("done", "cancel")),
         ])
         pending_approvals = self.env["one.approval.request"].search_count([
+            ("company_id", "=", company.id),
             ("state", "=", "submitted"),
         ])
 
@@ -135,7 +139,10 @@ class ResCompany(models.Model):
                 "key": "overdue",
                 "severity": "danger",
                 "title": _("Overdue receivables"),
-                "detail": _("%(count)s invoice(s) · %(amount)s", count=overdue_count, amount=format_amount(self.env, overdue_amount, currency)),
+                "detail": _("%(count)s invoice(s) · %(amount)s") % {
+                    "count": overdue_count,
+                    "amount": format_amount(self.env, overdue_amount, currency),
+                },
                 "action": "one_ui.action_one_accounting",
             })
 
@@ -145,7 +152,7 @@ class ResCompany(models.Model):
                 "key": "margin",
                 "severity": "danger",
                 "title": _("Negative-margin sales"),
-                "detail": _("%(count)s confirmed order(s)", count=negative_margin_orders),
+                "detail": _("%(count)s confirmed order(s)") % {"count": negative_margin_orders},
                 "action": "one_ui.action_one_sales",
             })
 
@@ -155,7 +162,7 @@ class ResCompany(models.Model):
                 "key": "approvals",
                 "severity": "warning",
                 "title": _("Approvals waiting"),
-                "detail": _("%(count)s request(s) need a decision", count=pending_approvals),
+                "detail": _("%(count)s request(s) need a decision") % {"count": pending_approvals},
                 "action": "one_ui.action_one_approvals",
             })
 
@@ -165,7 +172,7 @@ class ResCompany(models.Model):
                 "key": "receipts",
                 "severity": "info",
                 "title": _("Incoming stock pending"),
-                "detail": _("%(count)s receipt(s) still open", count=pending_receipts),
+                "detail": _("%(count)s receipt(s) still open") % {"count": pending_receipts},
                 "action": "one_ui.action_one_inventory",
             })
 
@@ -184,7 +191,10 @@ class ResCompany(models.Model):
                 "key": "compliance_incomplete",
                 "severity": "warning",
                 "title": _("Saudi compliance incomplete"),
-                "detail": _("%(ready)s of %(profiles)s profile(s) are ready", ready=compliance["ready"], profiles=compliance["profiles"]),
+                "detail": _("%(ready)s of %(profiles)s profile(s) are ready") % {
+                    "ready": compliance["ready"],
+                    "profiles": compliance["profiles"],
+                },
                 "action": "one_ui.action_one_saudi_profile",
             })
 
