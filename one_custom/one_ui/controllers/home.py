@@ -6,6 +6,12 @@ from odoo.addons.web.controllers.utils import ensure_db, is_user_internal
 class OneHome(Home):
     """Keep ONE ERP on the clean root URL instead of redirecting users to /odoo."""
 
+    def _login_redirect(self, uid, redirect=None):
+        """Keep successful internal logins on the clean ONE ERP root URL."""
+        if redirect and redirect.startswith("/") and not redirect.startswith("//"):
+            return redirect
+        return "/"
+
     @route("/", type="http", auth="none")
     def index(self, s_action=None, db=None, **kw):
         ensure_db()
