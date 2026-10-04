@@ -47,6 +47,7 @@ export class OneDashboard extends Component {
             businessHealthScore: "…",
             businessHealthStatus: "…",
             radarAlerts: [],
+            decisionItems: [],
         });
 
         onMounted(() => {
@@ -117,6 +118,13 @@ export class OneDashboard extends Component {
                 this.state.businessHealthScore = "—";
                 this.state.businessHealthStatus = "Unavailable";
                 this.state.radarAlerts = [];
+            }
+
+            try {
+                const brief = await this.orm.call("res.company", "one_get_decision_brief", []);
+                this.state.decisionItems = brief.items || [];
+            } catch {
+                this.state.decisionItems = [];
             }
     }
 
