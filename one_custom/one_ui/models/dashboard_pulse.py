@@ -289,10 +289,10 @@ class ResCompany(models.Model):
 
 
     @api.model
-    def one_get_decision_brief(self):
+    def one_get_decision_brief(self, radar=None):
         """Turn current company signals into three concrete management priorities."""
         company = self.env.company
-        radar = self.one_get_business_radar()
+        radar = radar or self.one_get_business_radar()
 
         guidance = {
             "overdue": {
@@ -401,4 +401,17 @@ class ResCompany(models.Model):
             "score": radar["score"],
             "status": radar["status"],
             "items": items[:3],
+        }
+
+
+    @api.model
+    def one_get_dashboard_payload(self):
+        """Return the ONE home-screen payload in one RPC for a faster first paint."""
+        radar = self.one_get_business_radar()
+        return {
+            "summary": self.one_get_dashboard_summary(),
+            "pulse": self.one_get_pulse(),
+            "zatca": self.env["one.saudi.profile"].one_get_readiness_summary(),
+            "radar": radar,
+            "decision": self.one_get_decision_brief(radar=radar),
         }
