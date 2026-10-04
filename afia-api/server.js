@@ -96,7 +96,7 @@ function makeId(){
 }
 function cleanPhone(s=""){return String(s).replace(/\D/g,"").slice(-15)}
 function publicOrder(o){
-  return {id:o.id,createdAt:o.createdAt,status:o.status,statusHistory:o.statusHistory||[],name:o.name,phone:o.phone,locationUrl:o.locationUrl||"",mode:o.mode,total:o.total,items:o.items||[]};
+  return {id:o.id,createdAt:o.createdAt,updatedAt:o.updatedAt||o.createdAt,status:o.status,statusHistory:o.statusHistory||[],name:o.name,phone:o.phone,locationUrl:o.locationUrl||"",mode:o.mode,total:o.total,items:o.items||[]};
 }
 async function sendWhatsApp(order){
   if(!WA_TOKEN||!WA_PHONE_ID||!WA_TO) return {sent:false,reason:"not_configured"};
