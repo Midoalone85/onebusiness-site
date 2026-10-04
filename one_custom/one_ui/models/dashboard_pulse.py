@@ -286,3 +286,119 @@ class ResCompany(models.Model):
             "pending_approvals": pending_approvals,
             "pending_receipts": pending_receipts,
         }
+
+
+    @api.model
+    def one_get_decision_brief(self):
+        """Turn current company signals into three concrete management priorities."""
+        company = self.env.company
+        radar = self.one_get_business_radar()
+
+        guidance = {
+            "overdue": {
+                "title": _("Accelerate collections"),
+                "detail": _("Start with the highest overdue balances and assign a follow-up date."),
+                "action": "one_ui.action_one_accounting",
+                "severity": "danger",
+            },
+            "margin": {
+                "title": _("Protect gross margin"),
+                "detail": _("Review negative-margin sales before approving more pricing or orders."),
+                "action": "one_ui.action_one_sales",
+                "severity": "danger",
+            },
+            "approvals": {
+                "title": _("Clear decision bottlenecks"),
+                "detail": _("Resolve pending approvals that can block purchasing or operations."),
+                "action": "one_ui.action_one_approvals",
+                "severity": "warning",
+            },
+            "receipts": {
+                "title": _("Unblock incoming stock"),
+                "detail": _("Review open receipts and identify anything delaying supply or delivery."),
+                "action": "one_ui.action_one_inventory",
+                "severity": "info",
+            },
+            "compliance_missing": {
+                "title": _("Complete Saudi compliance setup"),
+                "detail": _("Finish the ZATCA and National Address profile before relying on e-invoicing."),
+                "action": "one_ui.action_one_saudi_profile",
+                "severity": "warning",
+            },
+            "compliance_incomplete": {
+                "title": _("Close compliance gaps"),
+                "detail": _("Complete the remaining Saudi readiness items in the compliance center."),
+                "action": "one_ui.action_one_saudi_profile",
+                "severity": "warning",
+            },
+        }
+
+        items = []
+        used = set()
+        for alert in radar.get("alerts", []):
+            key = alert.get("key")
+            item = guidance.get(key)
+            if item and key not in used:
+                items.append({"key": key, **item})
+                used.add(key)
+            if len(items) >= 3:
+                break
+
+        if len(items) < 3:
+            quotations = self.env["sale.order"].search_count([
+                ("company_id", "=", company.id),
+                ("state", "in", ("draft", "sent")),
+            ])
+            if quotations:
+                items.append({
+                    "key": "quotations",
+                    "title": _("Move quotations forward"),
+                    "detail": _("%(count)s open quotation(s) need a next step or follow-up.") % {"count": quotations},
+                    "action": "one_ui.action_one_sales",
+                    "severity": "info",
+                })
+
+        if len(items) < 3:
+            purchases = self.env["purchase.order"].search_count([
+                ("company_id", "=", company.id),
+                ("state", "in", ("draft", "sent", "to approve")),
+            ])
+            if purchases:
+                items.append({
+                    "key": "purchases",
+                    "title": _("Review pending purchases"),
+                    "detail": _("%(count)s purchase order(s) are still waiting in the pipeline.") % {"count": purchases},
+                    "action": "one_ui.action_one_purchase",
+                    "severity": "info",
+                })
+
+        if len(items) < 3:
+            unpaid = self.env["account.move"].search_count([
+                ("company_id", "=", company.id),
+                ("move_type", "=", "out_invoice"),
+                ("state", "=", "posted"),
+                ("payment_state", "in", ("not_paid", "partial")),
+            ])
+            if unpaid:
+                items.append({
+                    "key": "unpaid",
+                    "title": _("Prioritize unpaid invoices"),
+                    "detail": _("%(count)s unpaid invoice(s) should be ranked by value and due date.") % {"count": unpaid},
+                    "action": "one_ui.action_one_accounting",
+                    "severity": "info",
+                })
+
+        if len(items) < 3:
+            items.append({
+                "key": "momentum",
+                "title": _("Maintain commercial momentum"),
+                "detail": _("No critical signal is dominating; focus on CRM opportunities and open quotations."),
+                "action": "one_ui.action_one_crm",
+                "severity": "success",
+            })
+
+        return {
+            "score": radar["score"],
+            "status": radar["status"],
+            "items": items[:3],
+        }
