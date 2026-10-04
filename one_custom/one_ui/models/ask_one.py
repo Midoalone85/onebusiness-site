@@ -46,10 +46,92 @@ class OneAskWizard(models.TransientModel):
         )
         return [(partner, amount or 0.0) for partner, amount in rows]
 
+    def _unpaid_customer_invoices(self):
+        moves = self.env["account.move"].search([
+            ("company_id", "=", self.env.company.id),
+            ("move_type", "=", "out_invoice"),
+            ("state", "=", "posted"),
+            ("payment_state", "in", ("not_paid", "partial")),
+        ])
+        return len(moves), sum(abs(move.amount_residual_signed) for move in moves)
+
+    def _cash_bank_balance(self):
+        rows = self.env["account.move.line"]._read_group(
+            [
+                ("company_id", "=", self.env.company.id),
+                ("move_id.state", "=", "posted"),
+                ("account_id.account_type", "=", "asset_cash"),
+            ],
+            aggregates=["balance:sum"],
+        )
+        return (rows[0][0] if rows else 0.0) or 0.0
+
+    def _pending_stock(self, picking_type_code):
+        return self.env["stock.picking"].search_count([
+            ("company_id", "=", self.env.company.id),
+            ("picking_type_code", "=", picking_type_code),
+            ("state", "not in", ("done", "cancel")),
+        ])
+
     def _answer_question(self, question):
         q = (question or "").strip().lower()
         is_ar = self._is_arabic(q)
         pulse = self.env.company.one_get_pulse()
+
+        if self._contains_any(q, ("فاتور", "غير محصل", "غير مدفوع", "unpaid invoice", "unpaid customer invoice")):
+            count, amount = self._unpaid_customer_invoices()
+            return (
+                f"الفواتير غير المحصلة: {count} فاتورة، بإجمالي متبقٍ {self._money(amount)}."
+                if is_ar
+                else f"Unpaid customer invoices: {count}; outstanding balance: {self._money(amount)}."
+            )
+
+        if self._contains_any(q, ("سيول", "نقد", "بنك", "بنوك", "cash", "bank balance", "liquidity")):
+            amount = self._cash_bank_balance()
+            return (
+                f"رصيد حسابات النقد والبنوك المسجل محاسبيًا: {self._money(amount)}."
+                if is_ar
+                else f"Posted cash and bank ledger balance: {self._money(amount)}."
+            )
+
+        if self._contains_any(q, ("استلام", "وارد", "receipt", "incoming shipment")):
+            pending = self._pending_stock("incoming")
+            return (
+                f"الاستلامات المعلقة حاليًا: {pending}."
+                if is_ar
+                else f"Pending receipts: {pending}."
+            )
+
+        if self._contains_any(q, ("تسليم", "شحنات خارجة", "delivery", "outgoing shipment")):
+            pending = self._pending_stock("outgoing")
+            return (
+                f"التسليمات المعلقة حاليًا: {pending}."
+                if is_ar
+                else f"Pending deliveries: {pending}."
+            )
+
+        if self._contains_any(q, ("موظف", "موظفين", "employee", "employees", "headcount")):
+            count = self.env["hr.employee"].search_count([
+                ("company_id", "=", self.env.company.id),
+            ])
+            return (
+                f"عدد الموظفين المسجلين في الشركة الحالية: {count}."
+                if is_ar
+                else f"Employees in the current company: {count}."
+            )
+
+        if self._contains_any(q, ("فرص", "فرصة", "crm", "opportunit", "pipeline")):
+            count = self.env["crm.lead"].search_count([
+                ("company_id", "=", self.env.company.id),
+                ("type", "=", "opportunity"),
+                ("active", "=", True),
+                ("probability", "<", 100),
+            ])
+            return (
+                f"الفرص المفتوحة في مسار المبيعات: {count}."
+                if is_ar
+                else f"Open CRM opportunities: {count}."
+            )
 
         if self._contains_any(q, ("ربح", "خسار", "profit", "loss")):
             return (
@@ -131,12 +213,14 @@ class OneAskWizard(models.TransientModel):
             )
 
         return (
-            "أقدر حاليًا أجاوب عن: إيرادات وربح الشهر، ذمم العملاء والمتأخرين، الموردين، "
-            "الموافقات، المشتريات، عروض الأسعار، وحالة ZATCA. مثال: «مين أكبر العملاء المتأخرين؟»"
+            "أقدر حاليًا أجاوب عن: إيرادات وربح الشهر، الفواتير غير المحصلة، السيولة، ذمم العملاء والمتأخرين، "
+            "الموردين، الاستلامات والتسليمات، الموظفين، فرص CRM، الموافقات، المشتريات، عروض الأسعار، "
+            "وحالة ZATCA. مثال: «كام الفواتير غير المحصلة؟»"
             if is_ar
             else
-            "I can currently answer about monthly revenue/profit, receivables and overdue customers, "
-            "payables, approvals, purchases, quotations, and ZATCA status. Example: “Who are the top overdue customers?”"
+            "I can currently answer about monthly revenue/profit, unpaid invoices, cash/bank balance, receivables, "
+            "overdue customers, payables, receipts, deliveries, employees, CRM opportunities, approvals, "
+            "purchases, quotations, and ZATCA status. Example: “How much is still unpaid?”"
         )
 
     def action_ask(self):
