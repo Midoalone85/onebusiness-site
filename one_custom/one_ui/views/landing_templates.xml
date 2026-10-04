@@ -19,7 +19,7 @@
                     </a>
                     <nav class="one-navlinks">
                         <a href="#platform"><t t-if="is_ar">المنصة</t><t t-else="">Platform</t></a>
-                        <a href="#engineering"><t t-if="is_ar">الذكاء المنضبط</t><t t-else="">Engineered AI</t></a>
+                        <a href="#engineering"><t t-if="is_ar">الذكاء المنضبط</t><t t-else="">Engineered AI</t></a><a href="#commercial"><t t-if="is_ar">العرض التجاري</t><t t-else="">Commercial case</t></a>
                         <a href="#pricing"><t t-if="is_ar">الخطط</t><t t-else="">Plans</t></a>
                     </nav>
                     <div class="one-navactions">
@@ -51,6 +51,9 @@
                                 </a>
                                 <a href="#engineering" class="one-btn one-btn--xl one-btn--ghost">
                                     <t t-if="is_ar">شاهد لماذا المطور سيحترمه</t><t t-else="">See the engineering case</t>
+                                </a>
+                                <a t-att-href="'/one/demo?lang=ar' if is_ar else '/one/demo?lang=en'" class="one-btn one-btn--xl one-btn--ghost">
+                                    <t t-if="is_ar">اطلب عرضًا تجاريًا</t><t t-else="">Request a commercial demo</t>
                                 </a>
                             </div>
                             <div class="one-trustline">
@@ -140,6 +143,39 @@
                             <article><span>✦</span><h3>Ask ONE Lite</h3><p><t t-if="is_ar">اسأل عن الإيراد، الربح، السيولة، المتأخرات، العملاء، الموردين، المخزون، CRM وZATCA من بيانات النظام مباشرة.</t><t t-else="">Ask about revenue, profit, liquidity, overdue balances, customers, vendors, inventory, CRM and ZATCA directly from ERP data.</t></p></article>
                             <article><span>◉</span><h3>Business Radar</h3><p><t t-if="is_ar">يحوّل الإشارات التشغيلية إلى ترتيب أولويات بدل ما تغرق في عشرات الشاشات.</t><t t-else="">Turns operational signals into priorities instead of forcing managers through dozens of screens.</t></p></article>
                             <article><span>⇄</span><h3><t t-if="is_ar">جاهز للتوسعة</t><t t-else="">Model-optional architecture</t></h3><p><t t-if="is_ar">يمكن إضافة نموذج محلي أو خارجي لاحقًا بدون جعل تشغيل ERP الأساسي معتمدًا عليه.</t><t t-else="">A local or external model can be connected later without making the ERP core dependent on it.</t></p></article>
+                        </div>
+                    </section>
+
+
+                    <section id="commercial" class="one-section one-commercial">
+                        <div class="one-section-head">
+                            <span class="one-eyebrow">COMMERCIAL DECISION ROOM</span>
+                            <h2><t t-if="is_ar">ما نطلبش منك تقتنع. نطلب منك تختبر.</t><t t-else="">We do not ask you to believe the pitch. We ask you to test it.</t></h2>
+                            <p><t t-if="is_ar">خلال تجربة 24 ساعة، جرّب رحلة عمل حقيقية من أول العميل حتى القيد والتقرير، ثم قيّم السرعة والوضوح وقابلية التدقيق بنفسك.</t><t t-else="">During the 24-hour trial, run a real business flow from customer to ledger and reporting, then judge speed, clarity and auditability yourself.</t></p>
+                        </div>
+                        <div class="one-decision-grid">
+                            <article><span>01</span><h3><t t-if="is_ar">للإدارة</t><t t-else="">For leadership</t></h3><p><t t-if="is_ar">هل تقدر تعرف ما يحتاج قرارًا اليوم بدون فتح عشر شاشات؟</t><t t-else="">Can you see what needs a decision today without opening ten screens?</t></p><b>ONE Pulse · Business Radar · Approvals</b></article>
+                            <article><span>02</span><h3><t t-if="is_ar">للمالية</t><t t-else="">For finance</t></h3><p><t t-if="is_ar">هل الفاتورة والقيد والضريبة والتقرير جزء من نفس الحقيقة؟</t><t t-else="">Do invoice, journal, tax and reporting share the same source of truth?</t></p><b>Ledger · VAT · Cost Centers · Reports</b></article>
+                            <article><span>03</span><h3><t t-if="is_ar">للعمليات</t><t t-else="">For operations</t></h3><p><t t-if="is_ar">هل الطلب والمخزون والشراء والتصنيع يتحركوا في مسار مترابط؟</t><t t-else="">Do sales, stock, purchasing and manufacturing move as one connected flow?</t></p><b>Sales · Stock · Purchase · MRP</b></article>
+                            <article><span>04</span><h3><t t-if="is_ar">للمهندس</t><t t-else="">For engineering</t></h3><p><t t-if="is_ar">هل الذكاء اختياري، محكوم بالصلاحيات، ويمكن قياسه وفصله؟</t><t t-else="">Is intelligence optional, permission-scoped, measurable and separable?</t></p><b>Deterministic Core · Audit · Optional AI</b></article>
+                        </div>
+                        <div class="one-eval-board">
+                            <div class="one-eval-copy">
+                                <span class="one-eyebrow">24-HOUR EVALUATION SCRIPT</span>
+                                <h3><t t-if="is_ar">خمس تجارب تقفل النقاش.</t><t t-else="">Five tests that settle the debate.</t></h3>
+                                <p><t t-if="is_ar">نفّذهم بنفسك في النسخة التجريبية، وسجّل الوقت وعدد الخطوات والوضوح.</t><t t-else="">Run them yourself in the trial and record time, steps and clarity.</t></p>
+                            </div>
+                            <ol>
+                                <li><b>01</b><span><t t-if="is_ar">أنشئ عرض سعر وحوّله لأمر بيع.</t><t t-else="">Create a quotation and convert it to a sales order.</t></span></li>
+                                <li><b>02</b><span><t t-if="is_ar">استلم صنفًا ثم راقب أثره على المخزون.</t><t t-else="">Receive stock and inspect the inventory impact.</t></span></li>
+                                <li><b>03</b><span><t t-if="is_ar">أنشئ فاتورة وراجع القيد والضريبة.</t><t t-else="">Create an invoice and inspect ledger and tax impact.</t></span></li>
+                                <li><b>04</b><span><t t-if="is_ar">راجع ZATCA والعنوان الوطني من مركز الامتثال.</t><t t-else="">Review ZATCA and national address readiness.</t></span></li>
+                                <li><b>05</b><span><t t-if="is_ar">اسأل Ask ONE عن أهم إشارة تحتاج قرارًا.</t><t t-else="">Ask ONE for the most important signal needing a decision.</t></span></li>
+                            </ol>
+                        </div>
+                        <div class="one-commercial-cta">
+                            <div><small>COMMERCIAL DEMO</small><h3><t t-if="is_ar">عايز عرض مخصص لنشاطك؟</t><t t-else="">Want a demo mapped to your business?</t></h3><p><t t-if="is_ar">اطلب عرضًا تجاريًا، والطلب يدخل مباشرة إلى CRM لمتابعته.</t><t t-else="">Request a commercial demo and the request goes directly into CRM for follow-up.</t></p></div>
+                            <a t-att-href="'/one/demo?lang=ar' if is_ar else '/one/demo?lang=en'" class="one-btn one-btn--xl one-btn--primary"><t t-if="is_ar">اطلب العرض التجاري</t><t t-else="">Request commercial demo</t></a>
                         </div>
                     </section>
 
@@ -236,4 +272,69 @@
             </body>
         </html>
     </template>
+
+    <template id="one_demo_page" name="ONE ERP Commercial Demo">
+        <html t-att-lang="'ar' if is_ar else 'en'" t-att-dir="'rtl' if is_ar else 'ltr'">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>ONE ERP | Commercial Demo</title>
+                <link rel="icon" type="image/svg+xml" href="/one_ui/static/src/img/one_erp.svg"/>
+                <link rel="stylesheet" href="/one_ui/static/src/css/one_marketing.css"/>
+            </head>
+            <body class="one-mkt one-trial-body">
+                <a href="/" class="one-trial-back">← <t t-if="is_ar">العودة للبوابة</t><t t-else="">Back to product gateway</t></a>
+                <main class="one-trial-shell">
+                    <section class="one-trial-intro">
+                        <div class="one-brand one-brand--large"><img src="/one_ui/static/src/img/one_erp.svg" alt="ONE ERP"/><span><strong>ONE ERP</strong><small>COMMERCIAL DEMO</small></span></div>
+                        <span class="one-eyebrow">BUSINESS + ENGINEERING REVIEW</span>
+                        <h1><t t-if="is_ar">عرض تجاري يفهم نشاطك، مش عرض شرائح محفوظ.</t><t t-else="">A commercial demo mapped to your business, not a canned slide deck.</t></h1>
+                        <p><t t-if="is_ar">حدد دورك وحجم الفريق وما تريد اختباره. نحول الطلب إلى فرصة داخل CRM ونبني العرض حول رحلة عمل حقيقية.</t><t t-else="">Tell us your role, team size and what you want to test. The request becomes a CRM opportunity and the demo is built around a real workflow.</t></p>
+                        <ul>
+                            <li>✓ <t t-if="is_ar">سيناريو مالي وتشغيلي</t><t t-else="">Finance + operations scenario</t></li>
+                            <li>✓ <t t-if="is_ar">مراجعة ZATCA والامتثال</t><t t-else="">Saudi compliance review</t></li>
+                            <li>✓ <t t-if="is_ar">مناقشة تقنية للـAI والمعمارية</t><t t-else="">Technical AI and architecture review</t></li>
+                        </ul>
+                    </section>
+                    <section class="one-trial-card">
+                        <h2><t t-if="is_ar">اطلب العرض</t><t t-else="">Request the demo</t></h2>
+                        <p><t t-if="is_ar">بيانات قليلة تكفينا نجهز عرضًا له معنى.</t><t t-else="">A few details are enough to prepare a meaningful session.</t></p>
+                        <div class="one-form-error" t-if="error" t-out="error"/>
+                        <form action="/one/demo/request" method="post">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="lang" t-att-value="'ar' if is_ar else 'en'"/>
+                            <input class="one-honeypot" name="website" type="text" tabindex="-1" autocomplete="off"/>
+                            <label><span><t t-if="is_ar">الاسم</t><t t-else="">Name</t></span><input name="name" type="text" required="required" maxlength="120"/></label>
+                            <label><span><t t-if="is_ar">البريد المهني</t><t t-else="">Work email</t></span><input name="email" type="email" required="required" maxlength="160"/></label>
+                            <label><span><t t-if="is_ar">الشركة</t><t t-else="">Company</t></span><input name="company" type="text" required="required" maxlength="160"/></label>
+                            <label><span><t t-if="is_ar">الجوال</t><t t-else="">Phone</t></span><input name="phone" type="tel" maxlength="40"/></label>
+                            <label><span><t t-if="is_ar">دورك</t><t t-else="">Your role</t></span><input name="role" type="text" maxlength="100" placeholder="CFO / Operations / Engineering"/></label>
+                            <label><span><t t-if="is_ar">حجم الفريق</t><t t-else="">Team size</t></span>
+                                <select name="employees"><option value="1-10">1–10</option><option value="11-50">11–50</option><option value="51-200">51–200</option><option value="200+">200+</option></select>
+                            </label>
+                            <label><span><t t-if="is_ar">إيه أهم حاجة عايز تختبرها؟</t><t t-else="">What matters most in the demo?</t></span><textarea name="message" maxlength="1000" rows="4"></textarea></label>
+                            <button type="submit" class="one-btn one-btn--xl one-btn--primary one-btn--block"><t t-if="is_ar">أرسل طلب العرض التجاري</t><t t-else="">Send commercial demo request</t></button>
+                        </form>
+                    </section>
+                </main>
+            </body>
+        </html>
+    </template>
+
+    <template id="one_demo_success" name="ONE ERP Demo Request Received">
+        <html t-att-lang="'ar' if is_ar else 'en'" t-att-dir="'rtl' if is_ar else 'ltr'">
+            <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>ONE ERP | Request Received</title><link rel="stylesheet" href="/one_ui/static/src/css/one_marketing.css"/></head>
+            <body class="one-mkt one-trial-body">
+                <main class="one-success-shell">
+                    <div class="one-success-mark">✓</div>
+                    <span class="one-eyebrow">COMMERCIAL REQUEST RECEIVED</span>
+                    <h1><t t-if="is_ar">طلب العرض دخل CRM.</t><t t-else="">Your demo request is in CRM.</t></h1>
+                    <p><t t-if="is_ar">الطلب اتسجل كفرصة متابعة، ونقدر نبني العرض على احتياجك بدل عرض عام.</t><t t-else="">The request is now a follow-up opportunity so the demo can be tailored instead of generic.</t></p>
+                    <a href="/one/trial?lang=ar" t-if="is_ar" class="one-btn one-btn--xl one-btn--primary">ابدأ تجربة 24 ساعة الآن</a>
+                    <a href="/one/trial?lang=en" t-if="not is_ar" class="one-btn one-btn--xl one-btn--primary">Start the 24-hour trial now</a>
+                </main>
+            </body>
+        </html>
+    </template>
+
 </odoo>
