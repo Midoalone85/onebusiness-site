@@ -78,6 +78,50 @@ else
   echo "ONE ERP: ephemeral PostgreSQL fallback active. Do not use for permanent production data."
 fi
 
+provision_admin() {
+  if [[ -z "${ONE_ADMIN_PASSWORD:-}" ]]; then
+    return 0
+  fi
+
+  export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
+
+  echo "ONE ERP: waiting to provision the administrator account..."
+  for _ in $(seq 1 180); do
+    READY=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
+      "SELECT CASE WHEN EXISTS (
+         SELECT 1
+         FROM ir_model_data d
+         JOIN res_users u ON u.id = d.res_id
+         WHERE d.module='base' AND d.name='user_admin' AND d.model='res.users'
+       ) THEN '1' ELSE '0' END;" 2>/dev/null | tr -d '[:space:]' || true)
+
+    if [[ "$READY" == "1" ]]; then
+      cat >/tmp/one_set_admin.py <<'PY'
+import os
+user = env.ref("base.user_admin", raise_if_not_found=False)
+if not user:
+    raise RuntimeError("base.user_admin not found")
+user.sudo().write({
+    "login": os.environ.get("ONE_ADMIN_LOGIN", "admin"),
+    "password": os.environ["ONE_ADMIN_PASSWORD"],
+})
+env.cr.commit()
+print("ONE ERP administrator credentials provisioned.")
+PY
+      odoo shell "${ODOO_DB_ARGS[@]}" \
+        "--data-dir=$ODOO_DATA" \
+        "--addons-path=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons" \
+        -d "$DB_NAME" < /tmp/one_set_admin.py
+      rm -f /tmp/one_set_admin.py
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "ONE ERP: administrator provisioning timed out." >&2
+  return 1
+}
+
 COMMON=(
   "${ODOO_DB_ARGS[@]}"
   "--data-dir=$ODOO_DATA"
@@ -122,6 +166,7 @@ if [[ "$LOCAL_PG" -eq 1 ]]; then
   # when Render replaces or terminates this staging instance.
   odoo "${COMMON[@]}" -d "$DB_NAME" "${INIT_ARGS[@]}" &
   ODOO_PID=$!
+  provision_admin &
 
   set +e
   wait "$ODOO_PID"
@@ -132,4 +177,5 @@ if [[ "$LOCAL_PG" -eq 1 ]]; then
   exit "$STATUS"
 fi
 
+provision_admin &
 exec odoo "${COMMON[@]}" -d "$DB_NAME" "${INIT_ARGS[@]}"
