@@ -2022,3 +2022,12 @@ msgstr "حافظ على زخم المبيعات"
 #. module: one_ui
 msgid "No critical signal is dominating; focus on CRM opportunities and open quotations."
 msgstr "لا توجد إشارة حرجة مسيطرة؛ ركز على فرص CRM وعروض الأسعار المفتوحة."
+
+
+#. module: one_ui
+msgid "Demo storage is active"
+msgstr "تخزين وضع العرض مفعّل"
+
+#. module: one_ui
+msgid "This workspace is using temporary database storage. Connect persistent PostgreSQL before production use."
+msgstr "مساحة العمل تستخدم قاعدة بيانات مؤقتة. اربط PostgreSQL دائمة قبل الاستخدام الإنتاجي."
