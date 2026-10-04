@@ -18,6 +18,7 @@ const WA_TO = process.env.WHATSAPP_ADMIN_TO || "";
 let redis = null;
 let mem = new Map();
 let memStock = new Map();
+let memCatalog = null;
 
 async function initRedis(){
   if(!REDIS_URL) return;
@@ -123,10 +124,17 @@ app.post("/api/admin/login",(req,res)=>{
   res.json({token,expiresIn:43200});
 });
 
-app.get("/health",(req,res)=>res.json({ok:true,store:redis?"redis":"memory",time:new Date().toISOString()}));
+app.get("/health",async(req,res)=>{let orderCount=0,inventoryCount=0,catalogCount=0;try{orderCount=(await allOrders()).length;inventoryCount=Object.keys(await inventoryAll()).length;if(redis){const s=await redis.get("afia:catalog");catalogCount=s?(JSON.parse(s)||[]).length:0}else catalogCount=(memCatalog||[]).length}catch(e){}res.json({ok:true,store:redis?"redis":"memory",orders:orderCount,inventory:inventoryCount,catalog:catalogCount,time:new Date().toISOString()})});
 app.get("/api/inventory",async(req,res)=>{
   try{res.json({inventory:await inventoryAll()});}catch(e){res.status(500).json({error:"server_error"});}
 });
+app.get("/api/catalog",async(req,res)=>{
+  try{
+    if(redis){const s=await redis.get("afia:catalog");return res.json({catalog:s?JSON.parse(s):null});}
+    res.json({catalog:memCatalog});
+  }catch(e){res.status(500).json({error:"server_error"});}
+});
+
 
 
 app.post("/api/orders",async(req,res)=>{
@@ -174,6 +182,20 @@ app.get("/api/admin/backup",requireAdmin,async(req,res)=>{
   }catch(e){res.status(500).json({error:"server_error"});}
 });
 
+
+app.put("/api/admin/catalog",requireAdmin,async(req,res)=>{
+  try{
+    const catalog=req.body?.catalog;
+    if(!Array.isArray(catalog)||catalog.length>2000) return res.status(400).json({error:"bad_catalog"});
+    const clean=catalog.filter(x=>x&&x.id).map(x=>({
+      id:Number(x.id),c:String(x.c||""),family:String(x.family||""),sub:String(x.sub||""),brand:String(x.brand||""),
+      e:String(x.e||""),ar:String(x.ar||""),en:String(x.en||""),size:String(x.size||""),p:Number(x.p||0),
+      old:x.old===undefined?undefined:Number(x.old),badge:String(x.badge||""),img:String(x.img||""),visible:x.visible!==false
+    }));
+    if(redis)await redis.set("afia:catalog",JSON.stringify(clean));else memCatalog=clean;
+    res.json({ok:true,count:clean.length});
+  }catch(e){res.status(500).json({error:"server_error"});}
+});
 
 app.get("/api/admin/inventory",requireAdmin,async(req,res)=>{
   try{res.json({inventory:await inventoryAll()});}catch(e){res.status(500).json({error:"server_error"});}
