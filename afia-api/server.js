@@ -8,7 +8,8 @@ app.use(cors({origin:true,credentials:false}));
 app.use(express.json({limit:"1mb"}));
 
 const PORT = process.env.PORT || 10000;
-const ADMIN_KEY = process.env.ADMIN_KEY || "Admin@Afia2026!";
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "5d21ee7f78293ef9d6094c37e7e309ecd12ae6cb45f231f31e792f837f135d85";
+const adminSessions = new Map();
 const REDIS_URL = process.env.REDIS_URL || "";
 const WA_TOKEN = process.env.WHATSAPP_TOKEN || "";
 const WA_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || "";
@@ -68,9 +69,19 @@ async function sendWhatsApp(order){
   return {sent:resp.ok,status:resp.status};
 }
 function requireAdmin(req,res,next){
-  if(req.headers["x-admin-key"]!==ADMIN_KEY) return res.status(401).json({error:"unauthorized"});
+  const token=String(req.headers["x-admin-token"]||"");
+  const exp=adminSessions.get(token);
+  if(!exp||exp<Date.now()) return res.status(401).json({error:"unauthorized"});
   next();
 }
+app.post("/api/admin/login",(req,res)=>{
+  const raw=String(req.body?.password||"");
+  const hash=crypto.createHash("sha256").update(raw).digest("hex");
+  if(hash!==ADMIN_PASSWORD_HASH) return res.status(401).json({error:"unauthorized"});
+  const token=crypto.randomBytes(24).toString("hex");
+  adminSessions.set(token,Date.now()+12*60*60*1000);
+  res.json({token,expiresIn:43200});
+});
 
 app.get("/health",(req,res)=>res.json({ok:true,store:redis?"redis":"memory",time:new Date().toISOString()}));
 
