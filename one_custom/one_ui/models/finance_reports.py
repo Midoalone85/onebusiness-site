@@ -122,18 +122,39 @@ class OneFinanceReportMixin(models.AbstractModel):
         return domain
 
     def _one_opening_balances(self, values):
-        opening_domain = self._one_move_line_domain(
-            values,
-            date_to=fields.Date.subtract(values["date_from"], days=1),
-        )
+        """Opening balances follow Odoo's fiscal-year carry-forward semantics.
+
+        Balance-sheet accounts carry from the beginning of time, while
+        income/expense accounts reset at the start of the fiscal year.
+        """
+        day_before = fields.Date.subtract(values["date_from"], days=1)
+        fiscal_year = values["company"].compute_fiscalyear_dates(values["date_from"])
         opening = defaultdict(float)
-        grouped = self.env["account.move.line"]._read_group(
-            opening_domain,
+
+        carry_domain = self._one_move_line_domain(values, date_to=day_before)
+        carry_domain.append(("account_id.include_initial_balance", "=", True))
+        carry_grouped = self.env["account.move.line"]._read_group(
+            carry_domain,
             ["account_id"],
             ["debit:sum", "credit:sum"],
         )
-        for account, debit, credit in grouped:
+        for account, debit, credit in carry_grouped:
             opening[account.id] = (debit or 0.0) - (credit or 0.0)
+
+        reset_domain = self._one_move_line_domain(
+            values,
+            date_from=fiscal_year["date_from"],
+            date_to=day_before,
+        )
+        reset_domain.append(("account_id.include_initial_balance", "=", False))
+        reset_grouped = self.env["account.move.line"]._read_group(
+            reset_domain,
+            ["account_id"],
+            ["debit:sum", "credit:sum"],
+        )
+        for account, debit, credit in reset_grouped:
+            opening[account.id] = (debit or 0.0) - (credit or 0.0)
+
         return opening
 
     def _one_historical_residuals(self, lines, as_of_date):
