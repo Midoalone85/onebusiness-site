@@ -100,6 +100,30 @@
         <field name="view_mode">kanban,list,form</field>
     </record>
 
+    <record id="action_one_products" model="ir.actions.act_window">
+        <field name="name">Product Catalog</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="action_one_warehouses" model="ir.actions.act_window">
+        <field name="name">Warehouses</field>
+        <field name="res_model">stock.warehouse</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_company_profile" model="ir.actions.act_window">
+        <field name="name">Company Profile</field>
+        <field name="res_model">res.company</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_users" model="ir.actions.act_window">
+        <field name="name">Users &amp; Access</field>
+        <field name="res_model">res.users</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
     <record id="action_one_settings" model="ir.actions.act_window">
         <field name="name">Settings</field>
         <field name="res_model">res.config.settings</field>
