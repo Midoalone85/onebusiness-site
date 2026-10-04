@@ -15,7 +15,7 @@ class OneAskWizard(models.TransientModel):
     question = fields.Char(
         string="Ask ONE",
         required=True,
-        help="Ask about revenue, profit, unpaid invoices, liquidity, receivables, payables, inventory, employees, CRM, approvals, purchases, quotations or ZATCA.",
+        help="Ask about company health, revenue, profit, unpaid invoices, liquidity, receivables, payables, inventory, employees, CRM, approvals, purchases, quotations or ZATCA.",
     )
     answer = fields.Text(string="Answer", readonly=True)
 
@@ -77,6 +77,38 @@ class OneAskWizard(models.TransientModel):
         q = (question or "").strip().lower()
         is_ar = self._is_arabic(q)
         pulse = self.env.company.one_get_pulse()
+
+        if self._contains_any(
+            q,
+            (
+                "صحة الشركة",
+                "صحه الشركه",
+                "وضع الشركة",
+                "وضع الشركه",
+                "مؤشر الصحة",
+                "مؤشر صحه",
+                "business health",
+                "company health",
+                "health score",
+                "business radar",
+                "radar",
+            ),
+        ):
+            radar = self.env.company.one_get_business_radar()
+            alerts = radar.get("alerts", [])
+            if is_ar:
+                highlights = "، ".join(alert["title"] for alert in alerts[:3])
+                if not highlights:
+                    highlights = "لا توجد تنبيهات عاجلة"
+                return (
+                    f"مؤشر صحة الشركة: {radar['score']}/100 ({radar['status']}). "
+                    f"أبرز الإشارات: {highlights}."
+                )
+            highlights = "; ".join(alert["title"] for alert in alerts[:3]) or "No urgent signals"
+            return (
+                f"Company health score: {radar['score']}/100 ({radar['status']}). "
+                f"Top signals: {highlights}."
+            )
 
         if self._contains_any(q, ("زاتكا", "zatca", "فاتورة إلكتر", "فاتوره الكتر", "e-invoice", "einvoice")):
             summary = self.env["one.saudi.profile"].one_get_readiness_summary()
