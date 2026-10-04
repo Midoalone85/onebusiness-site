@@ -11,9 +11,19 @@
                 <h1>ONE ERP</h1>
                 <p>Business operations, finance and Saudi compliance in one connected workspace.</p>
             </div>
-            <div class="one_hero_status">
-                <span class="one_live_dot"/>
-                <span>Workspace Ready</span>
+            <div class="one_hero_actions">
+                <div class="one_language_switch" role="group" aria-label="Language">
+                    <button type="button"
+                            t-att-class="state.lang === 'ar_001' ? 'active' : ''"
+                            t-on-click="() => this.switchLanguage('ar_001')">العربية</button>
+                    <button type="button"
+                            t-att-class="state.lang === 'en_US' ? 'active' : ''"
+                            t-on-click="() => this.switchLanguage('en_US')">English</button>
+                </div>
+                <div class="one_hero_status">
+                    <span class="one_live_dot"/>
+                    <span>Workspace Ready</span>
+                </div>
             </div>
         </section>
 
