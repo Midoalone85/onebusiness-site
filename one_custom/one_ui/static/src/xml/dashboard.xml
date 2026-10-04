@@ -5,7 +5,7 @@
         <section class="one_hero">
             <div class="one_hero_copy">
                 <div class="one_brandline">
-                    <span class="one_brandmark">ONE</span>
+                    <span class="one_brandmark"><img src="/one_ui/static/src/img/one_erp.svg" alt="ONE ERP"/></span>
                     <span class="one_eyebrow">ONE BUSINESS · BUSINESS OS</span>
                 </div>
                 <h1>ONE ERP</h1>
@@ -22,7 +22,7 @@
                 </div>
                 <div class="one_hero_status">
                     <span class="one_live_dot"/>
-                    <span>Workspace Ready</span>
+                    <span>ONE Workspace Ready</span>
                 </div>
             </div>
         </section>
