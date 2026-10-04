@@ -158,15 +158,25 @@ class OneMarketing(Controller):
         ]
         refs_ready = all(env.ref(xmlid, raise_if_not_found=False) for xmlid in required_refs)
         cron = env.ref("one_ui.ir_cron_expire_one_trial_users", raise_if_not_found=False)
-        plan_count = env["one.subscription.plan"].sudo().search_count([("active", "=", True)])
+        plans = env["one.subscription.plan"].sudo().search([("active", "=", True)], order="sequence, id")
+        plan_prices = {
+            plan.code: (None if plan.code == "enterprise" and not plan.monthly_price else plan.monthly_price)
+            for plan in plans
+        }
+        smoke = env["ir.config_parameter"].sudo().get_param("one.trial_smoke_test")
+        smoke_at = env["ir.config_parameter"].sudo().get_param("one.trial_smoke_test_at")
         module = env["ir.module.module"].sudo().search([("name", "=", "one_ui")], limit=1)
+        healthy = refs_ready and bool(cron) and len(plans) >= 6 and smoke == "passed"
         return request.make_json_response({
             "service": "ONE ERP",
-            "status": "ok" if refs_ready and bool(cron) and plan_count >= 6 else "degraded",
-            "version": module.latest_version or "20.0.1.21.0",
+            "status": "ok" if healthy else "degraded",
+            "version": module.latest_version or "20.0.1.22.0",
             "trial_hours": 24,
             "trial_prerequisites": bool(refs_ready and cron),
-            "plans": plan_count,
+            "trial_smoke_test": smoke or "not_run",
+            "trial_smoke_test_at": smoke_at or None,
+            "plans": len(plans),
+            "plan_prices_sar": plan_prices,
             "ask_one_lite": "ready",
             "paid_ai_api_required": False,
         })
