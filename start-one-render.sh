@@ -322,8 +322,13 @@ elif [[ "$HAS_ODOO_SCHEMA" == "0" && "$LOCAL_PG" -eq 1 ]]; then
   echo "ONE ERP: fresh staging database detected."
   run_staging_bootstrap
 elif [[ "$HAS_ODOO_SCHEMA" == "0" ]]; then
-  echo "ONE ERP: external database has no application schema; initialize it explicitly after verifying the target and backups." >&2
-  exit 1
+  if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && "${ONE_ALLOW_FRESH_EXTERNAL_INIT:-0}" == "1" ]]; then
+    echo "ONE ERP: explicitly authorized fresh external staging database detected; starting bootstrap."
+    run_staging_bootstrap
+  else
+    echo "ONE ERP: external database has no application schema; initialize it explicitly after verifying the target and backups." >&2
+    exit 1
+  fi
 else
   echo "ONE ERP: database schema check returned an unexpected result; refusing initialization." >&2
   stop_local_pg
