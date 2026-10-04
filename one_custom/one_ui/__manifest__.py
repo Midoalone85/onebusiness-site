@@ -1,7 +1,7 @@
 {
     "name": "ONE ERP Experience",
-    "version": "20.0.1.26.0",
-    "summary": "ONE ERP professional business workspace with public product gateway, 24-hour trials, Control Center, Business Radar, Saudi compliance and finance reporting",
+    "version": "20.0.1.27.0",
+    "summary": "ONE ERP professional business workspace with public product gateway, 24-hour trials, Control Center, Business Radar, Ask ONE decision briefs, Saudi compliance and finance reporting",
     "author": "ONE Business",
     "license": "LGPL-3",
     "category": "ONE Business",
