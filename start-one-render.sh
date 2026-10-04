@@ -38,10 +38,29 @@ BOOTSTRAP_HTTP_PID=""
 
 mkdir -p "$ODOO_DATA"
 
+# External database initialization is denied by default. Staging may opt in
+# with ONE_ALLOW_EXTERNAL_INIT=1. Production requires three explicit guards
+# plus a privately configured administrator password.
+EXPLICIT_EXTERNAL_INIT=0
+if [[ -n "${ONE_DB_HOST:-}" && "${ONE_ALLOW_EXTERNAL_INIT:-0}" == "1" ]]; then
+  if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" ]]; then
+    EXPLICIT_EXTERNAL_INIT=1
+  elif [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-live" \
+       && "${ONE_ALLOW_PRODUCTION_INIT:-0}" == "1" \
+       && "${ONE_PRODUCTION_INIT_CONFIRM:-}" == "INITIALIZE_EMPTY_PRODUCTION_DB" ]]; then
+    if [[ -z "${ONE_ADMIN_PASSWORD:-}" ]]; then
+      echo "ONE ERP: production initialization requires ONE_ADMIN_PASSWORD." >&2
+      exit 1
+    fi
+    EXPLICIT_EXTERNAL_INIT=1
+    echo "ONE ERP: explicit empty production database initialization is armed."
+  fi
+fi
+
 # Bind Render's public port immediately on staging, before PostgreSQL init or
 # Odoo module bootstrap. This prevents Render from repeatedly restarting a
 # fresh instance when it discovers the port late during first boot.
-if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && ( -z "${ONE_DB_HOST:-}" || "${ONE_ALLOW_EXTERNAL_INIT:-0}" == "1" ) ]]; then
+if [[ ( "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && -z "${ONE_DB_HOST:-}" ) || "$EXPLICIT_EXTERNAL_INIT" == "1" ]]; then
   BOOTSTRAP_PAGE_DIR="/tmp/one-erp-bootstrap"
   mkdir -p "$BOOTSTRAP_PAGE_DIR"
   cat >"$BOOTSTRAP_PAGE_DIR/index.html" <<'HTML'
@@ -64,7 +83,7 @@ if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && ( -z "${ONE_DB_HOST:-}"
     <p class="sub">يتم تشغيل وحدات ONE ERP وتجهيز بيئة العمل بأمان. ستنتقل هذه الصفحة تلقائيًا إلى النظام فور اكتمال التشغيل.</p>
     <div class="bar"></div>
     <p class="en">Preparing your ONE ERP workspace. This page refreshes automatically when the application is ready.</p>
-    <div class="foot">ONE Business • Secure staging startup</div>
+    <div class="foot">ONE Business • Secure database startup</div>
   </main>
 </body>
 </html>
@@ -357,8 +376,8 @@ if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
     else
       echo "ONE ERP: complete staging schema detected; normal startup."
     fi
-  elif [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && "${ONE_ALLOW_EXTERNAL_INIT:-0}" == "1" && "$ONE_UI_STATE" != "installed" ]]; then
-    echo "ONE ERP: partial external staging schema detected (one_ui=$ONE_UI_STATE); safely resuming bootstrap."
+  elif [[ "$EXPLICIT_EXTERNAL_INIT" == "1" && "$ONE_UI_STATE" != "installed" ]]; then
+    echo "ONE ERP: partial external schema detected (one_ui=$ONE_UI_STATE); safely resuming explicit bootstrap."
     run_staging_bootstrap
   else
     echo "ONE ERP: existing external schema detected (one_ui=$ONE_UI_STATE); normal startup without module updates or asset deletion."
@@ -367,11 +386,11 @@ elif [[ "$HAS_ODOO_SCHEMA" == "0" && "$LOCAL_PG" -eq 1 ]]; then
   echo "ONE ERP: fresh staging database detected."
   run_staging_bootstrap
 elif [[ "$HAS_ODOO_SCHEMA" == "0" ]]; then
-  if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && "${ONE_ALLOW_EXTERNAL_INIT:-0}" == "1" ]]; then
-    echo "ONE ERP: verified empty external staging database; explicit initialization enabled."
+  if [[ "$EXPLICIT_EXTERNAL_INIT" == "1" ]]; then
+    echo "ONE ERP: verified empty external database; explicit initialization enabled."
     run_staging_bootstrap
   else
-    echo "ONE ERP: external database has no application schema; refusing initialization without the staging-only ONE_ALLOW_EXTERNAL_INIT=1 safety flag." >&2
+    echo "ONE ERP: external database has no application schema; refusing initialization without the required explicit safety flags." >&2
     exit 1
   fi
 else
