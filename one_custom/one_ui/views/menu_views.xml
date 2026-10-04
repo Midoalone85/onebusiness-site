@@ -41,6 +41,8 @@
     <menuitem id="menu_one_users" name="Users &amp; Access" parent="menu_one_admin_root" action="action_one_users" sequence="20"/>
     <menuitem id="menu_one_admin_saudi" name="Saudi Compliance" parent="menu_one_admin_root" action="action_one_saudi_profile" sequence="30"/>
     <menuitem id="menu_one_admin_plans" name="Plans &amp; Features" parent="menu_one_admin_root" action="action_one_subscription_plans" sequence="40"/>
+    <menuitem id="menu_one_analytic_accounts" name="Cost Centers" parent="menu_one_admin_root" action="action_one_analytic_accounts" sequence="43" groups="account.group_account_user"/>
+    <menuitem id="menu_one_bank_cash" name="Bank &amp; Cash" parent="menu_one_admin_root" action="action_one_bank_cash" sequence="44" groups="account.group_account_user"/>
     <menuitem id="menu_one_payment_terms" name="Payment Terms" parent="menu_one_admin_root" action="action_one_payment_terms" sequence="45" groups="account.group_account_user"/>
     <menuitem id="menu_one_fiscal_positions" name="Fiscal Positions" parent="menu_one_admin_root" action="action_one_fiscal_positions" sequence="46" groups="account.group_account_user"/>
     <menuitem id="menu_one_currencies" name="Currencies" parent="menu_one_admin_root" action="action_one_currencies" sequence="47"/>
