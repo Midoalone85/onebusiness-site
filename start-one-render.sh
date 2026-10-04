@@ -213,11 +213,8 @@ bootstrap_batch() {
 # satisfied while the database is prepared offline in memory-bounded batches.
 HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc   "SELECT CASE WHEN to_regclass('public.ir_module_module') IS NULL THEN '0' ELSE '1' END;"   | tr -d '[:space:]')
 
-if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
-  echo "ONE ERP: existing schema detected; normal startup without module updates or asset deletion."
-elif [[ "$HAS_ODOO_SCHEMA" == "0" && "$LOCAL_PG" -eq 1 ]]; then
-  echo "ONE ERP: fresh staging database detected; starting memory-safe batched bootstrap."
-
+run_staging_bootstrap() {
+  echo "ONE ERP: starting memory-safe batched bootstrap."
   python3 -m http.server "${PORT:-10000}" --bind 0.0.0.0 >/tmp/one-bootstrap-http.log 2>&1 &
   BOOTSTRAP_HTTP_PID=$!
 
@@ -233,6 +230,23 @@ elif [[ "$HAS_ODOO_SCHEMA" == "0" && "$LOCAL_PG" -eq 1 ]]; then
   kill "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
   wait "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
   echo "ONE ERP: batched bootstrap complete."
+}
+
+if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
+  if [[ "$LOCAL_PG" -eq 1 ]]; then
+    ONE_UI_STATE=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc       "SELECT COALESCE((SELECT state FROM ir_module_module WHERE name='one_ui' LIMIT 1), 'missing');"       2>/dev/null | tr -d '[:space:]' || true)
+    if [[ "$ONE_UI_STATE" != "installed" ]]; then
+      echo "ONE ERP: partial staging schema detected (one_ui=$ONE_UI_STATE); resuming bootstrap."
+      run_staging_bootstrap
+    else
+      echo "ONE ERP: complete staging schema detected; normal startup."
+    fi
+  else
+    echo "ONE ERP: existing external schema detected; normal startup without module updates or asset deletion."
+  fi
+elif [[ "$HAS_ODOO_SCHEMA" == "0" && "$LOCAL_PG" -eq 1 ]]; then
+  echo "ONE ERP: fresh staging database detected."
+  run_staging_bootstrap
 elif [[ "$HAS_ODOO_SCHEMA" == "0" ]]; then
   echo "ONE ERP: external database has no application schema; initialize it explicitly after verifying the target and backups." >&2
   exit 1
