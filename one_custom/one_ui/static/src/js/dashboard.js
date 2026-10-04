@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onMounted, useState } from "@odoo/owl";
 import { location } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
 import { rpc } from "@web/core/network/rpc";
@@ -43,7 +43,12 @@ export class OneDashboard extends Component {
             pulseMonthProfit: "…",
         });
 
-        onWillStart(async () => {
+        onMounted(() => {
+            void this.loadDashboardData();
+        });
+    }
+
+    async loadDashboardData() {
             const now = new Date();
             const today = [
                 now.getFullYear(),
@@ -57,9 +62,15 @@ export class OneDashboard extends Component {
                 ["payment_state", "in", ["not_paid", "partial"]],
             ];
 
-            this.state.posAccess =
-                (await user.hasGroup("point_of_sale.group_pos_user")) ||
-                (await user.hasGroup("point_of_sale.group_pos_manager"));
+            try {
+                const [isPosUser, isPosManager] = await Promise.all([
+                    user.hasGroup("point_of_sale.group_pos_user"),
+                    user.hasGroup("point_of_sale.group_pos_manager"),
+                ]);
+                this.state.posAccess = isPosUser || isPosManager;
+            } catch {
+                this.state.posAccess = false;
+            }
 
             const counters = {
                 contacts: ["res.partner", []],
@@ -131,7 +142,6 @@ export class OneDashboard extends Component {
                 this.state.zatcaReady = "—";
                 this.state.zatcaConnected = "—";
             }
-        });
     }
 
     async switchLanguage(code) {
