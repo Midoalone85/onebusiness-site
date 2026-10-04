@@ -3,6 +3,7 @@
 import { Component, onWillStart, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { user } from "@web/core/user";
 
 export class OneDashboard extends Component {
     static template = "one_ui.OneDashboard";
@@ -30,6 +31,8 @@ export class OneDashboard extends Component {
             pendingPurchases: "…",
             pendingReceipts: "…",
             pendingApprovals: "…",
+            posAccess: false,
+            posConfigs: "…",
             pulseReceivables: "…",
             pulseOverdue: "…",
             pulsePayables: "…",
@@ -50,6 +53,10 @@ export class OneDashboard extends Component {
                 ["state", "=", "posted"],
                 ["payment_state", "in", ["not_paid", "partial"]],
             ];
+
+            this.state.posAccess =
+                (await user.hasGroup("point_of_sale.group_pos_user")) ||
+                (await user.hasGroup("point_of_sale.group_pos_manager"));
 
             const counters = {
                 contacts: ["res.partner", []],
@@ -84,6 +91,7 @@ export class OneDashboard extends Component {
                     "one.approval.request",
                     [["state", "=", "submitted"]],
                 ],
+                ...(this.state.posAccess ? { posConfigs: ["pos.config", []] } : {}),
             };
 
             await Promise.all(
