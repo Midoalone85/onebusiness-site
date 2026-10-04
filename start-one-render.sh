@@ -83,8 +83,11 @@ provision_admin() {
 
   if [[ -n "${ONE_ADMIN_PASSWORD:-}" ]]; then
     export ONE_ADMIN_PASSWORD
+  elif [[ -n "${ONE_BOOTSTRAP_ADMIN_PASSWORD:-}" ]]; then
+    export ONE_ADMIN_PASSWORD="$ONE_BOOTSTRAP_ADMIN_PASSWORD"
   elif [[ "$LOCAL_PG" -eq 1 ]]; then
-    export ONE_ADMIN_PASSWORD="admin"
+    echo "ONE ERP: refusing to provision an insecure default administrator password." >&2
+    return 1
   else
     return 0
   fi
