@@ -1064,3 +1064,104 @@ a[href*="odoo.com"],
   .one_hero{padding:20px;border-radius:18px}
   .one_kpi,.one_card,.one_panel,.one_workspace{border-radius:15px}
 }
+
+
+/* ONE Decision Brief */
+.one_panel_decision {
+    border-color: #d6e3ef;
+    background:
+        radial-gradient(circle at 88% 0%, rgba(36,106,165,.08), transparent 32%),
+        linear-gradient(155deg, #ffffff, #f8fbfe);
+    box-shadow: 0 14px 34px rgba(21,75,116,.08);
+}
+
+.one_decision_list {
+    display: grid;
+    gap: 9px;
+    margin: 14px 0;
+}
+
+.one_decision_item {
+    display: grid;
+    grid-template-columns: 30px minmax(0,1fr) 18px;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #e2eaf2;
+    border-radius: 14px;
+    background: rgba(255,255,255,.92);
+    color: var(--one-navy-900);
+    text-align: left;
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+
+.one_decision_item:hover {
+    transform: translateY(-1px);
+    border-color: #bfd1e2;
+    box-shadow: 0 9px 22px rgba(15,42,67,.08);
+}
+
+.one_decision_rank {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    background: #eaf3fb;
+    color: #1d5f94;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.one_decision_copy b,
+.one_decision_copy small {
+    display: block;
+}
+
+.one_decision_copy b {
+    margin-bottom: 3px;
+    font-size: 12px;
+    font-weight: 820;
+}
+
+.one_decision_copy small {
+    color: var(--one-muted);
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.one_decision_item.danger .one_decision_rank {
+    background: #fff0f0;
+    color: var(--one-danger);
+}
+
+.one_decision_item.warning .one_decision_rank {
+    background: #fff6e6;
+    color: var(--one-warning);
+}
+
+.one_decision_item.success .one_decision_rank {
+    background: #eaf8f2;
+    color: var(--one-success);
+}
+
+.one_decision_empty {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 14px;
+    border-radius: 13px;
+    background: #f4f8fb;
+    color: var(--one-muted);
+    font-size: 11px;
+}
+
+[dir="rtl"] .one_decision_item {
+    text-align: right;
+}
+
+[dir="rtl"] .one_decision_item > i {
+    transform: rotate(180deg);
+}
