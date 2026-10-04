@@ -114,7 +114,7 @@
                 <separator/>
                 <filter string="My Requests" name="my_requests" domain="[('requester_id', '=', uid)]"/>
                 <filter string="Assigned to Me" name="assigned_to_me" domain="[('approver_id', '=', uid)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Type" name="group_type" context="{'group_by': 'approval_type'}"/>
                     <filter string="Approver" name="group_approver" context="{'group_by': 'approver_id'}"/>
