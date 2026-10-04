@@ -21,6 +21,15 @@ if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && -z "${ONE_DB_HOST:-}" ]
   python3 -m http.server "${PORT:-10000}" --bind 0.0.0.0 >/tmp/one-bootstrap-http.log 2>&1 &
   BOOTSTRAP_HTTP_PID=$!
   echo "ONE ERP: staging bootstrap HTTP placeholder listening on port ${PORT:-10000}."
+
+  # On a brand-new Render network configuration the platform may restart the
+  # instance once after discovering the public port. Do not begin ephemeral
+  # PostgreSQL/Odoo initialization until that discovery window has passed, or
+  # all bootstrap work is thrown away with the first instance.
+  if [[ "${ONE_RENDER_PORT_WARMUP:-1}" == "1" ]]; then
+    echo "ONE ERP: waiting for Render port discovery before database bootstrap..."
+    sleep "${ONE_RENDER_PORT_WARMUP_SECONDS:-65}"
+  fi
 fi
 
 stop_local_pg() {
