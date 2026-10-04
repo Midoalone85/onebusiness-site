@@ -42,9 +42,36 @@ mkdir -p "$ODOO_DATA"
 # Odoo module bootstrap. This prevents Render from repeatedly restarting a
 # fresh instance when it discovers the port late during first boot.
 if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && -z "${ONE_DB_HOST:-}" ]]; then
-  python3 -m http.server "${PORT:-10000}" --bind 0.0.0.0 >/tmp/one-bootstrap-http.log 2>&1 &
+  BOOTSTRAP_PAGE_DIR="/tmp/one-erp-bootstrap"
+  mkdir -p "$BOOTSTRAP_PAGE_DIR"
+  cat >"$BOOTSTRAP_PAGE_DIR/index.html" <<'HTML'
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="refresh" content="8">
+  <title>ONE ERP | Preparing workspace</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Arial,Tahoma,sans-serif;background:radial-gradient(circle at 80% 10%,#173b72 0,transparent 35%),linear-gradient(145deg,#071426,#0c2443 58%,#092f4a);color:#fff}.card{width:min(92vw,720px);padding:48px;border:1px solid rgba(255,255,255,.15);border-radius:28px;background:rgba(9,25,48,.72);box-shadow:0 30px 90px rgba(0,0,0,.35);backdrop-filter:blur(18px)}.brand{font-size:30px;font-weight:900;letter-spacing:-1px}.brand span{color:#55d7ff}.pill{display:inline-flex;margin:24px 0 12px;padding:8px 14px;border-radius:999px;background:rgba(85,215,255,.12);border:1px solid rgba(85,215,255,.25);color:#a8edff;font-size:13px;font-weight:700}.title{font-size:clamp(28px,5vw,48px);line-height:1.1;margin:12px 0}.sub{font-size:17px;line-height:1.8;color:#c9d7e8}.bar{height:8px;margin-top:28px;border-radius:999px;background:rgba(255,255,255,.09);overflow:hidden}.bar:after{content:"";display:block;width:42%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#2d75ff,#5a5cff,#49d9ef);animation:move 1.4s ease-in-out infinite alternate}@keyframes move{to{transform:translateX(-135%)}}.en{direction:ltr;text-align:left;margin-top:18px;color:#91a8c1;font-size:14px}.foot{margin-top:28px;font-size:12px;color:#7188a1}@media(max-width:600px){.card{padding:30px 24px;border-radius:22px}.sub{font-size:15px}}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">ONE <span>ERP</span></div>
+    <div class="pill">تهيئة مساحة العمل</div>
+    <h1 class="title">نجهّز نظامك الآن</h1>
+    <p class="sub">يتم تشغيل وحدات ONE ERP وتجهيز بيئة العمل بأمان. ستنتقل هذه الصفحة تلقائيًا إلى النظام فور اكتمال التشغيل.</p>
+    <div class="bar"></div>
+    <p class="en">Preparing your ONE ERP workspace. This page refreshes automatically when the application is ready.</p>
+    <div class="foot">ONE Business • Secure staging startup</div>
+  </main>
+</body>
+</html>
+HTML
+  python3 -m http.server "${PORT:-10000}" --bind 0.0.0.0 --directory "$BOOTSTRAP_PAGE_DIR" >/tmp/one-bootstrap-http.log 2>&1 &
   BOOTSTRAP_HTTP_PID=$!
-  echo "ONE ERP: staging bootstrap HTTP placeholder listening on port ${PORT:-10000}."
+  echo "ONE ERP: branded staging bootstrap page listening on port ${PORT:-10000}."
 
   # On a brand-new Render network configuration the platform may restart the
   # instance once after discovering the public port. Do not begin ephemeral
