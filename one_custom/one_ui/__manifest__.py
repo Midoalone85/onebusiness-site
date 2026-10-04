@@ -1,13 +1,13 @@
 {
     "name": "ONE ERP Experience",
-    "version": "20.0.1.8.0",
+    "version": "20.0.1.9.0",
     "summary": "ONE ERP branded workspace, Saudi setup, subscriptions and professional finance reporting",
     "author": "ONE Business",
     "license": "LGPL-3",
     "category": "ONE Business",
     "depends": [
         "web", "contacts", "sale_management", "purchase_stock",
-        "stock", "account", "mrp", "crm", "hr", "l10n_sa_edi"
+        "stock", "account", "mrp", "crm", "hr", "l10n_sa_edi", "point_of_sale"
     ],
     "data": [
         "security/ir.access.csv",
