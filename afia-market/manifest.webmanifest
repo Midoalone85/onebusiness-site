@@ -1,0 +1,18 @@
+{
+  "name": "Afia Market | بقالة عافية",
+  "short_name": "Afia Market",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6faf7",
+  "theme_color": "#0f7a4a",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
