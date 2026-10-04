@@ -1251,3 +1251,12 @@ msgstr "نقطة البيع"
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
 msgid "Registers and checkout"
 msgstr "الكاشير وعمليات البيع"
+
+
+#. module: one_ui
+msgid "Ask about revenue, profit, unpaid invoices, liquidity, receivables, payables, inventory movements, employees, CRM, approvals, purchases, quotations or ZATCA."
+msgstr "اسأل عن الإيرادات والربح والفواتير غير المحصلة والسيولة والذمم وحركات المخزون والموظفين وCRM والموافقات والمشتريات وعروض الأسعار أو ZATCA."
+
+#. module: one_ui
+msgid "Example: How much is unpaid, or who are the top overdue customers?"
+msgstr "مثال: كام الفواتير غير المحصلة؟ أو مين أكبر العملاء المتأخرين؟"
