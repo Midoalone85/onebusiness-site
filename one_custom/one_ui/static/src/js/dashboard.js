@@ -56,76 +56,59 @@ export class OneDashboard extends Component {
     }
 
     async loadDashboardData() {
-            const now = new Date();
-            const today = [
-                now.getFullYear(),
-                String(now.getMonth() + 1).padStart(2, "0"),
-                String(now.getDate()).padStart(2, "0"),
-            ].join("-");
+        try {
+            const payload = await this.orm.call("res.company", "one_get_dashboard_payload", []);
+            const summary = payload.summary || {};
+            const pulse = payload.pulse || {};
+            const zatca = payload.zatca || {};
+            const radar = payload.radar || {};
+            const decision = payload.decision || {};
 
-            try {
-                const summary = await this.orm.call("res.company", "one_get_dashboard_summary", []);
-                const counterKeys = [
-                    "contacts", "products", "warehouses", "sales", "purchases",
-                    "transfers", "invoices", "manufacturing", "opportunities",
-                    "employees", "saudiProfiles", "subscriptions",
-                    "activeSubscriptions", "unpaidInvoices", "overdueInvoices",
-                    "draftQuotations", "pendingPurchases", "pendingReceipts",
-                    "pendingApprovals", "posConfigs",
-                ];
-                for (const key of counterKeys) {
-                    const value = summary[key];
-                    this.state[key] = value === false || value === undefined ? "—" : value;
-                }
-                this.state.posAccess = Boolean(summary.posAccess);
-                this.state.adminAccess = Boolean(summary.adminAccess);
-            } catch {
-                this.state.posAccess = false;
-                this.state.adminAccess = false;
+            const counterKeys = [
+                "contacts", "products", "warehouses", "sales", "purchases",
+                "transfers", "invoices", "manufacturing", "opportunities",
+                "employees", "saudiProfiles", "subscriptions",
+                "activeSubscriptions", "unpaidInvoices", "overdueInvoices",
+                "draftQuotations", "pendingPurchases", "pendingReceipts",
+                "pendingApprovals", "posConfigs",
+            ];
+            for (const key of counterKeys) {
+                const value = summary[key];
+                this.state[key] = value === false || value === undefined ? "—" : value;
             }
 
-            try {
-                const pulse = await this.orm.call("res.company", "one_get_pulse", []);
-                this.state.pulseReceivables = pulse.receivables;
-                this.state.pulseOverdue = pulse.overdue;
-                this.state.pulsePayables = pulse.payables;
-                this.state.pulseMonthRevenue = pulse.month_revenue;
-                this.state.pulseMonthProfit = pulse.month_profit;
-            } catch {
-                this.state.pulseReceivables = "—";
-                this.state.pulseOverdue = "—";
-                this.state.pulsePayables = "—";
-                this.state.pulseMonthRevenue = "—";
-                this.state.pulseMonthProfit = "—";
-            }
+            this.state.posAccess = Boolean(summary.posAccess);
+            this.state.adminAccess = Boolean(summary.adminAccess);
 
-            try {
-                const zatca = await this.orm.call("one.saudi.profile", "one_get_readiness_summary", []);
-                this.state.saudiProfiles = zatca.profiles;
-                this.state.zatcaReady = zatca.ready;
-                this.state.zatcaConnected = zatca.connected;
-            } catch {
-                this.state.zatcaReady = "—";
-                this.state.zatcaConnected = "—";
-            }
+            this.state.pulseReceivables = pulse.receivables || "—";
+            this.state.pulseOverdue = pulse.overdue || "—";
+            this.state.pulsePayables = pulse.payables || "—";
+            this.state.pulseMonthRevenue = pulse.month_revenue || "—";
+            this.state.pulseMonthProfit = pulse.month_profit || "—";
 
-            try {
-                const radar = await this.orm.call("res.company", "one_get_business_radar", []);
-                this.state.businessHealthScore = radar.score;
-                this.state.businessHealthStatus = radar.status;
-                this.state.radarAlerts = radar.alerts || [];
-            } catch {
-                this.state.businessHealthScore = "—";
-                this.state.businessHealthStatus = "Unavailable";
-                this.state.radarAlerts = [];
-            }
+            this.state.saudiProfiles = zatca.profiles ?? this.state.saudiProfiles;
+            this.state.zatcaReady = zatca.ready ?? "—";
+            this.state.zatcaConnected = zatca.connected ?? "—";
 
-            try {
-                const brief = await this.orm.call("res.company", "one_get_decision_brief", []);
-                this.state.decisionItems = brief.items || [];
-            } catch {
-                this.state.decisionItems = [];
-            }
+            this.state.businessHealthScore = radar.score ?? "—";
+            this.state.businessHealthStatus = radar.status || "Unavailable";
+            this.state.radarAlerts = radar.alerts || [];
+            this.state.decisionItems = decision.items || [];
+        } catch {
+            this.state.posAccess = false;
+            this.state.adminAccess = false;
+            this.state.pulseReceivables = "—";
+            this.state.pulseOverdue = "—";
+            this.state.pulsePayables = "—";
+            this.state.pulseMonthRevenue = "—";
+            this.state.pulseMonthProfit = "—";
+            this.state.zatcaReady = "—";
+            this.state.zatcaConnected = "—";
+            this.state.businessHealthScore = "—";
+            this.state.businessHealthStatus = "Unavailable";
+            this.state.radarAlerts = [];
+            this.state.decisionItems = [];
+        }
     }
 
     async switchLanguage(code) {
