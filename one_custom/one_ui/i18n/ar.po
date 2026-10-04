@@ -1260,3 +1260,93 @@ msgstr "اسأل عن الإيرادات والربح والفواتير غير 
 #. module: one_ui
 msgid "Example: How much is unpaid, or who are the top overdue customers?"
 msgstr "مثال: كام الفواتير غير المحصلة؟ أو مين أكبر العملاء المتأخرين؟"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "ONE BUSINESS RADAR"
+msgstr "رادار ONE للأعمال"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company health & early warnings"
+msgstr "صحة الشركة والإنذارات المبكرة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "No urgent signals right now"
+msgstr "لا توجد إشارات عاجلة حاليًا"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Healthy"
+msgstr "جيد"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Watch"
+msgstr "تحت المراقبة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Action needed"
+msgstr "يحتاج إجراء"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(count)s invoice(s) · %(amount)s"
+msgstr "%(count)s فاتورة · %(amount)s"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Negative-margin sales"
+msgstr "مبيعات بهامش سالب"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(count)s confirmed order(s)"
+msgstr "%(count)s طلب مؤكد"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Approvals waiting"
+msgstr "موافقات تنتظر القرار"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(count)s request(s) need a decision"
+msgstr "%(count)s طلب يحتاج قرارًا"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Incoming stock pending"
+msgstr "استلامات مخزون معلقة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(count)s receipt(s) still open"
+msgstr "%(count)s استلام ما زال مفتوحًا"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Saudi compliance setup"
+msgstr "إعداد الامتثال السعودي"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company ZATCA and National Address profile is not configured yet"
+msgstr "ملف ZATCA والعنوان الوطني للشركة غير مكتمل بعد"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Saudi compliance incomplete"
+msgstr "الامتثال السعودي غير مكتمل"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(ready)s of %(profiles)s profile(s) are ready"
+msgstr "%(ready)s من %(profiles)s ملف جاهز"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "company health"
+msgstr "صحة الشركة"
