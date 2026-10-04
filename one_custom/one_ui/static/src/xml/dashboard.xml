@@ -86,6 +86,9 @@
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_hr')">
                             <i class="fa fa-users"/><b>People</b><small>Employees and human resources</small>
                         </button>
+                        <button t-if="state.posAccess" class="one_card" t-on-click="() => this.open('one_ui.action_one_pos')">
+                            <i class="fa fa-credit-card"/><b>Point of Sale</b><small>Registers and checkout</small>
+                        </button>
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_ask')">
                             <i class="fa fa-comments-o"/><b>Ask ONE</b><small>Instant answers without external API</small>
                         </button>
