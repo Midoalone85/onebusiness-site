@@ -6,3 +6,4 @@ from . import finance_reports
 from . import approval_request
 from . import dashboard_pulse
 from . import ask_one
+from . import trial_isolation
