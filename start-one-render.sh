@@ -78,20 +78,22 @@ else
   echo "ONE ERP: ephemeral PostgreSQL fallback active. Do not use for permanent production data."
 fi
 
-# For the ephemeral staging database only, generate a strong one-time owner
-# credential at runtime when no hosting secret is configured. The password is
-# never committed to Git and is regenerated whenever the ephemeral database is
-# recreated.
+# Demo credentials are intentionally simple only on the named staging service.
+# Any other ephemeral service keeps a generated strong password.
 if [[ "$LOCAL_PG" -eq 1 ]]; then
   export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
-  export ONE_ADMIN_PASSWORD="$(python3 - <<'PY'
+  if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" ]]; then
+    export ONE_ADMIN_PASSWORD="admin"
+  else
+    export ONE_ADMIN_PASSWORD="$(python3 - <<'PY'
 import secrets
 print("ONE-" + secrets.token_urlsafe(18))
 PY
 )"
+  fi
   export ONE_BOOTSTRAP_ADMIN_PASSWORD="$ONE_ADMIN_PASSWORD"
   echo "ONE ERP OWNER LOGIN: $ONE_ADMIN_LOGIN"
-  echo "ONE ERP OWNER TEMP PASSWORD: $ONE_ADMIN_PASSWORD"
+  echo "ONE ERP OWNER CREDENTIALS INITIALIZED."
 fi
 
 provision_admin() {
