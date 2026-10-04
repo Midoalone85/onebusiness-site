@@ -11,11 +11,20 @@ permissions:
 
 jobs:
   backup:
-    if: ${{ secrets.ODOO_MASTER_PASSWORD != '' }}
     runs-on: ubuntu-latest
+    env:
+      ODOO_MASTER_PASSWORD: ${{ secrets.ODOO_MASTER_PASSWORD }}
     timeout-minutes: 15
     steps:
+      - name: Verify backup secret is configured
+        if: env.ODOO_MASTER_PASSWORD == ''
+        shell: bash
+        run: |
+          echo "ODOO_MASTER_PASSWORD is not configured; encrypted backup was not attempted."
+          exit 0
+
       - name: Install backup certificate
+        if: env.ODOO_MASTER_PASSWORD != ''
         shell: bash
         run: |
           cat > backup-cert.pem <<'CERT'
@@ -52,8 +61,7 @@ jobs:
           CERT
 
       - name: Request Odoo backup
-        env:
-          ODOO_MASTER_PASSWORD: ${{ secrets.ODOO_MASTER_PASSWORD }}
+        if: env.ODOO_MASTER_PASSWORD != ''
         shell: bash
         run: |
           set -euo pipefail
@@ -68,6 +76,7 @@ jobs:
           unzip -t one-erp-live-backup.zip
 
       - name: Encrypt backup before upload
+        if: env.ODOO_MASTER_PASSWORD != ''
         shell: bash
         run: |
           set -euo pipefail
@@ -80,6 +89,7 @@ jobs:
           test -s one-erp-live-backup.p7m
 
       - name: Upload encrypted artifact only
+        if: env.ODOO_MASTER_PASSWORD != ''
         uses: actions/upload-artifact@v4
         with:
           name: one-erp-live-encrypted-backup
