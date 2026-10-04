@@ -78,6 +78,9 @@
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_inventory')">
                             <i class="fa fa-cubes"/><b>Inventory</b><small>Stock and transfers</small>
                         </button>
+                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_products')">
+                            <i class="fa fa-tags"/><b>Product Catalog</b><small>Items, services, prices and master data</small>
+                        </button>
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_mrp')">
                             <i class="fa fa-industry"/><b>Manufacturing</b><small>Production and manufacturing orders</small>
                         </button>
@@ -215,12 +218,26 @@
                 </section>
 
                 <section class="one_quick">
-                    <button t-on-click="() => this.open('one_ui.action_one_settings')">
-                        <i class="fa fa-cog"/><span><b>System Settings</b><small>Permissions and preferences</small></span>
-                    </button>
                     <button t-on-click="() => this.open('one_ui.action_one_contacts')">
                         <i class="fa fa-plus-circle"/><span><b>Contacts Center</b><small>Customers and suppliers</small></span>
                     </button>
+                    <button t-on-click="() => this.open('one_ui.action_one_products')">
+                        <i class="fa fa-tags"/><span><b>Product Catalog</b><small>Products, services and pricing</small></span>
+                    </button>
+                    <t t-if="this.state.adminAccess">
+                        <button t-on-click="() => this.open('one_ui.action_one_company_profile')">
+                            <i class="fa fa-building"/><span><b>Company Profile</b><small>Legal identity and company data</small></span>
+                        </button>
+                        <button t-on-click="() => this.open('one_ui.action_one_users')">
+                            <i class="fa fa-user-circle"/><span><b>Users &amp; Access</b><small>Team permissions and security</small></span>
+                        </button>
+                        <button t-on-click="() => this.open('one_ui.action_one_warehouses')">
+                            <i class="fa fa-home"/><span><b>Warehouses</b><small>Storage locations and logistics setup</small></span>
+                        </button>
+                        <button t-on-click="() => this.open('one_ui.action_one_settings')">
+                            <i class="fa fa-cog"/><span><b>System Settings</b><small>Permissions and preferences</small></span>
+                        </button>
+                    </t>
                 </section>
             </aside>
         </div>
