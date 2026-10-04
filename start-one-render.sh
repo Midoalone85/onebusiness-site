@@ -79,11 +79,15 @@ else
 fi
 
 provision_admin() {
-  if [[ -z "${ONE_ADMIN_PASSWORD:-}" ]]; then
+  export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
+
+  if [[ -n "${ONE_ADMIN_PASSWORD:-}" ]]; then
+    export ONE_ADMIN_PASSWORD
+  elif [[ "$LOCAL_PG" -eq 1 ]]; then
+    export ONE_ADMIN_PASSWORD="admin"
+  else
     return 0
   fi
-
-  export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
 
   echo "ONE ERP: waiting to provision the administrator account..."
   for _ in $(seq 1 180); do
