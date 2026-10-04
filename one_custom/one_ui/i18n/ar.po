@@ -1177,10 +1177,6 @@ msgstr "جاهز للربط"
 #: model:ir.actions.act_window,name:one_ui.action_one_ask
 #: code:addons/one_ui/views/ask_one_views.xml:0
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
-msgid "Ask ONE"
-msgstr "اسأل ONE"
-
-#. module: one_ui
 #: model:ir.model.fields,field_description:one_ui.field_one_ask_wizard__question
 msgid "Ask ONE"
 msgstr "اسأل ONE"
