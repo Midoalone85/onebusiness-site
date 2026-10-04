@@ -7,6 +7,8 @@
     <menuitem id="menu_one_sales" name="Sales" parent="menu_one_root" action="action_one_sales" sequence="20"/>
     <menuitem id="menu_one_purchase" name="Purchases" parent="menu_one_root" action="action_one_purchase" sequence="30"/>
     <menuitem id="menu_one_inventory" name="Inventory" parent="menu_one_root" action="action_one_inventory" sequence="40"/>
+    <menuitem id="menu_one_products" name="Product Catalog" parent="menu_one_root" action="action_one_products" sequence="45"/>
+    <menuitem id="menu_one_warehouses" name="Warehouses" parent="menu_one_inventory" action="action_one_warehouses" sequence="10" groups="stock.group_stock_user"/>
     <menuitem id="menu_one_accounting" name="Accounting" parent="menu_one_root" action="action_one_accounting" sequence="50" groups="account.group_account_user"/>
     <menuitem id="menu_one_journal_entries" name="Journal Entries" parent="menu_one_accounting" action="action_one_journal_entries" sequence="10" groups="account.group_account_user"/>
     <menuitem id="menu_one_customer_invoices" name="Customer Invoices" parent="menu_one_accounting" action="action_one_customer_invoices" sequence="20" groups="account.group_account_user"/>
@@ -33,5 +35,10 @@
     <menuitem id="menu_one_subscriptions" name="Customer Subscriptions" parent="menu_one_subscriptions_root" action="action_one_subscriptions" sequence="10"/>
     <menuitem id="menu_one_plans" name="Plans &amp; Features" parent="menu_one_subscriptions_root" action="action_one_subscription_plans" sequence="20"/>
 
-    <menuitem id="menu_one_settings" name="Settings" parent="menu_one_root" action="action_one_settings" sequence="110" groups="base.group_system"/>
+    <menuitem id="menu_one_admin_root" name="Administration" parent="menu_one_root" sequence="105" groups="base.group_system"/>
+    <menuitem id="menu_one_company_profile" name="Company Profile" parent="menu_one_admin_root" action="action_one_company_profile" sequence="10"/>
+    <menuitem id="menu_one_users" name="Users &amp; Access" parent="menu_one_admin_root" action="action_one_users" sequence="20"/>
+    <menuitem id="menu_one_admin_saudi" name="Saudi Compliance" parent="menu_one_admin_root" action="action_one_saudi_profile" sequence="30"/>
+    <menuitem id="menu_one_admin_plans" name="Plans &amp; Features" parent="menu_one_admin_root" action="action_one_subscription_plans" sequence="40"/>
+    <menuitem id="menu_one_settings" name="System Settings" parent="menu_one_admin_root" action="action_one_settings" sequence="50"/>
 </odoo>

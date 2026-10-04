@@ -35,7 +35,10 @@ export class OneDashboard extends Component {
             pendingReceipts: "…",
             pendingApprovals: "…",
             posAccess: false,
+            adminAccess: false,
             posConfigs: "…",
+            products: "…",
+            warehouses: "…",
             pulseReceivables: "…",
             pulseOverdue: "…",
             pulsePayables: "…",
@@ -66,17 +69,21 @@ export class OneDashboard extends Component {
             ];
 
             try {
-                const [isPosUser, isPosManager] = await Promise.all([
+                const [isPosUser, isPosManager, isAdmin] = await Promise.all([
                     user.hasGroup("point_of_sale.group_pos_user"),
                     user.hasGroup("point_of_sale.group_pos_manager"),
+                    user.hasGroup("base.group_system"),
                 ]);
                 this.state.posAccess = isPosUser || isPosManager;
+                this.state.adminAccess = isAdmin;
             } catch {
                 this.state.posAccess = false;
             }
 
             const counters = {
                 contacts: ["res.partner", []],
+                products: ["product.template", []],
+                warehouses: ["stock.warehouse", []],
                 sales: ["sale.order", []],
                 purchases: ["purchase.order", []],
                 transfers: ["stock.picking", []],
