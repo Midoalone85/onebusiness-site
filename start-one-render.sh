@@ -2,6 +2,9 @@
 set -euo pipefail
 export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
+# Keep Odoo bootstrap memory fragmentation under control on small Render instances.
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+export PYTHONMALLOC="${PYTHONMALLOC:-malloc}"
 
 PG_INITDB=$(find /usr/lib/postgresql -type f -name initdb 2>/dev/null | head -n 1)
 PG_BIN=$(dirname "$PG_INITDB")
@@ -295,7 +298,8 @@ run_staging_bootstrap() {
   bootstrap_batch "contacts,account"
   bootstrap_batch "stock,sale_management,purchase_stock"
   bootstrap_batch "crm,hr,mrp"
-  bootstrap_batch "point_of_sale,l10n_sa_edi"
+  bootstrap_batch "point_of_sale"
+  bootstrap_batch "l10n_sa_edi"
   bootstrap_batch "one_ui"
 
   if [[ -n "$BOOTSTRAP_HTTP_PID" ]]; then
