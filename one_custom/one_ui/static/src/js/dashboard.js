@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onMounted, useState } from "@odoo/owl";
+import { Component, onMounted, proxy } from "@odoo/owl";
 import { location } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
 import { rpc } from "@web/core/network/rpc";
@@ -13,7 +13,7 @@ export class OneDashboard extends Component {
     setup() {
         this.action = useService("action");
         this.orm = useService("orm");
-        this.state = useState({
+        this.state = proxy({
             lang: user.context.lang || "en_US",
             contacts: "…",
             sales: "…",
