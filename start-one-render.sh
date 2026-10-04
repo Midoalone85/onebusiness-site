@@ -106,14 +106,24 @@ provision_admin() {
     fi
 
     READY=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
-      "SELECT CASE WHEN EXISTS (
-         SELECT 1
-         FROM ir_model_data d
-         JOIN res_users u ON u.id = d.res_id
-         WHERE d.module='base' AND d.name='user_admin' AND d.model='res.users'
-       ) THEN '1' ELSE '0' END;" 2>/dev/null | tr -d '[:space:]' || true)
+      "SELECT CASE WHEN
+         EXISTS (
+           SELECT 1
+           FROM ir_model_data d
+           JOIN res_users u ON u.id = d.res_id
+           WHERE d.module='base' AND d.name='user_admin' AND d.model='res.users'
+         )
+         AND EXISTS (
+           SELECT 1
+           FROM ir_module_module
+           WHERE name='one_ui' AND state='installed'
+         )
+       THEN '1' ELSE '0' END;" 2>/dev/null | tr -d '[:space:]' || true)
 
     if [[ "$READY" == "1" ]]; then
+      # Give the module transaction a moment to fully release install-time locks
+      # before starting a second Odoo process for credential provisioning.
+      sleep 3
       cat >/tmp/one_set_admin.py <<'PY'
 import os
 user = env.ref("base.user_admin", raise_if_not_found=False)
