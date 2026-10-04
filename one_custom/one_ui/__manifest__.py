@@ -1,6 +1,6 @@
 {
     "name": "ONE ERP Experience",
-    "version": "20.0.1.18.0",
+    "version": "20.0.1.19.0",
     "summary": "ONE ERP professional business workspace with Control Center, Business Radar, Saudi compliance, subscriptions and finance reporting",
     "author": "ONE Business",
     "license": "LGPL-3",
