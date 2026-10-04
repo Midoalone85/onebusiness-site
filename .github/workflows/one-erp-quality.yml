@@ -1,0 +1,76 @@
+name: ONE ERP Quality Gate
+
+on:
+  push:
+    branches:
+      - one-erp-staging
+      - one-erp-production
+    paths:
+      - "one_custom/one_ui/**"
+      - "start-one-render.sh"
+      - ".github/workflows/one-erp-quality.yml"
+  pull_request:
+    branches:
+      - one-erp-staging
+      - one-erp-production
+    paths:
+      - "one_custom/one_ui/**"
+      - "start-one-render.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile Python
+        run: python -m compileall -q one_custom/one_ui
+
+      - name: Validate XML and manifest
+        run: |
+          python - <<'PY'
+          import ast
+          import pathlib
+          import xml.etree.ElementTree as ET
+
+          root = pathlib.Path("one_custom/one_ui")
+          for path in root.rglob("*.xml"):
+              ET.parse(path)
+              print("XML OK", path)
+
+          manifest_path = root / "__manifest__.py"
+          manifest = ast.literal_eval(manifest_path.read_text(encoding="utf-8"))
+          version = str(manifest.get("version", ""))
+          if not version.startswith("20.0."):
+              raise SystemExit(f"Unexpected ONE ERP module version: {version}")
+          if not manifest.get("installable"):
+              raise SystemExit("ONE ERP module must remain installable")
+          print("Manifest OK", version)
+          PY
+
+      - name: Validate Render startup script
+        run: bash -n start-one-render.sh
+
+      - name: Guard public ONE branding
+        run: |
+          if grep -RniE "Powered by Odoo|www\.odoo\.com"             one_custom/one_ui/views             one_custom/one_ui/static/src             --include="*.xml" --include="*.html" --include="*.js" --include="*.scss" --include="*.css"; then
+            echo "Public Odoo branding found in ONE ERP user-facing files."
+            exit 1
+          fi
+
+      - name: Check production safety markers
+        run: |
+          grep -q 'persistentDatabase' one_custom/one_ui/models/dashboard_pulse.py
+          grep -q '/one/health' start-one-render.sh
+          grep -q 'ONE ERP: ephemeral PostgreSQL fallback active' start-one-render.sh
+          grep -q 'ONE_ALLOW_EXTERNAL_INIT' start-one-render.sh
+          grep -q 'one-erp-staging' start-one-render.sh

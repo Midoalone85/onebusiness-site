@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="rule_one_trial_partner_company_isolation" model="ir.rule">
+        <field name="name">ONE Trial - Contacts Company Isolation</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">user.one_is_trial and [('company_id', 'in', company_ids)] or [(1, '=', 1)]</field>
+    </record>
+
+    <record id="rule_one_trial_product_template_company_isolation" model="ir.rule">
+        <field name="name">ONE Trial - Product Template Company Isolation</field>
+        <field name="model_id" ref="product.model_product_template"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">user.one_is_trial and [('company_id', 'in', company_ids)] or [(1, '=', 1)]</field>
+    </record>
+
+    <record id="rule_one_trial_product_variant_company_isolation" model="ir.rule">
+        <field name="name">ONE Trial - Product Variant Company Isolation</field>
+        <field name="model_id" ref="product.model_product_product"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">user.one_is_trial and [('company_id', 'in', company_ids)] or [(1, '=', 1)]</field>
+    </record>
+</odoo>

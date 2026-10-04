@@ -1260,3 +1260,774 @@ msgstr "اسأل عن الإيرادات والربح والفواتير غير 
 #. module: one_ui
 msgid "Example: How much is unpaid, or who are the top overdue customers?"
 msgstr "مثال: كام الفواتير غير المحصلة؟ أو مين أكبر العملاء المتأخرين؟"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "ONE BUSINESS RADAR"
+msgstr "رادار ONE للأعمال"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company health & early warnings"
+msgstr "صحة الشركة والإنذارات المبكرة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "No urgent signals right now"
+msgstr "لا توجد إشارات عاجلة حاليًا"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Healthy"
+msgstr "جيد"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Watch"
+msgstr "تحت المراقبة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Action needed"
+msgstr "يحتاج إجراء"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(count)s invoice(s) · %(amount)s"
+msgstr "%(count)s فاتورة · %(amount)s"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Negative-margin sales"
+msgstr "مبيعات بهامش سالب"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(count)s confirmed order(s)"
+msgstr "%(count)s طلب مؤكد"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Approvals waiting"
+msgstr "موافقات تنتظر القرار"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(count)s request(s) need a decision"
+msgstr "%(count)s طلب يحتاج قرارًا"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Incoming stock pending"
+msgstr "استلامات مخزون معلقة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(count)s receipt(s) still open"
+msgstr "%(count)s استلام ما زال مفتوحًا"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Saudi compliance setup"
+msgstr "إعداد الامتثال السعودي"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company ZATCA and National Address profile is not configured yet"
+msgstr "ملف ZATCA والعنوان الوطني للشركة غير مكتمل بعد"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Saudi compliance incomplete"
+msgstr "الامتثال السعودي غير مكتمل"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "%(ready)s of %(profiles)s profile(s) are ready"
+msgstr "%(ready)s من %(profiles)s ملف جاهز"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "company health"
+msgstr "صحة الشركة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Product Catalog"
+msgstr "دليل المنتجات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Items, services, prices and master data"
+msgstr "الأصناف والخدمات والأسعار والبيانات الأساسية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Products, services and pricing"
+msgstr "المنتجات والخدمات والتسعير"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Administration"
+msgstr "الإدارة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company Profile"
+msgstr "بيانات الشركة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Legal identity and company data"
+msgstr "الهوية القانونية وبيانات الشركة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Users & Access"
+msgstr "المستخدمون والصلاحيات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Team permissions and security"
+msgstr "صلاحيات الفريق والأمان"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Warehouses"
+msgstr "المستودعات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Storage locations and logistics setup"
+msgstr "مواقع التخزين وإعداد اللوجستيات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "ONE Control Center"
+msgstr "مركز تحكم ONE"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Configure the company, finance, operations, compliance and platform from one place."
+msgstr "إدارة الشركة والمالية والتشغيل والامتثال والمنصة من مكان واحد."
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Administrator Workspace"
+msgstr "مساحة عمل المدير"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Companies"
+msgstr "الشركات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Users"
+msgstr "المستخدمون"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Active Taxes"
+msgstr "الضرائب النشطة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company & access"
+msgstr "الشركة والصلاحيات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Companies & Branches"
+msgstr "الشركات والفروع"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Multi-company structure and branches"
+msgstr "هيكل الشركات المتعددة والفروع"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Users, permissions and access control"
+msgstr "المستخدمون والصلاحيات والتحكم في الوصول"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Financial foundations"
+msgstr "الأسس المالية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Payment Terms"
+msgstr "شروط الدفع"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Customer and supplier payment schedules"
+msgstr "جداول سداد العملاء والموردين"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Fiscal Positions"
+msgstr "الأوضاع الضريبية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Tax mapping and fiscal treatment"
+msgstr "خرائط الضرائب والمعالجة الضريبية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Currencies"
+msgstr "العملات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Active currencies and rates"
+msgstr "العملات النشطة وأسعار الصرف"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Products & execution"
+msgstr "المنتجات والتنفيذ"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Units of Measure"
+msgstr "وحدات القياس"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Units used in sales, purchase and inventory"
+msgstr "الوحدات المستخدمة في المبيعات والمشتريات والمخزون"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Compliance & e-invoicing"
+msgstr "الامتثال والفوترة الإلكترونية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "VAT Configuration"
+msgstr "إعداد ضريبة القيمة المضافة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Review Saudi VAT setup"
+msgstr "مراجعة إعداد ضريبة القيمة المضافة السعودية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "System & commercial setup"
+msgstr "إعداد النظام والتجاري"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Languages"
+msgstr "اللغات"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Enabled user interface languages"
+msgstr "لغات واجهة المستخدم المفعلة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Control Center"
+msgstr "مركز التحكم"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Company, finance, compliance and platform setup"
+msgstr "إعداد الشركة والمالية والامتثال والمنصة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Cost Centers & Analytic Accounts"
+msgstr "مراكز التكلفة والحسابات التحليلية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Cost Centers"
+msgstr "مراكز التكلفة"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Analytic accounts and management reporting dimensions"
+msgstr "الحسابات التحليلية وأبعاد التقارير الإدارية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Bank & Cash Journals"
+msgstr "دفاتر البنوك والنقدية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Bank & Cash"
+msgstr "البنوك والنقدية"
+
+#. module: one_ui
+#: code:addons/one_ui:0
+msgid "Bank and cash journals"
+msgstr "دفاتر البنوك والصناديق"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_cycle
+msgid "Sales Cycle"
+msgstr "دورة المبيعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_quotations
+msgid "Quotations"
+msgstr "عروض الأسعار"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_orders
+msgid "Sales Orders"
+msgstr "أوامر البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_customers_group
+msgid "Customers & Billing"
+msgstr "العملاء والفوترة"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_customers
+msgid "Customers"
+msgstr "العملاء"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_insights
+msgid "Sales Insights"
+msgstr "تحليلات المبيعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_sales_analysis
+msgid "Sales Analysis"
+msgstr "تحليل المبيعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_procurement
+msgid "Procurement"
+msgstr "التوريد والمشتريات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_purchase_rfqs
+msgid "Requests for Quotation"
+msgstr "طلبات عروض الأسعار"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_purchase_orders
+msgid "Purchase Orders"
+msgstr "أوامر الشراء"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_supplier_billing
+msgid "Suppliers & Bills"
+msgstr "الموردون والفواتير"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_vendors
+msgid "Vendors"
+msgstr "الموردون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_purchase_insights
+msgid "Purchase Insights"
+msgstr "تحليلات المشتريات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_purchase_analysis
+msgid "Purchase Analysis"
+msgstr "تحليل المشتريات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_operations
+msgid "Inventory Operations"
+msgstr "عمليات المخزون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_receipts
+msgid "Receipts"
+msgstr "الاستلامات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_deliveries
+msgid "Deliveries"
+msgstr "التسليمات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_internal
+msgid "Internal Transfers"
+msgstr "التحويلات الداخلية"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_products_group
+msgid "Products & Replenishment"
+msgstr "الأصناف وإعادة الطلب"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_stock_on_hand
+msgid "On Hand"
+msgstr "الرصيد المتاح"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_reordering_rules
+msgid "Reordering Rules"
+msgstr "قواعد إعادة الطلب"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_inventory_config
+msgid "Inventory Configuration"
+msgstr "إعدادات المخزون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_accounting_transactions
+msgid "Accounting Transactions"
+msgstr "الحركات المحاسبية"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_account_payments
+msgid "Payments"
+msgstr "المدفوعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_accounting_setup
+msgid "Accounting Setup"
+msgstr "إعدادات المحاسبة"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_account_cost_centers
+msgid "Cost Centers"
+msgstr "مراكز التكلفة"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_account_bank_cash
+msgid "Bank & Cash"
+msgstr "البنوك والصندوق"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_account_reports_group
+msgid "Accounting Reports"
+msgstr "تقارير المحاسبة"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_production_group
+msgid "Production"
+msgstr "الإنتاج"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_orders
+msgid "Manufacturing Orders"
+msgstr "أوامر التصنيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_workorders
+msgid "Work Orders"
+msgstr "أوامر العمل"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_master_group
+msgid "Manufacturing Master Data"
+msgstr "بيانات التصنيع الأساسية"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_bom
+msgid "Bills of Materials"
+msgstr "قوائم المواد"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_mrp_workcenters
+msgid "Work Centers"
+msgstr "مراكز العمل"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_crm_pipeline_group
+msgid "Pipeline"
+msgstr "مسار المبيعات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_crm_opportunities
+msgid "Opportunities"
+msgstr "الفرص"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_crm_leads
+msgid "Leads"
+msgstr "العملاء المحتملون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_crm_relationships
+msgid "Relationships"
+msgstr "العلاقات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_operations
+msgid "POS Operations"
+msgstr "عمليات نقاط البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_terminals
+msgid "POS Terminals"
+msgstr "أجهزة نقاط البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_orders
+msgid "POS Orders"
+msgstr "طلبات نقاط البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_setup
+msgid "POS Setup"
+msgstr "إعدادات نقاط البيع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_pos_payment_methods
+msgid "Payment Methods"
+msgstr "طرق الدفع"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_hr_people_group
+msgid "People"
+msgstr "الأفراد"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_hr_employees
+msgid "Employees"
+msgstr "الموظفون"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_hr_departments
+msgid "Departments"
+msgstr "الأقسام"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_hr_jobs
+msgid "Job Positions"
+msgstr "المسميات الوظيفية"
+
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "ONE BUSINESS · BUSINESS OS"
+msgstr "ONE BUSINESS · نظام تشغيل الأعمال"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "ONE Workspace Ready"
+msgstr "مساحة ONE جاهزة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "ONE BUSINESS · ADMINISTRATION"
+msgstr "ONE BUSINESS · الإدارة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "ORGANIZATION"
+msgstr "المنشأة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Legal identity, address and core company data"
+msgstr "الهوية النظامية والعنوان والبيانات الأساسية للشركة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Warehouses and logistics foundations"
+msgstr "المستودعات وأسس العمليات اللوجستية"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "FINANCE & TAX"
+msgstr "المالية والضرائب"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Accounting structure and classifications"
+msgstr "الهيكل المحاسبي والتصنيفات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Sales, purchase, bank and miscellaneous journals"
+msgstr "يوميات المبيعات والمشتريات والبنوك والقيود المتنوعة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "VAT and tax configuration"
+msgstr "إعداد ضريبة القيمة المضافة والضرائب"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "OPERATIONS"
+msgstr "العمليات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Products, services and pricing master data"
+msgstr "البيانات الأساسية للمنتجات والخدمات والأسعار"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Production and manufacturing setup"
+msgstr "إعدادات الإنتاج والتصنيع"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Retail points and POS configuration"
+msgstr "نقاط البيع وإعدادات الكاشير"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "SAUDI ARABIA"
+msgstr "المملكة العربية السعودية"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "National Address, VAT and ZATCA readiness"
+msgstr "العنوان الوطني والضريبة والجاهزية لـ ZATCA"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "profiles"
+msgstr "ملفات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "active plans"
+msgstr "باقات نشطة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "PLATFORM"
+msgstr "المنصة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Subscription packages and feature matrix"
+msgstr "باقات الاشتراك ومصفوفة المزايا"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Customer plans and commercial terms"
+msgstr "باقات العملاء والشروط التجارية"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Advanced configuration and integrations"
+msgstr "الإعدادات المتقدمة والتكاملات"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "Secure Business Workspace"
+msgstr "مساحة أعمال آمنة"
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/xml/dashboard.xml:0
+msgid "ONE Business · Secure Business Workspace"
+msgstr "ONE Business · مساحة أعمال آمنة"
+
+#. module: one_ui
+msgid "ONE DECISION BRIEF"
+msgstr "موجز قرار ONE"
+
+#. module: one_ui
+msgid "Top management priorities"
+msgstr "أهم أولويات الإدارة"
+
+#. module: one_ui
+msgid "Building today's decision brief…"
+msgstr "يتم إعداد موجز قرارات اليوم…"
+
+#. module: one_ui
+msgid "Ask ONE for more detail"
+msgstr "اسأل ONE لمزيد من التفاصيل"
+
+#. module: one_ui
+msgid "Accelerate collections"
+msgstr "سرّع التحصيلات"
+
+#. module: one_ui
+msgid "Start with the highest overdue balances and assign a follow-up date."
+msgstr "ابدأ بأكبر الأرصدة المتأخرة وحدد تاريخ متابعة لكل حالة."
+
+#. module: one_ui
+msgid "Protect gross margin"
+msgstr "احمِ هامش الربح"
+
+#. module: one_ui
+msgid "Review negative-margin sales before approving more pricing or orders."
+msgstr "راجع المبيعات ذات الهامش السلبي قبل اعتماد أسعار أو طلبات جديدة."
+
+#. module: one_ui
+msgid "Clear decision bottlenecks"
+msgstr "أزل اختناقات القرار"
+
+#. module: one_ui
+msgid "Resolve pending approvals that can block purchasing or operations."
+msgstr "احسم الموافقات المعلقة التي قد تعطل المشتريات أو التشغيل."
+
+#. module: one_ui
+msgid "Unblock incoming stock"
+msgstr "حرّك الاستلامات المعلقة"
+
+#. module: one_ui
+msgid "Review open receipts and identify anything delaying supply or delivery."
+msgstr "راجع الاستلامات المفتوحة وحدد ما يؤخر التوريد أو التسليم."
+
+#. module: one_ui
+msgid "Complete Saudi compliance setup"
+msgstr "أكمل إعداد الامتثال السعودي"
+
+#. module: one_ui
+msgid "Finish the ZATCA and National Address profile before relying on e-invoicing."
+msgstr "أكمل ملف ZATCA والعنوان الوطني قبل الاعتماد على الفوترة الإلكترونية."
+
+#. module: one_ui
+msgid "Close compliance gaps"
+msgstr "أغلق فجوات الامتثال"
+
+#. module: one_ui
+msgid "Complete the remaining Saudi readiness items in the compliance center."
+msgstr "أكمل عناصر الجاهزية السعودية المتبقية في مركز الامتثال."
+
+#. module: one_ui
+msgid "Move quotations forward"
+msgstr "حرّك عروض الأسعار للأمام"
+
+#. module: one_ui
+msgid "%(count)s open quotation(s) need a next step or follow-up."
+msgstr "%(count)s عرض سعر مفتوح يحتاج خطوة تالية أو متابعة."
+
+#. module: one_ui
+msgid "Review pending purchases"
+msgstr "راجع المشتريات المعلقة"
+
+#. module: one_ui
+msgid "%(count)s purchase order(s) are still waiting in the pipeline."
+msgstr "%(count)s أمر شراء ما زال معلقًا في دورة العمل."
+
+#. module: one_ui
+msgid "Prioritize unpaid invoices"
+msgstr "رتّب الفواتير غير المحصلة"
+
+#. module: one_ui
+msgid "%(count)s unpaid invoice(s) should be ranked by value and due date."
+msgstr "رتّب %(count)s فاتورة غير محصلة حسب القيمة وتاريخ الاستحقاق."
+
+#. module: one_ui
+msgid "Maintain commercial momentum"
+msgstr "حافظ على زخم المبيعات"
+
+#. module: one_ui
+msgid "No critical signal is dominating; focus on CRM opportunities and open quotations."
+msgstr "لا توجد إشارة حرجة مسيطرة؛ ركز على فرص CRM وعروض الأسعار المفتوحة."
+
+
+#. module: one_ui
+msgid "Demo storage is active"
+msgstr "تخزين وضع العرض مفعّل"
+
+#. module: one_ui
+msgid "This workspace is using temporary database storage. Connect persistent PostgreSQL before production use."
+msgstr "مساحة العمل تستخدم قاعدة بيانات مؤقتة. اربط PostgreSQL دائمة قبل الاستخدام الإنتاجي."

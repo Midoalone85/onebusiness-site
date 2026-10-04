@@ -1,28 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo noupdate="1">
     <record id="plan_starter" model="one.subscription.plan">
+        <field name="monthly_price">149</field>
         <field name="name">Starter</field><field name="code">starter</field><field name="sequence">10</field>
         <field name="feature_sales">1</field>
     </record>
     <record id="plan_business" model="one.subscription.plan">
+        <field name="monthly_price">349</field>
         <field name="name">Business</field><field name="code">business</field><field name="sequence">20</field>
         <field name="feature_sales">1</field><field name="feature_purchase">1</field><field name="feature_inventory">1</field><field name="feature_accounting">1</field>
     </record>
     <record id="plan_professional" model="one.subscription.plan">
+        <field name="monthly_price">599</field>
         <field name="name">Professional</field><field name="code">professional</field><field name="sequence">30</field>
         <field name="feature_sales">1</field><field name="feature_purchase">1</field><field name="feature_inventory">1</field><field name="feature_accounting">1</field>
         <field name="feature_crm">1</field><field name="feature_hr">1</field><field name="feature_reports">1</field>
     </record>
     <record id="plan_manufacturing" model="one.subscription.plan">
+        <field name="monthly_price">899</field>
         <field name="name">Manufacturing</field><field name="code">manufacturing</field><field name="sequence">40</field>
         <field name="feature_sales">1</field><field name="feature_purchase">1</field><field name="feature_inventory">1</field><field name="feature_accounting">1</field>
         <field name="feature_crm">1</field><field name="feature_hr">1</field><field name="feature_mrp">1</field><field name="feature_reports">1</field>
     </record>
     <record id="plan_saudi" model="one.subscription.plan">
+        <field name="monthly_price">499</field>
         <field name="name">Saudi Pack</field><field name="code">saudi</field><field name="sequence">50</field>
         <field name="feature_sales">1</field><field name="feature_purchase">1</field><field name="feature_inventory">1</field><field name="feature_accounting">1</field><field name="feature_saudi">1</field>
     </record>
     <record id="plan_enterprise" model="one.subscription.plan">
+        <field name="monthly_price">0</field>
         <field name="name">Enterprise</field><field name="code">enterprise</field><field name="sequence">60</field>
         <field name="feature_sales">1</field><field name="feature_purchase">1</field><field name="feature_inventory">1</field><field name="feature_accounting">1</field>
         <field name="feature_crm">1</field><field name="feature_hr">1</field><field name="feature_mrp">1</field><field name="feature_reports">1</field>

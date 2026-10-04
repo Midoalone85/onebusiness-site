@@ -11,12 +11,12 @@
                     </div>
 
                     <div class="alert alert-info" role="alert">
-                        Ask about revenue, profit, unpaid invoices, liquidity, receivables, payables, inventory movements, employees, CRM, approvals, purchases, quotations or ZATCA.
+                        Ask ONE can now build a daily decision brief from live company signals, and answer about revenue, profit, unpaid invoices, liquidity, receivables, payables, inventory movements, employees, CRM, approvals, purchases, quotations or ZATCA.
                     </div>
 
                     <group>
                         <field name="question"
-                               placeholder="Example: How much is unpaid, or who are the top overdue customers?"/>
+                               placeholder="Example: What should I focus on today? / إيه أولوياتي النهاردة؟"/>
                     </group>
 
                     <group string="Answer" invisible="not answer">

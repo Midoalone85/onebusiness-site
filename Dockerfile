@@ -4,7 +4,7 @@ USER root
 
 RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ noble-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-16 \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-16 python3-markdown2 \
     && rm -f /etc/apt/sources.list.d/pgdg.list \
     && rm -rf /var/lib/apt/lists/*
 

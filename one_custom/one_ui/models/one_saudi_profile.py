@@ -83,6 +83,7 @@ class OneSaudiProfile(models.Model):
 
             vat = profile.vat_number or company.vat
             street = profile.street_name or company.street
+            district = profile.district or company.street2
             city = profile.city or company.city
             state = profile.state_id or company.state_id
             country = company.country_id
@@ -92,11 +93,15 @@ class OneSaudiProfile(models.Model):
 
             if not vat:
                 missing.append(_("VAT Registration Number"))
-            elif len(vat) != 15 or not (vat.startswith("3") and vat.endswith("3")):
-                missing.append(_("Valid 15-digit Saudi VAT number"))
+            else:
+                vat = vat.replace(" ", "")
+                if len(vat) != 15 or not vat.isdigit() or not (vat.startswith("3") and vat.endswith("3")):
+                    missing.append(_("Valid 15-digit Saudi VAT number"))
 
             if not street:
                 missing.append(_("Street"))
+            if not district:
+                missing.append(_("District"))
             if not city:
                 missing.append(_("City"))
             if not state:

@@ -3,35 +3,122 @@
     <menuitem id="menu_one_root" name="ONE ERP" action="action_one_dashboard" sequence="1" web_icon="one_ui,static/src/img/one_erp.svg"/>
 
     <menuitem id="menu_one_dashboard" name="Dashboard" parent="menu_one_root" action="action_one_dashboard" sequence="1"/>
-    <menuitem id="menu_one_contacts" name="Contacts" parent="menu_one_root" action="action_one_contacts" sequence="10"/>
-    <menuitem id="menu_one_sales" name="Sales" parent="menu_one_root" action="action_one_sales" sequence="20"/>
-    <menuitem id="menu_one_purchase" name="Purchases" parent="menu_one_root" action="action_one_purchase" sequence="30"/>
-    <menuitem id="menu_one_inventory" name="Inventory" parent="menu_one_root" action="action_one_inventory" sequence="40"/>
-    <menuitem id="menu_one_accounting" name="Accounting" parent="menu_one_root" action="action_one_accounting" sequence="50" groups="account.group_account_user"/>
-    <menuitem id="menu_one_journal_entries" name="Journal Entries" parent="menu_one_accounting" action="action_one_journal_entries" sequence="10" groups="account.group_account_user"/>
-    <menuitem id="menu_one_customer_invoices" name="Customer Invoices" parent="menu_one_accounting" action="action_one_customer_invoices" sequence="20" groups="account.group_account_user"/>
-    <menuitem id="menu_one_vendor_bills" name="Vendor Bills" parent="menu_one_accounting" action="action_one_vendor_bills" sequence="30" groups="account.group_account_user"/>
-    <menuitem id="menu_one_chart_accounts" name="Chart of Accounts" parent="menu_one_accounting" action="action_one_chart_accounts" sequence="40" groups="account.group_account_user"/>
-    <menuitem id="menu_one_journals" name="Journals" parent="menu_one_accounting" action="action_one_journals" sequence="50" groups="account.group_account_user"/>
-    <menuitem id="menu_one_account_taxes" name="Taxes" parent="menu_one_accounting" action="action_one_taxes" sequence="60" groups="account.group_account_user"/>
 
-    <menuitem id="menu_one_reports_root" name="Reports" parent="menu_one_root" sequence="55" groups="account.group_account_user"/>
-    <menuitem id="menu_one_financial_reports" name="Financial Reports" parent="menu_one_reports_root" action="action_one_financial_reports" sequence="10" groups="account.group_account_user"/>
+    <!-- SALES -->
+    <menuitem id="menu_one_sales" name="Sales" parent="menu_one_root" sequence="10" groups="sales_team.group_sale_salesman"/>
+    <menuitem id="menu_one_sales_cycle" name="Sales Cycle" parent="menu_one_sales" sequence="10"/>
+    <menuitem id="menu_one_sales_quotations" name="Quotations" parent="menu_one_sales_cycle" action="action_one_sales_quotations" sequence="10"/>
+    <menuitem id="menu_one_sales_orders" name="Sales Orders" parent="menu_one_sales_cycle" action="action_one_sales_orders" sequence="20"/>
+    <menuitem id="menu_one_sales_customers_group" name="Customers &amp; Billing" parent="menu_one_sales" sequence="20"/>
+    <menuitem id="menu_one_customers" name="Customers" parent="menu_one_sales_customers_group" action="action_one_customers" sequence="10"/>
+    <menuitem id="menu_one_sales_customer_invoices" name="Customer Invoices" parent="menu_one_sales_customers_group" action="action_one_customer_invoices" sequence="20"/>
+    <menuitem id="menu_one_sales_insights" name="Sales Insights" parent="menu_one_sales" sequence="30"/>
+    <menuitem id="menu_one_sales_analysis" name="Sales Analysis" parent="menu_one_sales_insights" action="action_one_sales_analysis" sequence="10"/>
 
-    <menuitem id="menu_one_ask" name="Ask ONE" parent="menu_one_root" action="action_one_ask" sequence="56"/>
-    <menuitem id="menu_one_approvals" name="Approval Center" parent="menu_one_root" action="action_one_approvals" sequence="57"/>
-    <menuitem id="menu_one_mrp" name="Manufacturing" parent="menu_one_root" action="action_one_mrp" sequence="60"/>
-    <menuitem id="menu_one_crm" name="CRM" parent="menu_one_root" action="action_one_crm" sequence="70"/>
-    <menuitem id="menu_one_pos" name="Point of Sale" parent="menu_one_root" action="action_one_pos" sequence="75" groups="point_of_sale.group_pos_user,point_of_sale.group_pos_manager"/>
-    <menuitem id="menu_one_hr" name="Human Resources" parent="menu_one_root" action="action_one_hr" sequence="80"/>
+    <!-- PURCHASES -->
+    <menuitem id="menu_one_purchase" name="Purchases" parent="menu_one_root" sequence="20" groups="purchase.group_purchase_user"/>
+    <menuitem id="menu_one_procurement" name="Procurement" parent="menu_one_purchase" sequence="10"/>
+    <menuitem id="menu_one_purchase_rfqs" name="Requests for Quotation" parent="menu_one_procurement" action="action_one_purchase_rfqs" sequence="10"/>
+    <menuitem id="menu_one_purchase_orders" name="Purchase Orders" parent="menu_one_procurement" action="action_one_purchase_orders" sequence="20"/>
+    <menuitem id="menu_one_supplier_billing" name="Suppliers &amp; Bills" parent="menu_one_purchase" sequence="20"/>
+    <menuitem id="menu_one_vendors" name="Vendors" parent="menu_one_supplier_billing" action="action_one_vendors" sequence="10"/>
+    <menuitem id="menu_one_purchase_vendor_bills" name="Vendor Bills" parent="menu_one_supplier_billing" action="action_one_vendor_bills" sequence="20"/>
+    <menuitem id="menu_one_purchase_insights" name="Purchase Insights" parent="menu_one_purchase" sequence="30"/>
+    <menuitem id="menu_one_purchase_analysis" name="Purchase Analysis" parent="menu_one_purchase_insights" action="action_one_purchase_analysis" sequence="10"/>
 
+    <!-- INVENTORY -->
+    <menuitem id="menu_one_inventory" name="Inventory" parent="menu_one_root" sequence="30" groups="stock.group_stock_user"/>
+    <menuitem id="menu_one_inventory_operations" name="Inventory Operations" parent="menu_one_inventory" sequence="10"/>
+    <menuitem id="menu_one_inventory_receipts" name="Receipts" parent="menu_one_inventory_operations" action="action_one_inventory_receipts" sequence="10"/>
+    <menuitem id="menu_one_inventory_deliveries" name="Deliveries" parent="menu_one_inventory_operations" action="action_one_inventory_deliveries" sequence="20"/>
+    <menuitem id="menu_one_inventory_internal" name="Internal Transfers" parent="menu_one_inventory_operations" action="action_one_inventory_internal" sequence="30"/>
+    <menuitem id="menu_one_inventory_products_group" name="Products &amp; Replenishment" parent="menu_one_inventory" sequence="20"/>
+    <menuitem id="menu_one_products" name="Product Catalog" parent="menu_one_inventory_products_group" action="action_one_products" sequence="10"/>
+    <menuitem id="menu_one_stock_on_hand" name="On Hand" parent="menu_one_inventory_products_group" action="action_one_stock_on_hand" sequence="20"/>
+    <menuitem id="menu_one_reordering_rules" name="Reordering Rules" parent="menu_one_inventory_products_group" action="action_one_reordering_rules" sequence="30"/>
+    <menuitem id="menu_one_inventory_config" name="Inventory Configuration" parent="menu_one_inventory" sequence="30"/>
+    <menuitem id="menu_one_warehouses" name="Warehouses" parent="menu_one_inventory_config" action="action_one_warehouses" sequence="10"/>
+
+    <!-- ACCOUNTING -->
+    <menuitem id="menu_one_accounting" name="Accounting" parent="menu_one_root" sequence="40" groups="account.group_account_user"/>
+    <menuitem id="menu_one_accounting_transactions" name="Accounting Transactions" parent="menu_one_accounting" sequence="10"/>
+    <menuitem id="menu_one_journal_entries" name="Journal Entries" parent="menu_one_accounting_transactions" action="action_one_journal_entries" sequence="10"/>
+    <menuitem id="menu_one_customer_invoices" name="Customer Invoices" parent="menu_one_accounting_transactions" action="action_one_customer_invoices" sequence="20"/>
+    <menuitem id="menu_one_vendor_bills" name="Vendor Bills" parent="menu_one_accounting_transactions" action="action_one_vendor_bills" sequence="30"/>
+    <menuitem id="menu_one_account_payments" name="Payments" parent="menu_one_accounting_transactions" action="action_one_account_payments" sequence="40"/>
+    <menuitem id="menu_one_accounting_setup" name="Accounting Setup" parent="menu_one_accounting" sequence="20"/>
+    <menuitem id="menu_one_chart_accounts" name="Chart of Accounts" parent="menu_one_accounting_setup" action="action_one_chart_accounts" sequence="10"/>
+    <menuitem id="menu_one_journals" name="Journals" parent="menu_one_accounting_setup" action="action_one_journals" sequence="20"/>
+    <menuitem id="menu_one_account_taxes" name="Taxes" parent="menu_one_accounting_setup" action="action_one_taxes" sequence="30"/>
+    <menuitem id="menu_one_account_cost_centers" name="Cost Centers" parent="menu_one_accounting_setup" action="action_one_analytic_accounts" sequence="40"/>
+    <menuitem id="menu_one_account_bank_cash" name="Bank &amp; Cash" parent="menu_one_accounting_setup" action="action_one_bank_cash" sequence="50"/>
+    <menuitem id="menu_one_account_reports_group" name="Accounting Reports" parent="menu_one_accounting" sequence="30"/>
+    <menuitem id="menu_one_account_financial_reports" name="Financial Reports" parent="menu_one_account_reports_group" action="action_one_financial_reports" sequence="10"/>
+
+    <!-- MANUFACTURING -->
+    <menuitem id="menu_one_mrp" name="Manufacturing" parent="menu_one_root" sequence="50" groups="mrp.group_mrp_user"/>
+    <menuitem id="menu_one_mrp_production_group" name="Production" parent="menu_one_mrp" sequence="10"/>
+    <menuitem id="menu_one_mrp_orders" name="Manufacturing Orders" parent="menu_one_mrp_production_group" action="action_one_mrp" sequence="10"/>
+    <menuitem id="menu_one_mrp_workorders" name="Work Orders" parent="menu_one_mrp_production_group" action="action_one_mrp_workorders" sequence="20"/>
+    <menuitem id="menu_one_mrp_master_group" name="Manufacturing Master Data" parent="menu_one_mrp" sequence="20"/>
+    <menuitem id="menu_one_mrp_bom" name="Bills of Materials" parent="menu_one_mrp_master_group" action="action_one_mrp_bom" sequence="10"/>
+    <menuitem id="menu_one_mrp_workcenters" name="Work Centers" parent="menu_one_mrp_master_group" action="action_one_mrp_workcenters" sequence="20"/>
+    <menuitem id="menu_one_mrp_products" name="Product Catalog" parent="menu_one_mrp_master_group" action="action_one_products" sequence="30"/>
+
+    <!-- CRM -->
+    <menuitem id="menu_one_crm" name="CRM" parent="menu_one_root" sequence="60"/>
+    <menuitem id="menu_one_crm_pipeline_group" name="Pipeline" parent="menu_one_crm" sequence="10"/>
+    <menuitem id="menu_one_crm_opportunities" name="Opportunities" parent="menu_one_crm_pipeline_group" action="action_one_crm" sequence="10"/>
+    <menuitem id="menu_one_crm_leads" name="Leads" parent="menu_one_crm_pipeline_group" action="action_one_crm_leads" sequence="20"/>
+    <menuitem id="menu_one_crm_relationships" name="Relationships" parent="menu_one_crm" sequence="20"/>
+    <menuitem id="menu_one_crm_customers" name="Customers" parent="menu_one_crm_relationships" action="action_one_customers" sequence="10"/>
+    <menuitem id="menu_one_contacts" name="All Contacts" parent="menu_one_crm_relationships" action="action_one_contacts" sequence="20"/>
+
+    <!-- POS -->
+    <menuitem id="menu_one_pos" name="Point of Sale" parent="menu_one_root" sequence="70" groups="point_of_sale.group_pos_user,point_of_sale.group_pos_manager"/>
+    <menuitem id="menu_one_pos_operations" name="POS Operations" parent="menu_one_pos" sequence="10"/>
+    <menuitem id="menu_one_pos_terminals" name="POS Terminals" parent="menu_one_pos_operations" action="action_one_pos" sequence="10"/>
+    <menuitem id="menu_one_pos_orders" name="POS Orders" parent="menu_one_pos_operations" action="action_one_pos_orders" sequence="20"/>
+    <menuitem id="menu_one_pos_setup" name="POS Setup" parent="menu_one_pos" sequence="20"/>
+    <menuitem id="menu_one_pos_payment_methods" name="Payment Methods" parent="menu_one_pos_setup" action="action_one_pos_payment_methods" sequence="10"/>
+
+    <!-- HR -->
+    <menuitem id="menu_one_hr" name="Human Resources" parent="menu_one_root" sequence="80" groups="hr.group_hr_user"/>
+    <menuitem id="menu_one_hr_people_group" name="People" parent="menu_one_hr" sequence="10"/>
+    <menuitem id="menu_one_hr_employees" name="Employees" parent="menu_one_hr_people_group" action="action_one_hr" sequence="10"/>
+    <menuitem id="menu_one_hr_departments" name="Departments" parent="menu_one_hr_people_group" action="action_one_hr_departments" sequence="20"/>
+    <menuitem id="menu_one_hr_jobs" name="Job Positions" parent="menu_one_hr_people_group" action="action_one_hr_jobs" sequence="30"/>
+
+    <!-- INTELLIGENCE & REPORTING -->
+    <menuitem id="menu_one_ask" name="Ask ONE" parent="menu_one_root" action="action_one_ask" sequence="85"/>
+    <menuitem id="menu_one_approvals" name="Approval Center" parent="menu_one_root" action="action_one_approvals" sequence="86"/>
+    <menuitem id="menu_one_reports_root" name="Reports" parent="menu_one_root" sequence="87"/>
+    <menuitem id="menu_one_financial_reports" name="Financial Reports" parent="menu_one_reports_root" action="action_one_financial_reports" sequence="10"/>
+    <menuitem id="menu_one_reports_sales" name="Sales Analysis" parent="menu_one_reports_root" action="action_one_sales_analysis" sequence="20"/>
+    <menuitem id="menu_one_reports_purchase" name="Purchase Analysis" parent="menu_one_reports_root" action="action_one_purchase_analysis" sequence="30"/>
+
+    <!-- SAUDI -->
     <menuitem id="menu_one_saudi_root" name="Saudi Compliance" parent="menu_one_root" sequence="90" groups="base.group_system"/>
     <menuitem id="menu_one_saudi_profile" name="ZATCA &amp; National Address" parent="menu_one_saudi_root" action="action_one_saudi_profile" sequence="10"/>
     <menuitem id="menu_one_taxes" name="Taxes" parent="menu_one_saudi_root" action="action_one_taxes" sequence="20"/>
 
+    <!-- COMMERCIAL ADMIN -->
     <menuitem id="menu_one_subscriptions_root" name="Subscriptions" parent="menu_one_root" sequence="100" groups="base.group_system"/>
     <menuitem id="menu_one_subscriptions" name="Customer Subscriptions" parent="menu_one_subscriptions_root" action="action_one_subscriptions" sequence="10"/>
     <menuitem id="menu_one_plans" name="Plans &amp; Features" parent="menu_one_subscriptions_root" action="action_one_subscription_plans" sequence="20"/>
 
-    <menuitem id="menu_one_settings" name="Settings" parent="menu_one_root" action="action_one_settings" sequence="110" groups="base.group_system"/>
+    <menuitem id="menu_one_admin_root" name="Control Center" parent="menu_one_root" action="action_one_control_center" sequence="105" groups="base.group_system"/>
+    <menuitem id="menu_one_company_profile" name="Company Profile" parent="menu_one_admin_root" action="action_one_company_profile" sequence="10"/>
+    <menuitem id="menu_one_companies" name="Companies &amp; Branches" parent="menu_one_admin_root" action="action_one_companies" sequence="15"/>
+    <menuitem id="menu_one_users" name="Users &amp; Access" parent="menu_one_admin_root" action="action_one_users" sequence="20"/>
+    <menuitem id="menu_one_admin_saudi" name="Saudi Compliance" parent="menu_one_admin_root" action="action_one_saudi_profile" sequence="30"/>
+    <menuitem id="menu_one_admin_plans" name="Plans &amp; Features" parent="menu_one_admin_root" action="action_one_subscription_plans" sequence="40"/>
+    <menuitem id="menu_one_analytic_accounts" name="Cost Centers" parent="menu_one_admin_root" action="action_one_analytic_accounts" sequence="43" groups="account.group_account_user"/>
+    <menuitem id="menu_one_bank_cash" name="Bank &amp; Cash" parent="menu_one_admin_root" action="action_one_bank_cash" sequence="44" groups="account.group_account_user"/>
+    <menuitem id="menu_one_payment_terms" name="Payment Terms" parent="menu_one_admin_root" action="action_one_payment_terms" sequence="45" groups="account.group_account_user"/>
+    <menuitem id="menu_one_fiscal_positions" name="Fiscal Positions" parent="menu_one_admin_root" action="action_one_fiscal_positions" sequence="46" groups="account.group_account_user"/>
+    <menuitem id="menu_one_currencies" name="Currencies" parent="menu_one_admin_root" action="action_one_currencies" sequence="47"/>
+    <menuitem id="menu_one_uom" name="Units of Measure" parent="menu_one_admin_root" action="action_one_uom" sequence="48"/>
+    <menuitem id="menu_one_languages" name="Languages" parent="menu_one_admin_root" action="action_one_languages" sequence="49"/>
+    <menuitem id="menu_one_settings" name="System Settings" parent="menu_one_admin_root" action="action_one_settings" sequence="50"/>
 </odoo>
