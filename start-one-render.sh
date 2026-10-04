@@ -9,6 +9,30 @@ PGDATA=/tmp/one-pgdata
 ODOO_DATA=/tmp/one-odoo-data
 DB_NAME="${ONE_DB_NAME:-one_erp_db}"
 LOCAL_PG=0
+
+# Prefer a single Render-style DATABASE_URL when provided. This keeps database
+# credentials out of the repository and makes the service compatible with
+# Render Postgres using its internal connection string.
+if [[ -n "${DATABASE_URL:-}" && -z "${ONE_DB_HOST:-}" ]]; then
+  eval "$(python3 - <<'PY'
+import os, shlex
+from urllib.parse import urlparse, unquote
+u = urlparse(os.environ["DATABASE_URL"])
+vals = {
+    "ONE_DB_HOST": u.hostname or "",
+    "ONE_DB_PORT": str(u.port or 5432),
+    "ONE_DB_USER": unquote(u.username or ""),
+    "ONE_DB_PASSWORD": unquote(u.password or ""),
+    "ONE_DB_NAME": (u.path or "/one_erp_db").lstrip("/") or "one_erp_db",
+}
+for k, v in vals.items():
+    print(f"export {k}={shlex.quote(v)}")
+PY
+)"
+  DB_NAME="${ONE_DB_NAME:-one_erp_db}"
+  echo "ONE ERP: DATABASE_URL detected; using external PostgreSQL."
+fi
+
 ODOO_PID=""
 BOOTSTRAP_HTTP_PID=""
 
