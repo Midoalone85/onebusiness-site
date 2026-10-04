@@ -88,6 +88,7 @@ msgstr "الزكاة والفوترة والعنوان الوطني"
 
 #. module: one_ui
 #: model:ir.ui.menu,name:one_ui.menu_one_taxes
+#: model:ir.ui.menu,name:one_ui.menu_one_account_taxes
 #: model:ir.actions.act_window,name:one_ui.action_one_taxes
 msgid "Taxes"
 msgstr "الضرائب"
@@ -1206,3 +1207,34 @@ msgstr "إغلاق"
 #: code:addons/one_ui/static/src/xml/dashboard.xml:0
 msgid "Instant answers without external API"
 msgstr "إجابات فورية بدون API خارجي"
+
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_journal_entries
+#: model:ir.actions.act_window,name:one_ui.action_one_journal_entries
+msgid "Journal Entries"
+msgstr "قيود اليومية"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_customer_invoices
+#: model:ir.actions.act_window,name:one_ui.action_one_customer_invoices
+msgid "Customer Invoices"
+msgstr "فواتير العملاء"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_vendor_bills
+#: model:ir.actions.act_window,name:one_ui.action_one_vendor_bills
+msgid "Vendor Bills"
+msgstr "فواتير الموردين"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_chart_accounts
+#: model:ir.actions.act_window,name:one_ui.action_one_chart_accounts
+msgid "Chart of Accounts"
+msgstr "دليل الحسابات"
+
+#. module: one_ui
+#: model:ir.ui.menu,name:one_ui.menu_one_journals
+#: model:ir.actions.act_window,name:one_ui.action_one_journals
+msgid "Journals"
+msgstr "اليوميات"
