@@ -22,7 +22,7 @@
         <style>
             .one_fin_pdf {
                 color: #15324b;
-                font-family: Arial, "Noto Sans Arabic", sans-serif;
+                font-family: "DejaVu Sans", Arial, sans-serif;
                 font-size: 10px;
             }
             .one_fin_pdf .one_fin_title {
@@ -84,6 +84,13 @@
                 padding: 6px 5px;
                 border: 1px solid #dfe7ef;
                 vertical-align: top;
+                overflow-wrap: anywhere;
+            }
+            .one_fin_pdf table.one_fin_table tr {
+                page-break-inside: avoid;
+            }
+            .one_fin_pdf .one_account_header {
+                page-break-after: avoid;
             }
             .one_fin_pdf table.one_fin_table tbody tr:nth-child(even) td {
                 background: #fafbfd;
