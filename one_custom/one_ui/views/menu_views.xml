@@ -7,7 +7,13 @@
     <menuitem id="menu_one_sales" name="Sales" parent="menu_one_root" action="action_one_sales" sequence="20"/>
     <menuitem id="menu_one_purchase" name="Purchases" parent="menu_one_root" action="action_one_purchase" sequence="30"/>
     <menuitem id="menu_one_inventory" name="Inventory" parent="menu_one_root" action="action_one_inventory" sequence="40"/>
-    <menuitem id="menu_one_accounting" name="Accounting" parent="menu_one_root" action="action_one_accounting" sequence="50"/>
+    <menuitem id="menu_one_accounting" name="Accounting" parent="menu_one_root" action="action_one_accounting" sequence="50" groups="account.group_account_user"/>
+    <menuitem id="menu_one_journal_entries" name="Journal Entries" parent="menu_one_accounting" action="action_one_journal_entries" sequence="10" groups="account.group_account_user"/>
+    <menuitem id="menu_one_customer_invoices" name="Customer Invoices" parent="menu_one_accounting" action="action_one_customer_invoices" sequence="20" groups="account.group_account_user"/>
+    <menuitem id="menu_one_vendor_bills" name="Vendor Bills" parent="menu_one_accounting" action="action_one_vendor_bills" sequence="30" groups="account.group_account_user"/>
+    <menuitem id="menu_one_chart_accounts" name="Chart of Accounts" parent="menu_one_accounting" action="action_one_chart_accounts" sequence="40" groups="account.group_account_user"/>
+    <menuitem id="menu_one_journals" name="Journals" parent="menu_one_accounting" action="action_one_journals" sequence="50" groups="account.group_account_user"/>
+    <menuitem id="menu_one_account_taxes" name="Taxes" parent="menu_one_accounting" action="action_one_taxes" sequence="60" groups="account.group_account_user"/>
 
     <menuitem id="menu_one_reports_root" name="Reports" parent="menu_one_root" sequence="55" groups="account.group_account_user"/>
     <menuitem id="menu_one_financial_reports" name="Financial Reports" parent="menu_one_reports_root" action="action_one_financial_reports" sequence="10" groups="account.group_account_user"/>
