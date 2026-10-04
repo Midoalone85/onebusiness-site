@@ -68,7 +68,7 @@
                                 <div class="one-window-bar"><i></i><i></i><i></i><span>ONE ERP · Business Control Center</span></div>
                                 <div class="one-window-grid">
                                     <aside>
-                                        <div class="one-mini-logo">1</div>
+                                        <div class="one-mini-logo"><img src="/one_ui/static/src/img/one_erp.svg" alt="ONE"/></div>
                                         <b>Dashboard</b><span>Finance</span><span>Sales</span><span>Inventory</span><span>Manufacturing</span><span>Ask ONE</span><span>ZATCA</span>
                                     </aside>
                                     <div class="one-dash">
