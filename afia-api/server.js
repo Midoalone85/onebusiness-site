@@ -78,7 +78,13 @@ async function inventoryReserve(items){
   for(const x of items){const k=String(x.id);if(memStock.has(k))memStock.set(k,memStock.get(k)-x.qty)}
   return {ok:true};
 }
-
+async function inventoryRelease(items){
+  if(redis){
+    for(const x of items||[]){const k=String(x.id),q=Math.max(1,Math.floor(Number(x.qty)||1));if(await redis.hExists("afia:stock",k))await redis.hIncrBy("afia:stock",k,q)}
+  }else{
+    for(const x of items||[]){const k=String(x.id),q=Math.max(1,Math.floor(Number(x.qty)||1));if(memStock.has(k))memStock.set(k,memStock.get(k)+q)}
+  }
+}
 function makeId(){
   const d=new Date();
   const y=d.getFullYear().toString().slice(-2);
@@ -118,6 +124,10 @@ app.post("/api/admin/login",(req,res)=>{
 });
 
 app.get("/health",(req,res)=>res.json({ok:true,store:redis?"redis":"memory",time:new Date().toISOString()}));
+app.get("/api/inventory",async(req,res)=>{
+  try{res.json({inventory:await inventoryAll()});}catch(e){res.status(500).json({error:"server_error"});}
+});
+
 
 app.post("/api/orders",async(req,res)=>{
   try{
@@ -158,6 +168,12 @@ app.get("/api/orders/:id",async(req,res)=>{
 app.get("/api/admin/orders",requireAdmin,async(req,res)=>{
   try{res.json({orders:await allOrders()});}catch(e){res.status(500).json({error:"server_error"});}
 });
+app.get("/api/admin/backup",requireAdmin,async(req,res)=>{
+  try{
+    res.json({generatedAt:new Date().toISOString(),orders:await allOrders(),inventory:await inventoryAll()});
+  }catch(e){res.status(500).json({error:"server_error"});}
+});
+
 
 app.get("/api/admin/inventory",requireAdmin,async(req,res)=>{
   try{res.json({inventory:await inventoryAll()});}catch(e){res.status(500).json({error:"server_error"});}
@@ -181,6 +197,15 @@ app.patch("/api/admin/orders/:id",requireAdmin,async(req,res)=>{
     if(!allowed.includes(status)) return res.status(400).json({error:"bad_status"});
     const o=await getOrder(req.params.id);
     if(!o) return res.status(404).json({error:"not_found"});
+    if(o.status===status) return res.json({order:o});
+    if(o.status!=="ملغي"&&status==="ملغي"){
+      await inventoryRelease(o.items||[]);
+      o.stockReleased=true;
+    } else if(o.status==="ملغي"&&status!=="ملغي"){
+      const reserved=await inventoryReserve(o.items||[]);
+      if(!reserved.ok) return res.status(409).json({error:"out_of_stock",productId:reserved.id,available:reserved.available});
+      o.stockReleased=false;
+    }
     o.status=status;o.updatedAt=new Date().toISOString();
     o.statusHistory=[...(o.statusHistory||[]),{status,at:o.updatedAt}];
     await saveOrder(o);
