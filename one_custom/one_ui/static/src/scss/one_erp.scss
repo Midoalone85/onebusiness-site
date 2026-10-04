@@ -995,3 +995,40 @@ a[href*="odoo.com"],
     .one_cc_stats { grid-template-columns: repeat(2, 1fr); }
     .one_cc_cards { grid-template-columns: 1fr; }
 }
+
+
+/* ONE ERP hierarchical mega-navigation */
+.o_main_navbar .o_menu_sections .o-dropdown--menu,
+.o_main_navbar .o_menu_systray .o-dropdown--menu {
+    border: 1px solid #dbe6f0 !important;
+    border-radius: 16px !important;
+    padding: 9px !important;
+    min-width: 280px;
+    background: rgba(255,255,255,.985) !important;
+    box-shadow: 0 20px 48px rgba(7,26,43,.18) !important;
+    backdrop-filter: blur(16px);
+}
+.o_main_navbar .o_menu_sections .o-dropdown--menu .o-dropdown-item {
+    min-height: 38px;
+    padding: 9px 11px !important;
+    border-radius: 10px !important;
+    color: var(--one-navy-900) !important;
+    font-size: 12px;
+    font-weight: 650;
+}
+.o_main_navbar .o_menu_sections .o-dropdown--menu .o-dropdown-item:hover {
+    background: #eef5fb !important;
+    color: #164f7d !important;
+}
+.o_main_navbar .o_menu_sections .o-dropdown--menu .dropdown-toggle,
+.o_main_navbar .o_menu_sections .o-dropdown--menu button.dropdown-toggle {
+    font-weight: 820 !important;
+    color: #274d70 !important;
+}
+.o_main_navbar .o_menu_sections .o-dropdown--menu .dropdown-divider {
+    border-color: #e7eef5;
+    margin: 7px 0;
+}
+[dir="rtl"] .o_main_navbar .o_menu_sections .o-dropdown--menu {
+    text-align: right;
+}
