@@ -14,10 +14,10 @@
             <div class="one_hero_actions">
                 <div class="one_language_switch" role="group" aria-label="Language">
                     <button type="button"
-                            t-att-class="state.lang === 'ar_001' ? 'active' : ''"
+                            t-att-class="this.state.lang === 'ar_001' ? 'active' : ''"
                             t-on-click="() => this.switchLanguage('ar_001')">العربية</button>
                     <button type="button"
-                            t-att-class="state.lang === 'en_US' ? 'active' : ''"
+                            t-att-class="this.state.lang === 'en_US' ? 'active' : ''"
                             t-on-click="() => this.switchLanguage('en_US')">English</button>
                 </div>
                 <div class="one_hero_status">
@@ -30,27 +30,27 @@
         <section class="one_kpi_grid">
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_sales')">
                 <span class="one_kpi_icon"><i class="fa fa-line-chart"/></span>
-                <span class="one_kpi_meta"><small>Sales</small><strong t-esc="state.sales"/></span>
+                <span class="one_kpi_meta"><small>Sales</small><strong t-out="this.state.sales"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_purchase')">
                 <span class="one_kpi_icon"><i class="fa fa-shopping-cart"/></span>
-                <span class="one_kpi_meta"><small>Purchases</small><strong t-esc="state.purchases"/></span>
+                <span class="one_kpi_meta"><small>Purchases</small><strong t-out="this.state.purchases"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_inventory')">
                 <span class="one_kpi_icon"><i class="fa fa-cubes"/></span>
-                <span class="one_kpi_meta"><small>Transfers</small><strong t-esc="state.transfers"/></span>
+                <span class="one_kpi_meta"><small>Transfers</small><strong t-out="this.state.transfers"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_accounting')">
                 <span class="one_kpi_icon"><i class="fa fa-calculator"/></span>
-                <span class="one_kpi_meta"><small>Invoices</small><strong t-esc="state.invoices"/></span>
+                <span class="one_kpi_meta"><small>Invoices</small><strong t-out="this.state.invoices"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_crm')">
                 <span class="one_kpi_icon"><i class="fa fa-bullseye"/></span>
-                <span class="one_kpi_meta"><small>CRM</small><strong t-esc="state.opportunities"/></span>
+                <span class="one_kpi_meta"><small>CRM</small><strong t-out="this.state.opportunities"/></span>
             </button>
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_hr')">
                 <span class="one_kpi_icon"><i class="fa fa-users"/></span>
-                <span class="one_kpi_meta"><small>People</small><strong t-esc="state.employees"/></span>
+                <span class="one_kpi_meta"><small>People</small><strong t-out="this.state.employees"/></span>
             </button>
         </section>
 
@@ -96,7 +96,7 @@
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_hr')">
                             <i class="fa fa-users"/><b>People</b><small>Employees and human resources</small>
                         </button>
-                        <button t-if="state.posAccess" class="one_card" t-on-click="() => this.open('one_ui.action_one_pos')">
+                        <button t-if="this.state.posAccess" class="one_card" t-on-click="() => this.open('one_ui.action_one_pos')">
                             <i class="fa fa-credit-card"/><b>Point of Sale</b><small>Registers and checkout</small>
                         </button>
                         <button class="one_card" t-on-click="() => this.open('one_ui.action_one_ask')">
@@ -116,11 +116,11 @@
                         <div><small>ONE PULSE</small><h3>Financial snapshot</h3></div>
                     </div>
                     <div class="one_pulse_grid">
-                        <div><span>Receivables</span><strong t-esc="state.pulseReceivables"/></div>
-                        <div><span>Overdue</span><strong t-esc="state.pulseOverdue"/></div>
-                        <div><span>Payables</span><strong t-esc="state.pulsePayables"/></div>
-                        <div><span>Month revenue</span><strong t-esc="state.pulseMonthRevenue"/></div>
-                        <div class="one_pulse_wide"><span>Month profit / loss</span><strong t-esc="state.pulseMonthProfit"/></div>
+                        <div><span>Receivables</span><strong t-out="this.state.pulseReceivables"/></div>
+                        <div><span>Overdue</span><strong t-out="this.state.pulseOverdue"/></div>
+                        <div><span>Payables</span><strong t-out="this.state.pulsePayables"/></div>
+                        <div><span>Month revenue</span><strong t-out="this.state.pulseMonthRevenue"/></div>
+                        <div class="one_pulse_wide"><span>Month profit / loss</span><strong t-out="this.state.pulseMonthProfit"/></div>
                     </div>
                     <button class="one_secondary_btn" t-on-click="() => this.open('one_ui.action_one_financial_reports')">
                         Open financial reports
@@ -134,22 +134,22 @@
                     </div>
                     <div class="one_attention_list">
                         <button t-on-click="() => this.open('one_ui.action_one_accounting')">
-                            <span>Overdue receivables</span><strong t-esc="state.overdueInvoices"/>
+                            <span>Overdue receivables</span><strong t-out="this.state.overdueInvoices"/>
                         </button>
                         <button t-on-click="() => this.open('one_ui.action_one_accounting')">
-                            <span>Unpaid customer invoices</span><strong t-esc="state.unpaidInvoices"/>
+                            <span>Unpaid customer invoices</span><strong t-out="this.state.unpaidInvoices"/>
                         </button>
                         <button t-on-click="() => this.open('one_ui.action_one_sales')">
-                            <span>Open quotations</span><strong t-esc="state.draftQuotations"/>
+                            <span>Open quotations</span><strong t-out="this.state.draftQuotations"/>
                         </button>
                         <button t-on-click="() => this.open('one_ui.action_one_purchase')">
-                            <span>Purchases pending</span><strong t-esc="state.pendingPurchases"/>
+                            <span>Purchases pending</span><strong t-out="this.state.pendingPurchases"/>
                         </button>
                         <button t-on-click="() => this.open('one_ui.action_one_inventory')">
-                            <span>Receipts pending</span><strong t-esc="state.pendingReceipts"/>
+                            <span>Receipts pending</span><strong t-out="this.state.pendingReceipts"/>
                         </button>
                         <button t-on-click="() => this.open('one_ui.action_one_approvals')">
-                            <span>Approvals pending</span><strong t-esc="state.pendingApprovals"/>
+                            <span>Approvals pending</span><strong t-out="this.state.pendingApprovals"/>
                         </button>
                     </div>
                 </section>
@@ -160,9 +160,9 @@
                         <div><small>SAUDI COMPLIANCE</small><h3>ZATCA &amp; National Address</h3></div>
                     </div>
                     <div class="one_panel_metrics">
-                        <div><span>Profiles</span><strong t-esc="state.saudiProfiles"/></div>
-                        <div><span>Ready for onboarding</span><strong t-esc="state.zatcaReady"/></div>
-                        <div><span>ZATCA connected</span><strong t-esc="state.zatcaConnected"/></div>
+                        <div><span>Profiles</span><strong t-out="this.state.saudiProfiles"/></div>
+                        <div><span>Ready for onboarding</span><strong t-out="this.state.zatcaReady"/></div>
+                        <div><span>ZATCA connected</span><strong t-out="this.state.zatcaConnected"/></div>
                     </div>
                     <button class="one_primary_btn" t-on-click="() => this.open('one_ui.action_one_saudi_profile')">
                         Open compliance center
@@ -175,8 +175,8 @@
                         <div><small>SUBSCRIPTIONS</small><h3>Plans &amp; customer access</h3></div>
                     </div>
                     <div class="one_panel_metrics">
-                        <div><span>Total</span><strong t-esc="state.subscriptions"/></div>
-                        <div><span>Active</span><strong t-esc="state.activeSubscriptions"/></div>
+                        <div><span>Total</span><strong t-out="this.state.subscriptions"/></div>
+                        <div><span>Active</span><strong t-out="this.state.activeSubscriptions"/></div>
                     </div>
                     <button class="one_secondary_btn" t-on-click="() => this.open('one_ui.action_one_subscriptions')">
                         Manage subscriptions
