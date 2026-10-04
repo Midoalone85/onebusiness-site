@@ -127,6 +127,37 @@
                     </button>
                 </section>
 
+                <section class="one_panel one_panel_radar">
+                    <div class="one_panel_head">
+                        <span class="one_panel_icon"><i class="fa fa-rss"/></span>
+                        <div><small>ONE BUSINESS RADAR</small><h3>Company health &amp; early warnings</h3></div>
+                    </div>
+                    <div class="one_radar_score">
+                        <strong t-out="this.state.businessHealthScore"/>
+                        <span>/100 · <t t-out="this.state.businessHealthStatus"/></span>
+                    </div>
+                    <div class="one_radar_alerts">
+                        <t t-if="this.state.radarAlerts.length">
+                            <t t-foreach="this.state.radarAlerts" t-as="alert" t-key="alert.key">
+                                <button t-att-class="'one_radar_alert ' + alert.severity"
+                                        t-on-click="() => this.open(alert.action)">
+                                    <span>
+                                        <b t-out="alert.title"/>
+                                        <small t-out="alert.detail"/>
+                                    </span>
+                                    <i class="fa fa-chevron-right"/>
+                                </button>
+                            </t>
+                        </t>
+                        <t t-else="">
+                            <div class="one_radar_clear">
+                                <i class="fa fa-check-circle"/>
+                                <span>No urgent signals right now</span>
+                            </div>
+                        </t>
+                    </div>
+                </section>
+
                 <section class="one_panel one_panel_attention">
                     <div class="one_panel_head">
                         <span class="one_panel_icon"><i class="fa fa-bolt"/></span>

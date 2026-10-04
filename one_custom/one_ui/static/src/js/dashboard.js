@@ -41,6 +41,9 @@ export class OneDashboard extends Component {
             pulsePayables: "…",
             pulseMonthRevenue: "…",
             pulseMonthProfit: "…",
+            businessHealthScore: "…",
+            businessHealthStatus: "…",
+            radarAlerts: [],
         });
 
         onMounted(() => {
@@ -141,6 +144,17 @@ export class OneDashboard extends Component {
             } catch {
                 this.state.zatcaReady = "—";
                 this.state.zatcaConnected = "—";
+            }
+
+            try {
+                const radar = await this.orm.call("res.company", "one_get_business_radar", []);
+                this.state.businessHealthScore = radar.score;
+                this.state.businessHealthStatus = radar.status;
+                this.state.radarAlerts = radar.alerts || [];
+            } catch {
+                this.state.businessHealthScore = "—";
+                this.state.businessHealthStatus = "Unavailable";
+                this.state.radarAlerts = [];
             }
     }
 
