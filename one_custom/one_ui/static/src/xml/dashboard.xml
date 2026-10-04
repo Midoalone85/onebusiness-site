@@ -289,6 +289,8 @@
                 <div class="one_cc_cards">
                     <button t-on-click="() => this.open('one_ui.action_one_chart_accounts')"><i class="fa fa-list-alt"/><b>Chart of Accounts</b><small>Accounting structure and classifications</small></button>
                     <button t-on-click="() => this.open('one_ui.action_one_journals')"><i class="fa fa-book"/><b>Journals</b><small>Sales, purchase, bank and miscellaneous journals</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_analytic_accounts')"><i class="fa fa-pie-chart"/><b>Cost Centers</b><small>Analytic accounts and management reporting dimensions</small></button>
+                    <button t-on-click="() => this.open('one_ui.action_one_bank_cash')"><i class="fa fa-bank"/><b>Bank &amp; Cash</b><small>Bank and cash journals</small></button>
                     <button t-on-click="() => this.open('one_ui.action_one_taxes')"><i class="fa fa-percent"/><b>Taxes</b><small>VAT and tax configuration</small></button>
                     <button t-on-click="() => this.open('one_ui.action_one_payment_terms')"><i class="fa fa-calendar-check-o"/><b>Payment Terms</b><small>Customer and supplier payment schedules</small></button>
                     <button t-on-click="() => this.open('one_ui.action_one_fiscal_positions')"><i class="fa fa-random"/><b>Fiscal Positions</b><small>Tax mapping and fiscal treatment</small></button>
