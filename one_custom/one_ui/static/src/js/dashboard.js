@@ -62,71 +62,26 @@ export class OneDashboard extends Component {
                 String(now.getDate()).padStart(2, "0"),
             ].join("-");
 
-            const unpaidInvoiceDomain = [
-                ["move_type", "=", "out_invoice"],
-                ["state", "=", "posted"],
-                ["payment_state", "in", ["not_paid", "partial"]],
-            ];
-
             try {
-                const [isPosUser, isPosManager, isAdmin] = await Promise.all([
-                    user.hasGroup("point_of_sale.group_pos_user"),
-                    user.hasGroup("point_of_sale.group_pos_manager"),
-                    user.hasGroup("base.group_system"),
-                ]);
-                this.state.posAccess = isPosUser || isPosManager;
-                this.state.adminAccess = isAdmin;
+                const summary = await this.orm.call("res.company", "one_get_dashboard_summary", []);
+                const counterKeys = [
+                    "contacts", "products", "warehouses", "sales", "purchases",
+                    "transfers", "invoices", "manufacturing", "opportunities",
+                    "employees", "saudiProfiles", "subscriptions",
+                    "activeSubscriptions", "unpaidInvoices", "overdueInvoices",
+                    "draftQuotations", "pendingPurchases", "pendingReceipts",
+                    "pendingApprovals", "posConfigs",
+                ];
+                for (const key of counterKeys) {
+                    const value = summary[key];
+                    this.state[key] = value === false || value === undefined ? "—" : value;
+                }
+                this.state.posAccess = Boolean(summary.posAccess);
+                this.state.adminAccess = Boolean(summary.adminAccess);
             } catch {
                 this.state.posAccess = false;
+                this.state.adminAccess = false;
             }
-
-            const counters = {
-                contacts: ["res.partner", []],
-                products: ["product.template", []],
-                warehouses: ["stock.warehouse", []],
-                sales: ["sale.order", []],
-                purchases: ["purchase.order", []],
-                transfers: ["stock.picking", []],
-                invoices: ["account.move", []],
-                manufacturing: ["mrp.production", []],
-                opportunities: ["crm.lead", []],
-                employees: ["hr.employee", []],
-                saudiProfiles: ["one.saudi.profile", []],
-                subscriptions: ["one.subscription", []],
-                activeSubscriptions: ["one.subscription", [["status", "=", "active"]]],
-                unpaidInvoices: ["account.move", unpaidInvoiceDomain],
-                overdueInvoices: [
-                    "account.move",
-                    [...unpaidInvoiceDomain, ["invoice_date_due", "<", today]],
-                ],
-                draftQuotations: ["sale.order", [["state", "in", ["draft", "sent"]]]],
-                pendingPurchases: [
-                    "purchase.order",
-                    [["state", "in", ["draft", "sent", "to approve"]]],
-                ],
-                pendingReceipts: [
-                    "stock.picking",
-                    [
-                        ["picking_type_code", "=", "incoming"],
-                        ["state", "not in", ["done", "cancel"]],
-                    ],
-                ],
-                pendingApprovals: [
-                    "one.approval.request",
-                    [["state", "=", "submitted"]],
-                ],
-                ...(this.state.posAccess ? { posConfigs: ["pos.config", []] } : {}),
-            };
-
-            await Promise.all(
-                Object.entries(counters).map(async ([key, [model, domain]]) => {
-                    try {
-                        this.state[key] = await this.orm.searchCount(model, domain);
-                    } catch {
-                        this.state[key] = "—";
-                    }
-                })
-            );
 
             try {
                 const pulse = await this.orm.call("res.company", "one_get_pulse", []);
