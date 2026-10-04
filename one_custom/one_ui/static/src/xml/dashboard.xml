@@ -27,6 +27,15 @@
             </div>
         </section>
 
+        <div t-if="this.state.adminAccess and !this.state.persistentDatabase"
+             class="one_storage_warning">
+            <i class="fa fa-database"/>
+            <span>
+                <b>Demo storage is active</b>
+                <small>This workspace is using temporary database storage. Connect persistent PostgreSQL before production use.</small>
+            </span>
+        </div>
+
         <section class="one_kpi_grid">
             <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_sales')">
                 <span class="one_kpi_icon"><i class="fa fa-line-chart"/></span>
