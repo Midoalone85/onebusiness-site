@@ -37,7 +37,7 @@
                         <style>
                             .one_finance_report {
                                 color: #15324b;
-                                font-family: Arial, "Noto Sans Arabic", sans-serif;
+                                font-family: "DejaVu Sans", Arial, sans-serif;
                                 font-size: 11px;
                             }
                             .one_finance_report .one_report_title {
@@ -110,6 +110,10 @@
                                 padding: 7px 6px;
                                 border: 1px solid #dfe7ef;
                                 vertical-align: top;
+                                overflow-wrap: anywhere;
+                            }
+                            .one_finance_report table.one_lines tr {
+                                page-break-inside: avoid;
                             }
                             .one_finance_report table.one_lines tbody tr:nth-child(even) td {
                                 background: #fafbfd;
