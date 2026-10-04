@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="one_landing_page" name="ONE ERP Product Gateway">
+        <html t-att-lang="'ar' if is_ar else 'en'" t-att-dir="'rtl' if is_ar else 'ltr'">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <meta name="theme-color" content="#f7fbff"/>
+                <meta name="description" content="ONE ERP - finance, operations, Saudi compliance and intelligence in one business workspace."/>
+                <title>ONE ERP | ONE Business</title>
+                <link rel="icon" type="image/svg+xml" href="/one_ui/static/src/img/one_erp.svg"/>
+                <link rel="stylesheet" href="/one_ui/static/src/css/one_marketing.css"/>
+            </head>
+            <body class="one-mkt">
+                <header class="one-nav">
+                    <a href="/" class="one-brand">
+                        <img src="/one_ui/static/src/img/one_erp.svg" alt="ONE ERP"/>
+                        <span><strong>ONE ERP</strong><small>ONE BUSINESS</small></span>
+                    </a>
+                    <nav class="one-navlinks">
+                        <a href="#platform"><t t-if="is_ar">المنصة</t><t t-else="">Platform</t></a>
+                        <a href="#engineering"><t t-if="is_ar">الذكاء المنضبط</t><t t-else="">Engineered AI</t></a>
+                        <a href="#pricing"><t t-if="is_ar">الخطط</t><t t-else="">Plans</t></a>
+                    </nav>
+                    <div class="one-navactions">
+                        <a t-att-href="'/?lang=en' if is_ar else '/?lang=ar'" class="one-lang"><t t-if="is_ar">EN</t><t t-else="">AR</t></a>
+                        <a href="/web/login?redirect=/" class="one-btn one-btn--ghost"><t t-if="is_ar">تسجيل الدخول</t><t t-else="">Sign in</t></a>
+                        <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--primary"><t t-if="is_ar">جرّب 24 ساعة</t><t t-else="">Try 24 hours</t></a>
+                    </div>
+                </header>
+
+                <main>
+                    <section class="one-hero">
+                        <div class="one-hero-copy">
+                            <div class="one-kicker">
+                                <span class="one-dot"></span>
+                                <t t-if="is_ar">ERP للسوق السعودي، بعقل هندسي</t>
+                                <t t-else="">Saudi-ready ERP, engineered with discipline</t>
+                            </div>
+                            <h1>
+                                <t t-if="is_ar">شغّل شركتك من <span>مكان واحد</span>.<br/>وخلي الذكاء يساعد، لا يتحكم.</t>
+                                <t t-else="">Run the business from <span>one place</span>.<br/>Let intelligence assist, never improvise.</t>
+                            </h1>
+                            <p class="one-hero-lead">
+                                <t t-if="is_ar">محاسبة، مبيعات، مشتريات، مخزون، تصنيع، موارد بشرية، نقاط بيع، ZATCA، وتقارير تنفيذية. نواة محاسبية حتمية، وفوقها طبقة ذكاء قابلة للتفسير والمراجعة.</t>
+                                <t t-else="">Finance, sales, purchasing, inventory, manufacturing, HR, POS, ZATCA and executive reporting. A deterministic ERP core with an explainable intelligence layer on top.</t>
+                            </p>
+                            <div class="one-hero-actions">
+                                <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--xl one-btn--primary">
+                                    <t t-if="is_ar">ابدأ تجربة كاملة لمدة يوم</t><t t-else="">Start a full 24-hour trial</t>
+                                </a>
+                                <a href="#engineering" class="one-btn one-btn--xl one-btn--ghost">
+                                    <t t-if="is_ar">شاهد لماذا المطور سيحترمه</t><t t-else="">See the engineering case</t>
+                                </a>
+                            </div>
+                            <div class="one-trustline">
+                                <span>✓ <t t-if="is_ar">بدون بطاقة</t><t t-else="">No card</t></span>
+                                <span>✓ <t t-if="is_ar">عربي + English</t><t t-else="">Arabic + English</t></span>
+                                <span>✓ <t t-if="is_ar">تجربة معزولة لشركتك</t><t t-else="">Isolated trial company</t></span>
+                            </div>
+                        </div>
+
+                        <div class="one-hero-visual" aria-label="ONE ERP dashboard preview">
+                            <div class="one-window">
+                                <div class="one-window-bar"><i></i><i></i><i></i><span>ONE ERP · Business Control Center</span></div>
+                                <div class="one-window-grid">
+                                    <aside>
+                                        <div class="one-mini-logo">1</div>
+                                        <b>Dashboard</b><span>Finance</span><span>Sales</span><span>Inventory</span><span>Manufacturing</span><span>Ask ONE</span><span>ZATCA</span>
+                                    </aside>
+                                    <div class="one-dash">
+                                        <div class="one-dash-head"><div><small>ONE PULSE</small><strong><t t-if="is_ar">صحة الأعمال</t><t t-else="">Business health</t></strong></div><em>92/100</em></div>
+                                        <div class="one-metrics">
+                                            <article><small><t t-if="is_ar">إيراد الشهر</t><t t-else="">Month revenue</t></small><strong>+18.4%</strong><span>Live ledger</span></article>
+                                            <article><small><t t-if="is_ar">متأخرات العملاء</t><t t-else="">Overdue A/R</t></small><strong>7</strong><span>Needs attention</span></article>
+                                            <article><small>ZATCA</small><strong>Ready</strong><span>Compliance profile</span></article>
+                                        </div>
+                                        <div class="one-ai-panel">
+                                            <div class="one-ai-icon">✦</div>
+                                            <div><small>ASK ONE</small><strong><t t-if="is_ar">ما أهم 3 إشارات تحتاج قرارًا اليوم؟</t><t t-else="">What are the 3 signals needing a decision today?</t></strong><p><t t-if="is_ar">إجابة مبنية على بيانات النظام والصلاحيات، وليست تخمينًا حرًا.</t><t t-else="">Grounded in ERP data and permissions, not free-form guessing.</t></p></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="one-float one-float--a"><b>0</b><span><t t-if="is_ar">قيود يكتبها الذكاء تلقائيًا</t><t t-else="">AI-posted journal entries</t></span></div>
+                            <div class="one-float one-float--b"><b>24h</b><span><t t-if="is_ar">تجربة كاملة</t><t t-else="">Full trial</t></span></div>
+                        </div>
+                    </section>
+
+                    <section class="one-proofstrip">
+                        <div><strong>ONE</strong><span><t t-if="is_ar">هوية واحدة لكل العمليات</t><t t-else="">One identity for operations</t></span></div>
+                        <div><strong>RULES</strong><span><t t-if="is_ar">الدفتر والضرائب بقواعد حتمية</t><t t-else="">Deterministic ledger &amp; tax rules</t></span></div>
+                        <div><strong>TRACE</strong><span><t t-if="is_ar">صلاحيات ومسار مراجعة</t><t t-else="">Permissions &amp; audit trail</t></span></div>
+                        <div><strong>AI+</strong><span><t t-if="is_ar">ذكاء مساعد قابل للفصل</t><t t-else="">Optional intelligence layer</t></span></div>
+                    </section>
+
+                    <section id="platform" class="one-section">
+                        <div class="one-section-head">
+                            <span class="one-eyebrow">ONE OPERATING SYSTEM</span>
+                            <h2><t t-if="is_ar">مش تطبيقات مرصوصة. منظومة واحدة تتكلم مع نفسها.</t><t t-else="">Not a pile of apps. One operating system that talks to itself.</t></h2>
+                            <p><t t-if="is_ar">من أول عرض السعر إلى التحصيل، ومن أمر الشراء إلى المخزون، ومن أمر الإنتاج إلى التكلفة، نفس البيانات ونفس الصلاحيات ونفس الحقيقة المحاسبية.</t><t t-else="">From quote to cash, purchase to stock, and manufacturing order to cost, the same data, permissions and accounting truth flow through the system.</t></p>
+                        </div>
+                        <div class="one-feature-grid">
+                            <article><span>◫</span><h3><t t-if="is_ar">الماليات</t><t t-else="">Finance</t></h3><p><t t-if="is_ar">قيود، فواتير، ضرائب، بنوك، مراكز تكلفة وتقارير مالية.</t><t t-else="">Ledger, invoices, taxes, banking, cost centers and financial reports.</t></p></article>
+                            <article><span>↗</span><h3><t t-if="is_ar">المبيعات والعملاء</t><t t-else="">Sales &amp; CRM</t></h3><p><t t-if="is_ar">فرص، عروض أسعار، طلبات بيع، تحصيل ومتابعة العميل.</t><t t-else="">Pipeline, quotations, orders, collections and customer follow-up.</t></p></article>
+                            <article><span>▦</span><h3><t t-if="is_ar">المخزون والمشتريات</t><t t-else="">Inventory &amp; purchasing</t></h3><p><t t-if="is_ar">مستودعات، استلام وتسليم، موردون وحركة صنف مترابطة.</t><t t-else="">Warehouses, receipts, deliveries, vendors and connected item movement.</t></p></article>
+                            <article><span>⚙</span><h3><t t-if="is_ar">التصنيع</t><t t-else="">Manufacturing</t></h3><p><t t-if="is_ar">أوامر إنتاج، مواد، مخزون وتكلفة في مسار واحد.</t><t t-else="">Production orders, materials, stock and cost in one flow.</t></p></article>
+                            <article><span>⌁</span><h3><t t-if="is_ar">الموارد البشرية</t><t t-else="">People</t></h3><p><t t-if="is_ar">هيكل موظفين وصلاحيات مرتبطة بدور كل مستخدم.</t><t t-else="">Employee structure and role-based access for every user.</t></p></article>
+                            <article><span>✓</span><h3><t t-if="is_ar">السعودية وZATCA</t><t t-else="">Saudi &amp; ZATCA</t></h3><p><t t-if="is_ar">بروفايل امتثال، عنوان وطني، ضرائب وجاهزية الفوترة الإلكترونية.</t><t t-else="">Compliance profile, national address, taxes and e-invoicing readiness.</t></p></article>
+                        </div>
+                    </section>
+
+                    <section id="engineering" class="one-section one-section--engineering">
+                        <div class="one-engineering-copy">
+                            <span class="one-eyebrow">FOR THE SKEPTICAL ENGINEER</span>
+                            <h2><t t-if="is_ar">لو أنت لا تثق في AI، فدي ميزة في التصميم وليست مشكلة.</t><t t-else="">If you distrust AI, that is a design input, not a problem.</t></h2>
+                            <p><t t-if="is_ar">ONE ERP لا يطلب منك تسليم الدفتر لنموذج لغوي. المحاسبة والمخزون والصلاحيات تظل في نواة حتمية. الذكاء يقرأ ما تسمح به الصلاحيات، يلخص ويكشف إشارات ويقترح. القرار والتنفيذ يظلان تحت قواعد النظام وموافقة الإنسان.</t><t t-else="">ONE ERP never asks you to hand the ledger to a language model. Accounting, inventory and access control remain deterministic. Intelligence reads only permitted context, summarizes, detects signals and recommends. Execution stays behind system rules and human approval.</t></p>
+                            <div class="one-tech-badges"><span>Deterministic core</span><span>Permission scoped</span><span>Approval gated</span><span>API optional</span><span>Auditable</span></div>
+                        </div>
+                        <div class="one-architecture">
+                            <div><b>01</b><strong>ERP Events</strong><span>ledger · stock · CRM</span></div><i>→</i>
+                            <div><b>02</b><strong>Permission Gate</strong><span>company · role · record rules</span></div><i>→</i>
+                            <div><b>03</b><strong>Grounded Context</strong><span>metrics · records · rules</span></div><i>→</i>
+                            <div><b>04</b><strong>Ask ONE</strong><span>explain · flag · recommend</span></div><i>→</i>
+                            <div><b>05</b><strong>Human Approval</strong><span>before consequential action</span></div>
+                        </div>
+                        <div class="one-engineer-proof">
+                            <article><strong>0</strong><span><t t-if="is_ar">حاجة لـ API مدفوع لتشغيل Ask ONE Lite الحالي</t><t t-else="">paid AI APIs required for current Ask ONE Lite</t></span></article>
+                            <article><strong>100%</strong><span><t t-if="is_ar">الاستفسارات داخل صلاحيات المستخدم</t><t t-else="">queries stay inside user permissions</t></span></article>
+                            <article><strong>1</strong><span><t t-if="is_ar">مصدر حقيقة: بيانات ERP نفسها</t><t t-else="">source of truth: the ERP itself</t></span></article>
+                        </div>
+                    </section>
+
+                    <section class="one-section one-ai-showcase">
+                        <div class="one-section-head">
+                            <span class="one-eyebrow">INTELLIGENCE THAT EARNS ITS SEAT</span>
+                            <h2><t t-if="is_ar">الذكاء هنا له وظيفة، مش ديكور.</t><t t-else="">Intelligence has a job here. It is not decoration.</t></h2>
+                        </div>
+                        <div class="one-ai-grid">
+                            <article><span>✦</span><h3>Ask ONE Lite</h3><p><t t-if="is_ar">اسأل عن الإيراد، الربح، السيولة، المتأخرات، العملاء، الموردين، المخزون، CRM وZATCA من بيانات النظام مباشرة.</t><t t-else="">Ask about revenue, profit, liquidity, overdue balances, customers, vendors, inventory, CRM and ZATCA directly from ERP data.</t></p></article>
+                            <article><span>◉</span><h3>Business Radar</h3><p><t t-if="is_ar">يحوّل الإشارات التشغيلية إلى ترتيب أولويات بدل ما تغرق في عشرات الشاشات.</t><t t-else="">Turns operational signals into priorities instead of forcing managers through dozens of screens.</t></p></article>
+                            <article><span>⇄</span><h3><t t-if="is_ar">جاهز للتوسعة</t><t t-else="">Model-optional architecture</t></h3><p><t t-if="is_ar">يمكن إضافة نموذج محلي أو خارجي لاحقًا بدون جعل تشغيل ERP الأساسي معتمدًا عليه.</t><t t-else="">A local or external model can be connected later without making the ERP core dependent on it.</t></p></article>
+                        </div>
+                    </section>
+
+                    <section id="pricing" class="one-section one-pricing">
+                        <div class="one-section-head">
+                            <span class="one-eyebrow">SIMPLE PLANS, EDITABLE FROM CONTROL CENTER</span>
+                            <h2><t t-if="is_ar">ابدأ صغيرًا، ووسّع النظام مع الشركة.</t><t t-else="">Start lean. Expand as the company grows.</t></h2>
+                            <p><t t-if="is_ar">الأسعار المعروضة أسعار إطلاق قابلة للتعديل من لوحة التحكم قبل الإطلاق التجاري النهائي.</t><t t-else="">Displayed launch pricing can be edited from Control Center before commercial launch.</t></p>
+                        </div>
+                        <div class="one-plan-grid">
+                            <article t-foreach="plans" t-as="plan" t-att-class="'one-plan one-plan--featured' if plan['featured'] else 'one-plan'">
+                                <div class="one-plan-top"><span t-esc="plan['tag']"/><h3 t-esc="plan['name']"/></div>
+                                <div class="one-price" t-if="not plan['custom']"><strong t-esc="'%g' % plan['price']"/><small><t t-if="is_ar">ر.س / شهر</t><t t-else="">SAR / month</t></small></div>
+                                <div class="one-price one-price--custom" t-if="plan['custom']"><strong><t t-if="is_ar">حسب الاحتياج</t><t t-else="">Custom</t></strong><small><t t-if="is_ar">للشركات الكبيرة</t><t t-else="">for larger teams</t></small></div>
+                                <ul><li t-foreach="plan['features']" t-as="feature"><span>✓</span><t t-esc="feature"/></li></ul>
+                                <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--plan"><t t-if="is_ar">جرّبها يومًا كاملًا</t><t t-else="">Try it for a full day</t></a>
+                            </article>
+                        </div>
+                    </section>
+
+                    <section class="one-cta">
+                        <div><span>ONE ERP</span><h2><t t-if="is_ar">خلي القرار بعد التجربة، مش قبلها.</t><t t-else="">Make the decision after using it, not before.</t></h2><p><t t-if="is_ar">24 ساعة، شركة منفصلة، صلاحيات حقيقية، وكل الأدوات الأساسية أمامك.</t><t t-else="">24 hours, an isolated company, real permissions and the core workspace ready to explore.</t></p></div>
+                        <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--xl one-btn--light"><t t-if="is_ar">ابدأ الآن</t><t t-else="">Start now</t></a>
+                    </section>
+                </main>
+
+                <footer class="one-footer">
+                    <a href="/" class="one-brand"><img src="/one_ui/static/src/img/one_erp.svg" alt="ONE ERP"/><span><strong>ONE ERP</strong><small>ONE BUSINESS</small></span></a>
+                    <p><t t-if="is_ar">نظام أعمال قابل للتوسع للسوق السعودي والعربي.</t><t t-else="">A scalable business operating system for Saudi and regional teams.</t></p>
+                    <div><a href="/web/login?redirect=/"><t t-if="is_ar">الدخول</t><t t-else="">Sign in</t></a><a href="#pricing"><t t-if="is_ar">الخطط</t><t t-else="">Plans</t></a></div>
+                </footer>
+            </body>
+        </html>
+    </template>
+
+    <template id="one_trial_page" name="ONE ERP 24-hour Trial">
+        <html t-att-lang="'ar' if is_ar else 'en'" t-att-dir="'rtl' if is_ar else 'ltr'">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>ONE ERP | 24h Trial</title>
+                <link rel="icon" type="image/svg+xml" href="/one_ui/static/src/img/one_erp.svg"/>
+                <link rel="stylesheet" href="/one_ui/static/src/css/one_marketing.css"/>
+            </head>
+            <body class="one-mkt one-trial-body">
+                <a href="/" class="one-trial-back">← <t t-if="is_ar">العودة للصفحة الرئيسية</t><t t-else="">Back to home</t></a>
+                <main class="one-trial-shell">
+                    <section class="one-trial-intro">
+                        <div class="one-brand one-brand--large"><img src="/one_ui/static/src/img/one_erp.svg" alt="ONE ERP"/><span><strong>ONE ERP</strong><small>ONE BUSINESS</small></span></div>
+                        <span class="one-eyebrow">24-HOUR FULL PRODUCT TRIAL</span>
+                        <h1><t t-if="is_ar">يوم واحد كفاية تعرف هل النظام يستحق.</t><t t-else="">One day is enough to know if the system deserves a seat.</t></h1>
+                        <p><t t-if="is_ar">هننشئ لك شركة تجريبية منفصلة ومستخدمًا حقيقيًا بصلاحيات تشغيلية. الحساب يتوقف تلقائيًا بعد 24 ساعة.</t><t t-else="">We create an isolated trial company and a real operational user. The account automatically expires after 24 hours.</t></p>
+                        <ul><li>✓ <t t-if="is_ar">لا بطاقة بنكية</t><t t-else="">No credit card</t></li><li>✓ <t t-if="is_ar">لا صلاحيات Admin</t><t t-else="">No admin privileges</t></li><li>✓ <t t-if="is_ar">شركة معزولة عن التجارب الأخرى</t><t t-else="">Company-isolated workspace</t></li></ul>
+                    </section>
+                    <section class="one-trial-card">
+                        <h2><t t-if="is_ar">ابدأ التجربة</t><t t-else="">Start your trial</t></h2>
+                        <p><t t-if="is_ar">هنعرض لك بيانات الدخول فورًا بعد إنشاء المساحة.</t><t t-else="">Your temporary credentials appear immediately after the workspace is created.</t></p>
+                        <div class="one-form-error" t-if="error" t-esc="error"/>
+                        <form action="/one/trial/start" method="post">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="lang" t-att-value="'ar' if is_ar else 'en'"/>
+                            <label><span><t t-if="is_ar">الاسم</t><t t-else="">Your name</t></span><input name="name" type="text" required="required" maxlength="120" autocomplete="name"/></label>
+                            <label><span><t t-if="is_ar">البريد الإلكتروني</t><t t-else="">Work email</t></span><input name="email" type="email" required="required" maxlength="160" autocomplete="email"/></label>
+                            <label><span><t t-if="is_ar">اسم الشركة التجريبية</t><t t-else="">Trial company name</t></span><input name="company" type="text" required="required" maxlength="160" autocomplete="organization"/></label>
+                            <button type="submit" class="one-btn one-btn--xl one-btn--primary one-btn--block"><t t-if="is_ar">أنشئ مساحة 24 ساعة</t><t t-else="">Create my 24-hour workspace</t></button>
+                        </form>
+                        <small class="one-form-note"><t t-if="is_ar">التجربة مخصصة لاختبار المنتج. لا ترفع بيانات حقيقية حساسة في بيئة العرض.</t><t t-else="">This is a product evaluation environment. Do not upload sensitive production data.</t></small>
+                    </section>
+                </main>
+            </body>
+        </html>
+    </template>
+
+    <template id="one_trial_success" name="ONE ERP Trial Ready">
+        <html t-att-lang="'ar' if is_ar else 'en'" t-att-dir="'rtl' if is_ar else 'ltr'">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>ONE ERP | Trial Ready</title>
+                <link rel="icon" type="image/svg+xml" href="/one_ui/static/src/img/one_erp.svg"/>
+                <link rel="stylesheet" href="/one_ui/static/src/css/one_marketing.css"/>
+            </head>
+            <body class="one-mkt one-trial-body">
+                <main class="one-success-shell">
+                    <div class="one-success-mark">✓</div>
+                    <span class="one-eyebrow">WORKSPACE READY</span>
+                    <h1><t t-if="is_ar">مساحة ONE ERP بتاعتك جاهزة.</t><t t-else="">Your ONE ERP workspace is ready.</t></h1>
+                    <p><t t-if="is_ar">احفظ بيانات الدخول الآن. كلمة المرور المؤقتة تظهر في هذه الصفحة مرة واحدة.</t><t t-else="">Save these credentials now. The temporary password is shown on this page once.</t></p>
+                    <div class="one-credential"><small><t t-if="is_ar">المستخدم</t><t t-else="">Login</t></small><strong t-esc="login"/></div>
+                    <div class="one-credential"><small><t t-if="is_ar">كلمة المرور المؤقتة</t><t t-else="">Temporary password</t></small><strong t-esc="password"/></div>
+                    <div class="one-expiry"><t t-if="is_ar">ينتهي الوصول بعد 24 ساعة · </t><t t-else="">Access expires after 24 hours · </t><span t-esc="expires_at"/></div>
+                    <a href="/web/login?redirect=/" class="one-btn one-btn--xl one-btn--primary"><t t-if="is_ar">ادخل ONE ERP الآن</t><t t-else="">Open ONE ERP now</t></a>
+                </main>
+            </body>
+        </html>
+    </template>
+</odoo>
