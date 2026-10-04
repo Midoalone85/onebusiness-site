@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { createClient } from "redis";
 import crypto from "crypto";
+import { readFile } from "fs/promises";
 
 const app = express();
 app.use(cors({origin:true,credentials:false}));
@@ -29,6 +30,20 @@ async function initRedis(){
   }catch(e){redis=null;}
 }
 await initRedis();
+async function seedCatalogIfMissing(){
+  try{
+    let exists=false;
+    if(redis) exists=!!(await redis.get("afia:catalog")); else exists=Array.isArray(memCatalog)&&memCatalog.length>0;
+    if(exists)return;
+    const html=await readFile("../afia-market/index.html","utf8");
+    const m=html.match(/const BASE_P=(\[[\s\S]*?\]);\s*let P=/);
+    if(!m)return;
+    const catalog=JSON.parse(m[1]);
+    if(!Array.isArray(catalog)||!catalog.length)return;
+    if(redis)await redis.set("afia:catalog",JSON.stringify(catalog));else memCatalog=catalog;
+  }catch(e){}
+}
+await seedCatalogIfMissing();
 
 function orderKey(id){return "afia:order:"+id}
 async function saveOrder(o){
