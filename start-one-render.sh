@@ -10,8 +10,18 @@ ODOO_DATA=/tmp/one-odoo-data
 DB_NAME="${ONE_DB_NAME:-one_erp_db}"
 LOCAL_PG=0
 ODOO_PID=""
+BOOTSTRAP_HTTP_PID=""
 
 mkdir -p "$ODOO_DATA"
+
+# Bind Render's public port immediately on staging, before PostgreSQL init or
+# Odoo module bootstrap. This prevents Render from repeatedly restarting a
+# fresh instance when it discovers the port late during first boot.
+if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && -z "${ONE_DB_HOST:-}" ]]; then
+  python3 -m http.server "${PORT:-10000}" --bind 0.0.0.0 >/tmp/one-bootstrap-http.log 2>&1 &
+  BOOTSTRAP_HTTP_PID=$!
+  echo "ONE ERP: staging bootstrap HTTP placeholder listening on port ${PORT:-10000}."
+fi
 
 stop_local_pg() {
   if [[ "$LOCAL_PG" -eq 1 ]] && [[ -s "$PGDATA/PG_VERSION" ]]; then
@@ -21,6 +31,10 @@ stop_local_pg() {
 
 handle_term() {
   trap - TERM INT
+  if [[ -n "$BOOTSTRAP_HTTP_PID" ]]; then
+    kill -TERM "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
+    wait "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
+  fi
   if [[ -n "$ODOO_PID" ]]; then
     kill -TERM "$ODOO_PID" >/dev/null 2>&1 || true
     wait "$ODOO_PID" >/dev/null 2>&1 || true
@@ -215,9 +229,6 @@ HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc   "SELECT 
 
 run_staging_bootstrap() {
   echo "ONE ERP: starting memory-safe batched bootstrap."
-  python3 -m http.server "${PORT:-10000}" --bind 0.0.0.0 >/tmp/one-bootstrap-http.log 2>&1 &
-  BOOTSTRAP_HTTP_PID=$!
-
   # Keep each install process deliberately small so memory is released between
   # groups. Odoo resolves each group's transitive dependencies automatically.
   bootstrap_batch "web"
@@ -227,8 +238,11 @@ run_staging_bootstrap() {
   bootstrap_batch "point_of_sale,l10n_sa_edi"
   bootstrap_batch "one_ui"
 
-  kill "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
-  wait "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
+  if [[ -n "$BOOTSTRAP_HTTP_PID" ]]; then
+    kill "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
+    wait "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
+    BOOTSTRAP_HTTP_PID=""
+  fi
   echo "ONE ERP: batched bootstrap complete."
 }
 
@@ -254,6 +268,12 @@ else
   echo "ONE ERP: database schema check returned an unexpected result; refusing initialization." >&2
   stop_local_pg
   exit 1
+fi
+
+if [[ -n "$BOOTSTRAP_HTTP_PID" ]]; then
+  kill "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
+  wait "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
+  BOOTSTRAP_HTTP_PID=""
 fi
 
 RUN_ARGS=("${COMMON[@]}" "${HTTP_ARGS[@]}")
