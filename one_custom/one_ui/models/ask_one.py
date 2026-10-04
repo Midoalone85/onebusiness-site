@@ -15,7 +15,7 @@ class OneAskWizard(models.TransientModel):
     question = fields.Char(
         string="Ask ONE",
         required=True,
-        help="Ask about sales, profit, receivables, payables, approvals or ZATCA.",
+        help="Ask about revenue, profit, unpaid invoices, liquidity, receivables, payables, inventory, employees, CRM, approvals, purchases, quotations or ZATCA.",
     )
     answer = fields.Text(string="Answer", readonly=True)
 
@@ -78,7 +78,21 @@ class OneAskWizard(models.TransientModel):
         is_ar = self._is_arabic(q)
         pulse = self.env.company.one_get_pulse()
 
-        if self._contains_any(q, ("فاتور", "غير محصل", "غير مدفوع", "unpaid invoice", "unpaid customer invoice")):
+        if self._contains_any(q, ("زاتكا", "zatca", "فاتورة إلكتر", "فاتوره الكتر", "e-invoice", "einvoice")):
+            summary = self.env["one.saudi.profile"].one_get_readiness_summary()
+            if is_ar:
+                return (
+                    f"ملفات الامتثال: {summary['profiles']}، الجاهز للربط: {summary['ready']}، "
+                    f"والمربوط فعليًا: {summary['connected']}."
+                )
+            return (
+                f"Compliance profiles: {summary['profiles']}; ready for onboarding: {summary['ready']}; "
+                f"connected: {summary['connected']}."
+            )
+
+        invoice_terms = ("فاتور", "invoice")
+        unpaid_terms = ("غير محصل", "غير مدفوع", "متبقي", "متبقى", "unpaid", "outstanding")
+        if self._contains_any(q, invoice_terms) and self._contains_any(q, unpaid_terms):
             count, amount = self._unpaid_customer_invoices()
             return (
                 f"الفواتير غير المحصلة: {count} فاتورة، بإجمالي متبقٍ {self._money(amount)}."
@@ -176,18 +190,6 @@ class OneAskWizard(models.TransientModel):
                 f"لديك {pending} طلب موافقة معلق ضمن صلاحياتك."
                 if is_ar
                 else f"You have {pending} pending approval request(s) within your access."
-            )
-
-        if self._contains_any(q, ("زاتكا", "zatca", "فاتورة إلكتر", "فاتوره الكتر", "e-invoice", "einvoice")):
-            summary = self.env["one.saudi.profile"].one_get_readiness_summary()
-            if is_ar:
-                return (
-                    f"ملفات الامتثال: {summary['profiles']}، الجاهز للربط: {summary['ready']}، "
-                    f"والمربوط فعليًا: {summary['connected']}."
-                )
-            return (
-                f"Compliance profiles: {summary['profiles']}; ready for onboarding: {summary['ready']}; "
-                f"connected: {summary['connected']}."
             )
 
         if self._contains_any(q, ("شراء", "مشتريات", "purchase", "purchases")):
