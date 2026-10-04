@@ -518,3 +518,100 @@ a[href*="odoo.com"],
         order: 2;
     }
 }
+
+
+/* ONE Business Radar */
+.one_panel_radar {
+    background: linear-gradient(145deg, #f8f8ff, #f2f5ff);
+    border-color: #d8def4;
+}
+.one_panel_radar .one_panel_icon {
+    background: #e9edff;
+    color: #4056a1;
+}
+.one_radar_score {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin: 16px 0 13px;
+}
+.one_radar_score strong {
+    font-size: 34px;
+    line-height: 1;
+    color: #243b71;
+}
+.one_radar_score span {
+    color: #6d7890;
+    font-size: 12px;
+    font-weight: 700;
+}
+.one_radar_alerts {
+    display: grid;
+    gap: 8px;
+}
+.one_radar_alert {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid #e1e6f4;
+    border-radius: 12px;
+    padding: 10px 11px;
+    background: rgba(255,255,255,.86);
+    color: #102a43;
+    text-align: left;
+    cursor: pointer;
+}
+.one_radar_alert:hover {
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(36, 59, 113, .08);
+}
+.one_radar_alert b,
+.one_radar_alert small {
+    display: block;
+}
+.one_radar_alert b {
+    font-size: 11px;
+    margin-bottom: 3px;
+}
+.one_radar_alert small {
+    color: #718096;
+    font-size: 10px;
+}
+.one_radar_alert > i {
+    color: #8794ad;
+    font-size: 10px;
+}
+.one_radar_alert.danger {
+    border-left: 3px solid #c74444;
+}
+.one_radar_alert.warning {
+    border-left: 3px solid #d69b2d;
+}
+.one_radar_alert.info {
+    border-left: 3px solid #3b82b8;
+}
+.one_radar_clear {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.84);
+    color: #34765c;
+    font-size: 11px;
+    font-weight: 700;
+}
+[dir="rtl"] .one_radar_alert {
+    text-align: right;
+}
+[dir="rtl"] .one_radar_alert.danger,
+[dir="rtl"] .one_radar_alert.warning,
+[dir="rtl"] .one_radar_alert.info {
+    border-left-width: 1px;
+    border-right-width: 3px;
+}
+[dir="rtl"] .one_radar_alert > i {
+    transform: rotate(180deg);
+}
