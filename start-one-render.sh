@@ -348,16 +348,20 @@ run_staging_bootstrap() {
 }
 
 if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
+  ONE_UI_STATE=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc       "SELECT COALESCE((SELECT state FROM ir_module_module WHERE name='one_ui' LIMIT 1), 'missing');"       2>/dev/null | tr -d '[:space:]' || true)
+
   if [[ "$LOCAL_PG" -eq 1 ]]; then
-    ONE_UI_STATE=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc       "SELECT COALESCE((SELECT state FROM ir_module_module WHERE name='one_ui' LIMIT 1), 'missing');"       2>/dev/null | tr -d '[:space:]' || true)
     if [[ "$ONE_UI_STATE" != "installed" ]]; then
       echo "ONE ERP: partial staging schema detected (one_ui=$ONE_UI_STATE); resuming bootstrap."
       run_staging_bootstrap
     else
       echo "ONE ERP: complete staging schema detected; normal startup."
     fi
+  elif [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && "${ONE_ALLOW_EXTERNAL_INIT:-0}" == "1" && "$ONE_UI_STATE" != "installed" ]]; then
+    echo "ONE ERP: partial external staging schema detected (one_ui=$ONE_UI_STATE); safely resuming bootstrap."
+    run_staging_bootstrap
   else
-    echo "ONE ERP: existing external schema detected; normal startup without module updates or asset deletion."
+    echo "ONE ERP: existing external schema detected (one_ui=$ONE_UI_STATE); normal startup without module updates or asset deletion."
   fi
 elif [[ "$HAS_ODOO_SCHEMA" == "0" && "$LOCAL_PG" -eq 1 ]]; then
   echo "ONE ERP: fresh staging database detected."
