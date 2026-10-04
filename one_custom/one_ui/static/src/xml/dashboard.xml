@@ -130,6 +130,37 @@
                     </button>
                 </section>
 
+                <section class="one_panel one_panel_decision">
+                    <div class="one_panel_head">
+                        <span class="one_panel_icon"><i class="fa fa-compass"/></span>
+                        <div><small>ONE DECISION BRIEF</small><h3>Top management priorities</h3></div>
+                    </div>
+                    <div class="one_decision_list">
+                        <t t-if="this.state.decisionItems.length">
+                            <t t-foreach="this.state.decisionItems" t-as="item" t-key="item.key">
+                                <button t-att-class="'one_decision_item ' + item.severity"
+                                        t-on-click="() => this.open(item.action)">
+                                    <span class="one_decision_rank"><t t-out="item_index + 1"/></span>
+                                    <span class="one_decision_copy">
+                                        <b t-out="item.title"/>
+                                        <small t-out="item.detail"/>
+                                    </span>
+                                    <i class="fa fa-arrow-right"/>
+                                </button>
+                            </t>
+                        </t>
+                        <t t-else="">
+                            <div class="one_decision_empty">
+                                <i class="fa fa-circle-o-notch fa-spin"/>
+                                <span>Building today's decision brief…</span>
+                            </div>
+                        </t>
+                    </div>
+                    <button class="one_secondary_btn" t-on-click="() => this.open('one_ui.action_one_ask')">
+                        Ask ONE for more detail
+                    </button>
+                </section>
+
                 <section class="one_panel one_panel_radar">
                     <div class="one_panel_head">
                         <span class="one_panel_icon"><i class="fa fa-rss"/></span>
