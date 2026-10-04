@@ -216,8 +216,8 @@ class OneMarketing(Controller):
             plan.code: (None if plan.code == "enterprise" and not plan.monthly_price else plan.monthly_price)
             for plan in plans
         }
-        smoke = env["ir.config_parameter"].sudo().get_param("one.trial_smoke_test")
-        smoke_at = env["ir.config_parameter"].sudo().get_param("one.trial_smoke_test_at")
+        smoke = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test")
+        smoke_at = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test_at")
         module = env["ir.module.module"].sudo().search([("name", "=", "one_ui")], limit=1)
         healthy = refs_ready and bool(cron) and len(plans) >= 6 and smoke == "passed"
         return request.make_json_response({
