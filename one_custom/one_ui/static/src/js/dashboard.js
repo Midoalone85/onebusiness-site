@@ -1,7 +1,9 @@
 /** @odoo-module **/
 
 import { Component, onWillStart, useState } from "@odoo/owl";
+import { location } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
+import { rpc } from "@web/core/network/rpc";
 import { useService } from "@web/core/utils/hooks";
 import { user } from "@web/core/user";
 
@@ -12,6 +14,7 @@ export class OneDashboard extends Component {
         this.action = useService("action");
         this.orm = useService("orm");
         this.state = useState({
+            lang: user.context.lang || "en_US",
             contacts: "…",
             sales: "…",
             purchases: "…",
@@ -129,6 +132,21 @@ export class OneDashboard extends Component {
                 this.state.zatcaConnected = "—";
             }
         });
+    }
+
+    async switchLanguage(code) {
+        if (this.state.lang === code) {
+            return;
+        }
+
+        await rpc("/web/dataset/call_kw/res.users/one_switch_language", {
+            model: "res.users",
+            method: "one_switch_language",
+            args: [[user.userId], code],
+            kwargs: { context: user.context },
+        });
+
+        location.reload();
     }
 
     open(xmlId) {
