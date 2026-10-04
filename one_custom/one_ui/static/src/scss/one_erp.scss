@@ -1165,3 +1165,46 @@ a[href*="odoo.com"],
 [dir="rtl"] .one_decision_item > i {
     transform: rotate(180deg);
 }
+
+
+/* Admin-only storage safety banner */
+.one_storage_warning {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0 18px;
+    padding: 13px 16px;
+    border: 1px solid #efd7a5;
+    border-radius: 15px;
+    background: linear-gradient(135deg, #fffaf0, #fff6e4);
+    color: #6e4b0b;
+    box-shadow: 0 8px 22px rgba(130,88,16,.06);
+}
+
+.one_storage_warning > i {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 10px;
+    background: rgba(181,121,22,.11);
+    color: var(--one-warning);
+}
+
+.one_storage_warning b,
+.one_storage_warning small {
+    display: block;
+}
+
+.one_storage_warning b {
+    margin-bottom: 2px;
+    font-size: 12px;
+    font-weight: 850;
+}
+
+.one_storage_warning small {
+    color: #806735;
+    font-size: 10px;
+    line-height: 1.45;
+}
