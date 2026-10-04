@@ -92,27 +92,32 @@ COMMON=(
 )
 
 # Install on a fresh database, update on an existing ONE ERP database.
-# Installing one_ui is enough: Odoo resolves and installs its declared dependencies.
-# This avoids doing a full install and then immediately repeating a module update.
+# IMPORTANT FOR RENDER:
+# Do not use --stop-after-init here. Odoo opens the HTTP port before the module
+# install/update finishes, which lets Render detect the service immediately
+# instead of timing out while waiting for the database bootstrap to complete.
 HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
   "SELECT CASE WHEN to_regclass('public.ir_module_module') IS NULL THEN '0' ELSE '1' END;" \
   | tr -d '[:space:]')
 
+INIT_ARGS=()
 if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
-  echo "ONE ERP: existing Odoo schema detected; updating ONE ERP workspace."
-  odoo "${COMMON[@]}" -d "$DB_NAME" -u one_ui --stop-after-init
-else
-  echo "ONE ERP: fresh database detected; installing ONE ERP workspace and dependencies."
-  odoo "${COMMON[@]}" -d "$DB_NAME" -i one_ui --stop-after-init
-fi
+  echo "ONE ERP: existing Odoo schema detected; updating ONE ERP workspace while HTTP is online."
+  INIT_ARGS=(-u one_ui)
 
-# Generated web bundles can become stale between module updates. Rebuild them in the same lifecycle.
-"$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c   "DELETE FROM ir_attachment WHERE url LIKE '/web/assets/%';"
+  # Generated web bundles can become stale between module updates.
+  # Clear only generated web assets; business data is untouched.
+  "$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c \
+    "DELETE FROM ir_attachment WHERE url LIKE '/web/assets/%';"
+else
+  echo "ONE ERP: fresh database detected; installing ONE ERP workspace while HTTP is online."
+  INIT_ARGS=(-i one_ui)
+fi
 
 if [[ "$LOCAL_PG" -eq 1 ]]; then
   # Keep the shell as PID 1 so it can stop the local PostgreSQL child cleanly
   # when Render replaces or terminates this staging instance.
-  odoo "${COMMON[@]}" -d "$DB_NAME" &
+  odoo "${COMMON[@]}" -d "$DB_NAME" "${INIT_ARGS[@]}" &
   ODOO_PID=$!
 
   set +e
@@ -124,4 +129,4 @@ if [[ "$LOCAL_PG" -eq 1 ]]; then
   exit "$STATUS"
 fi
 
-exec odoo "${COMMON[@]}" -d "$DB_NAME"
+exec odoo "${COMMON[@]}" -d "$DB_NAME" "${INIT_ARGS[@]}"
