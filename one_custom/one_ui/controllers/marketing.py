@@ -139,3 +139,34 @@ class OneMarketing(Controller):
                 "expires_at": fields.Datetime.to_string(expires_at),
             },
         )
+
+
+    @route("/one/health", type="http", auth="none", methods=["GET"])
+    def health(self, **kw):
+        ensure_db()
+        env = request.env
+        required_refs = [
+            "one_ui.action_one_dashboard",
+            "one_ui.plan_professional",
+            "sales_team.group_sale_salesman",
+            "purchase.group_purchase_user",
+            "stock.group_stock_user",
+            "account.group_account_user",
+            "mrp.group_mrp_user",
+            "hr.group_hr_user",
+            "point_of_sale.group_pos_user",
+        ]
+        refs_ready = all(env.ref(xmlid, raise_if_not_found=False) for xmlid in required_refs)
+        cron = env.ref("one_ui.ir_cron_expire_one_trial_users", raise_if_not_found=False)
+        plan_count = env["one.subscription.plan"].sudo().search_count([("active", "=", True)])
+        module = env["ir.module.module"].sudo().search([("name", "=", "one_ui")], limit=1)
+        return request.make_json_response({
+            "service": "ONE ERP",
+            "status": "ok" if refs_ready and bool(cron) and plan_count >= 6 else "degraded",
+            "version": module.latest_version or "20.0.1.21.0",
+            "trial_hours": 24,
+            "trial_prerequisites": bool(refs_ready and cron),
+            "plans": plan_count,
+            "ask_one_lite": "ready",
+            "paid_ai_api_required": False,
+        })
