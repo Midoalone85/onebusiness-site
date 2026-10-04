@@ -223,7 +223,7 @@ class OneMarketing(Controller):
         return request.make_json_response({
             "service": "ONE ERP",
             "status": "ok" if healthy else "degraded",
-            "version": module.latest_version or "20.0.1.22.0",
+            "version": module.latest_version or "20.0.1.24.0",
             "trial_hours": 24,
             "trial_prerequisites": bool(refs_ready and cron),
             "trial_smoke_test": smoke or "not_run",
