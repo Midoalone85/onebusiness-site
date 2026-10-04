@@ -463,3 +463,58 @@ a[href*="odoo.com"],
 [dir="rtl"] .one_pulse_grid {
     direction: rtl;
 }
+
+
+/* ONE ERP language control */
+.one_hero_actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.one_language_switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid rgba(16, 42, 67, 0.12);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(10px);
+}
+
+.one_language_switch button {
+    border: 0;
+    background: transparent;
+    color: #52677b;
+    padding: 7px 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+
+.one_language_switch button:hover {
+    color: #102a43;
+    background: rgba(16, 42, 67, 0.06);
+}
+
+.one_language_switch button.active {
+    background: #102a43;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(16, 42, 67, 0.16);
+}
+
+@media (max-width: 768px) {
+    .one_hero_actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .one_language_switch {
+        order: 2;
+    }
+}
