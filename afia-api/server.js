@@ -17,6 +17,7 @@ const WA_TO = process.env.WHATSAPP_ADMIN_TO || "";
 
 let redis = null;
 let mem = new Map();
+let memStock = new Map();
 
 async function initRedis(){
   if(!REDIS_URL) return;
@@ -45,6 +46,39 @@ async function allOrders(){
   }
   return [...mem.values()].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
 }
+async function inventoryAll(){
+  if(redis){const x=await redis.hGetAll("afia:stock");return Object.fromEntries(Object.entries(x).map(([k,v])=>[k,Number(v)]));}
+  return Object.fromEntries(memStock.entries());
+}
+async function inventorySet(id,qty){
+  id=String(id);qty=Math.max(0,Math.floor(Number(qty)||0));
+  if(redis) await redis.hSet("afia:stock",id,String(qty)); else memStock.set(id,qty);
+  return qty;
+}
+async function inventoryReserve(items){
+  if(redis){
+    const argv=[];for(const x of items){argv.push(String(x.id),String(Math.max(1,Math.floor(Number(x.qty)||1))))}
+    const script=`
+      local key=KEYS[1]
+      for i=1,#ARGV,2 do
+        local v=redis.call('HGET',key,ARGV[i])
+        if v and tonumber(v)<tonumber(ARGV[i+1]) then return {'ERR',ARGV[i],v} end
+      end
+      for i=1,#ARGV,2 do
+        local v=redis.call('HGET',key,ARGV[i])
+        if v then redis.call('HINCRBY',key,ARGV[i],-tonumber(ARGV[i+1])) end
+      end
+      return {'OK'}
+    `;
+    const r=await redis.eval(script,{keys:["afia:stock"],arguments:argv});
+    if(Array.isArray(r)&&r[0]==="ERR") return {ok:false,id:r[1],available:Number(r[2]||0)};
+    return {ok:true};
+  }
+  for(const x of items){const k=String(x.id);if(memStock.has(k)&&memStock.get(k)<x.qty)return{ok:false,id:k,available:memStock.get(k)}}
+  for(const x of items){const k=String(x.id);if(memStock.has(k))memStock.set(k,memStock.get(k)-x.qty)}
+  return {ok:true};
+}
+
 function makeId(){
   const d=new Date();
   const y=d.getFullYear().toString().slice(-2);
@@ -89,6 +123,8 @@ app.post("/api/orders",async(req,res)=>{
   try{
     const b=req.body||{};
     if(!b.name||!b.phone||!Array.isArray(b.items)||!b.items.length) return res.status(400).json({error:"missing_fields"});
+    const reserved=await inventoryReserve(b.items||[]);
+    if(!reserved.ok) return res.status(409).json({error:"out_of_stock",productId:reserved.id,available:reserved.available});
     const id=makeId(), now=new Date().toISOString();
     const order={
       id,createdAt:now,updatedAt:now,status:"جديد",
@@ -122,6 +158,21 @@ app.get("/api/orders/:id",async(req,res)=>{
 app.get("/api/admin/orders",requireAdmin,async(req,res)=>{
   try{res.json({orders:await allOrders()});}catch(e){res.status(500).json({error:"server_error"});}
 });
+
+app.get("/api/admin/inventory",requireAdmin,async(req,res)=>{
+  try{res.json({inventory:await inventoryAll()});}catch(e){res.status(500).json({error:"server_error"});}
+});
+app.patch("/api/admin/inventory/:id",requireAdmin,async(req,res)=>{
+  try{
+    if(req.body?.stock===null||req.body?.stock==="") {
+      if(redis) await redis.hDel("afia:stock",String(req.params.id)); else memStock.delete(String(req.params.id));
+      return res.json({id:req.params.id,stock:null});
+    }
+    const stock=await inventorySet(req.params.id,req.body?.stock);
+    res.json({id:req.params.id,stock});
+  }catch(e){res.status(500).json({error:"server_error"});}
+});
+
 
 app.patch("/api/admin/orders/:id",requireAdmin,async(req,res)=>{
   try{
