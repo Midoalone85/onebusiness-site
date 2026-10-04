@@ -1,0 +1,74 @@
+name: ONE ERP Quality Gate
+
+on:
+  push:
+    branches:
+      - one-erp-next
+      - one-erp-staging
+      - one-erp-live
+  pull_request:
+    branches:
+      - one-erp-staging
+      - one-erp-live
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python syntax
+        run: python -m compileall -q one_custom/one_ui
+
+      - name: XML well-formedness
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          paths = sorted(Path("one_custom/one_ui").rglob("*.xml"))
+          if not paths:
+              raise SystemExit("No ONE ERP XML files found")
+          for path in paths:
+              ET.parse(path)
+          print(f"Validated {len(paths)} XML files")
+          PY
+
+      - name: Shell syntax
+        run: bash -n start-one-render.sh
+
+      - name: Manifest sanity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+
+          path = Path("one_custom/one_ui/__manifest__.py")
+          manifest = ast.literal_eval(path.read_text(encoding="utf-8"))
+          required = {"name", "version", "depends", "data", "assets"}
+          missing = sorted(required - manifest.keys())
+          if missing:
+              raise SystemExit(f"Missing manifest keys: {missing}")
+          if not str(manifest["version"]).startswith("20.0."):
+              raise SystemExit("ONE ERP manifest must target Odoo 20")
+          print("Manifest OK:", manifest["version"])
+          PY
+
+      - name: ONE identity smoke check
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          landing = Path("one_custom/one_ui/views/landing_templates.xml").read_text(encoding="utf-8")
+          login = Path("one_custom/one_ui/views/login_templates.xml").read_text(encoding="utf-8")
+          dashboard = Path("one_custom/one_ui/static/src/xml/dashboard.xml").read_text(encoding="utf-8")
+          for name, text in [("landing", landing), ("login", login), ("dashboard", dashboard)]:
+              if "ONE ERP" not in text:
+                  raise SystemExit(f"ONE ERP identity missing from {name}")
+          print("ONE identity present across commercial, login and dashboard surfaces")
+          PY
