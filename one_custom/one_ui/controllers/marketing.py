@@ -141,6 +141,59 @@ class OneMarketing(Controller):
         )
 
 
+
+    def _demo_values(self, is_ar, error=None):
+        return {"is_ar": is_ar, "error": error}
+
+    @route("/one/demo", type="http", auth="none", methods=["GET"])
+    def demo(self, **kw):
+        ensure_db()
+        lang = (kw.get("lang") or request.httprequest.args.get("lang") or "ar").lower()
+        return request.render("one_ui.one_demo_page", self._demo_values(not lang.startswith("en")))
+
+    @route("/one/demo/request", type="http", auth="none", methods=["POST"], csrf=True)
+    def demo_request(self, **post):
+        ensure_db()
+        is_ar = not (post.get("lang") or "ar").lower().startswith("en")
+
+        # Honeypot: silently accept bots without creating CRM noise.
+        if (post.get("website") or "").strip():
+            return request.render("one_ui.one_demo_success", {"is_ar": is_ar})
+
+        name = (post.get("name") or "").strip()[:120]
+        email = (post.get("email") or "").strip().lower()[:160]
+        company = (post.get("company") or "").strip()[:160]
+        phone = (post.get("phone") or "").strip()[:40]
+        role = (post.get("role") or "").strip()[:100]
+        employees = (post.get("employees") or "").strip()[:20]
+        message = (post.get("message") or "").strip()[:1000]
+
+        if not name or not company or not EMAIL_RE.match(email):
+            error = (
+                "اكتب الاسم واسم الشركة وبريدًا مهنيًا صحيحًا."
+                if is_ar else
+                "Enter your name, company and a valid work email."
+            )
+            return request.render("one_ui.one_demo_page", self._demo_values(is_ar, error))
+
+        description = "\n".join([
+            "ONE ERP Commercial Demo Request",
+            f"Role: {role or '-'}",
+            f"Team size: {employees or '-'}",
+            "",
+            message or "No additional notes.",
+        ])
+        request.env["crm.lead"].sudo().create({
+            "name": f"ONE ERP Commercial Demo - {company}",
+            "contact_name": name,
+            "email_from": email,
+            "phone": phone or False,
+            "partner_name": company,
+            "description": description,
+            "priority": "2",
+        })
+        return request.render("one_ui.one_demo_success", {"is_ar": is_ar})
+
     @route("/one/health", type="http", auth="none", methods=["GET"])
     def health(self, **kw):
         ensure_db()
