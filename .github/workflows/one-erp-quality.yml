@@ -11,6 +11,7 @@ on:
       - ".github/workflows/one-erp-quality.yml"
   pull_request:
     branches:
+      - one-erp-staging
       - one-erp-production
     paths:
       - "one_custom/one_ui/**"
@@ -71,3 +72,5 @@ jobs:
           grep -q 'persistentDatabase' one_custom/one_ui/models/dashboard_pulse.py
           grep -q '/one/health' start-one-render.sh
           grep -q 'ONE ERP: ephemeral PostgreSQL fallback active' start-one-render.sh
+          grep -q 'ONE_ALLOW_EXTERNAL_INIT' start-one-render.sh
+          grep -q 'one-erp-staging' start-one-render.sh
