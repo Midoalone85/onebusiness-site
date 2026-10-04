@@ -1,0 +1,88 @@
+name: ONE ERP encrypted live backup
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ops/live-backup-20261005
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    if: ${{ secrets.ODOO_MASTER_PASSWORD != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install backup certificate
+        shell: bash
+        run: |
+          cat > backup-cert.pem <<'CERT'
+          -----BEGIN CERTIFICATE-----
+          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
+          mFCe/7/EtcUNpzIrSZXKplIEACeIV8RAoshT
+          -----END CERTIFICATE-----
+          CERT
+
+      - name: Request Odoo backup
+        env:
+          ODOO_MASTER_PASSWORD: ${{ secrets.ODOO_MASTER_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --location \
+            --request POST \
+            --form-string "master_pwd=${ODOO_MASTER_PASSWORD}" \
+            --form-string 'name=one_erp_db' \
+            --form-string 'backup_format=zip' \
+            'https://one-erp-live.onrender.com/web/database/backup' \
+            --output one-erp-live-backup.zip
+          test -s one-erp-live-backup.zip
+          unzip -t one-erp-live-backup.zip
+
+      - name: Encrypt backup before upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl cms -encrypt -binary -aes256 \
+            -in one-erp-live-backup.zip \
+            -outform DER \
+            -out one-erp-live-backup.p7m \
+            backup-cert.pem
+          shred -u one-erp-live-backup.zip
+          test -s one-erp-live-backup.p7m
+
+      - name: Upload encrypted artifact only
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-erp-live-encrypted-backup
+          path: one-erp-live-backup.p7m
+          retention-days: 1
+          if-no-files-found: error
