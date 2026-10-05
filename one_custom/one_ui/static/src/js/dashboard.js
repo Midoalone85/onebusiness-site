@@ -3,6 +3,7 @@
 import { Component, onMounted, proxy } from "@odoo/owl";
 import { location } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
+import { _t } from "@web/core/l10n/translation";
 import { rpc } from "@web/core/network/rpc";
 import { useService } from "@web/core/utils/hooks";
 import { user } from "@web/core/user";
@@ -46,7 +47,7 @@ export class OneDashboard extends Component {
             pulseMonthRevenue: "…",
             pulseMonthProfit: "…",
             businessHealthScore: "…",
-            businessHealthStatus: "…",
+            businessHealthStatus: _t("Unavailable"),
             radarAlerts: [],
             decisionItems: [],
         });
@@ -93,7 +94,7 @@ export class OneDashboard extends Component {
             this.state.zatcaConnected = zatca.connected ?? "—";
 
             this.state.businessHealthScore = radar.score ?? "—";
-            this.state.businessHealthStatus = radar.status || "Unavailable";
+            this.state.businessHealthStatus = radar.status || _t("Unavailable");
             this.state.radarAlerts = radar.alerts || [];
             this.state.decisionItems = decision.items || [];
         } catch {
@@ -108,7 +109,7 @@ export class OneDashboard extends Component {
             this.state.zatcaReady = "—";
             this.state.zatcaConnected = "—";
             this.state.businessHealthScore = "—";
-            this.state.businessHealthStatus = "Unavailable";
+            this.state.businessHealthStatus = _t("Unavailable");
             this.state.radarAlerts = [];
             this.state.decisionItems = [];
         }
