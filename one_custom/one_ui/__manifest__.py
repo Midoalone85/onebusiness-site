@@ -1,6 +1,6 @@
 {
     "name": "ONE ERP Experience",
-    "version": "20.0.1.35.0",
+    "version": "20.0.1.36.0",
     "summary": "ONE ERP business workspace with fast unified dashboard intelligence, Decision Briefs, Ask ONE, 24-hour trials, Saudi compliance and production-readiness safeguards",
     "author": "ONE Business",
     "license": "LGPL-3",
