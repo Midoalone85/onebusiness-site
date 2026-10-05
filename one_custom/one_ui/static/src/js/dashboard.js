@@ -13,6 +13,7 @@ export class OneDashboard extends Component {
 
     setup() {
         this.action = useService("action");
+        this.notification = useService("notification");
         this.orm = useService("orm");
         this.state = proxy({
             lang: user.context.lang || "en_US",
@@ -130,8 +131,27 @@ export class OneDashboard extends Component {
         location.reload();
     }
 
-    open(xmlId) {
-        return this.action.doAction(xmlId);
+    async open(xmlId) {
+        if (!xmlId) {
+            return;
+        }
+        try {
+            return await this.action.doAction(xmlId, { stackPosition: "replaceCurrentAction" });
+        } catch (error) {
+            console.error("ONE ERP navigation failed", xmlId, error);
+            this.notification.add(_t("Opening workspace…"), {
+                type: "warning",
+                title: _t("ONE ERP"),
+            });
+            location.href = `/odoo/action-${encodeURIComponent(xmlId)}`;
+        }
+    }
+
+    openAction(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const xmlId = event.currentTarget?.dataset?.oneAction;
+        return this.open(xmlId);
     }
 }
 
@@ -143,6 +163,7 @@ export class OneControlCenter extends Component {
 
     setup() {
         this.action = useService("action");
+        this.notification = useService("notification");
         this.orm = useService("orm");
         this.state = proxy({
             companies: "…",
@@ -183,8 +204,27 @@ export class OneControlCenter extends Component {
         );
     }
 
-    open(xmlId) {
-        return this.action.doAction(xmlId);
+    async open(xmlId) {
+        if (!xmlId) {
+            return;
+        }
+        try {
+            return await this.action.doAction(xmlId, { stackPosition: "replaceCurrentAction" });
+        } catch (error) {
+            console.error("ONE ERP navigation failed", xmlId, error);
+            this.notification.add(_t("Opening workspace…"), {
+                type: "warning",
+                title: _t("ONE ERP"),
+            });
+            location.href = `/odoo/action-${encodeURIComponent(xmlId)}`;
+        }
+    }
+
+    openAction(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const xmlId = event.currentTarget?.dataset?.oneAction;
+        return this.open(xmlId);
     }
 }
 
