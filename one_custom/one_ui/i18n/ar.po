@@ -2031,3 +2031,8 @@ msgstr "تخزين وضع العرض مفعّل"
 #. module: one_ui
 msgid "This workspace is using temporary database storage. Connect persistent PostgreSQL before production use."
 msgstr "مساحة العمل تستخدم قاعدة بيانات مؤقتة. اربط PostgreSQL دائمة قبل الاستخدام الإنتاجي."
+
+#. module: one_ui
+#: code:addons/one_ui/static/src/js/dashboard.js:0
+msgid "Unavailable"
+msgstr "غير متاح"
