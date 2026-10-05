@@ -356,6 +356,7 @@ configure_staging_attachment_storage() {
 
   echo "ONE ERP: migrating staging attachment policy to PostgreSQL and resetting generated web assets."
   odoo shell "${ODOO_DB_ARGS[@]}" \
+    -d "$DB_NAME" \
     --db-filter="^${DB_NAME//./\\.}$" \
     --no-http \
     --data-dir="$ODOO_DATA" \
