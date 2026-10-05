@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070913">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>آخر باب | THE LAST DOOR</title>
+<style>
+:root{--bg:#070913;--panel:#0e1220;--panel2:#141a2b;--gold:#f6b92b;--gold2:#ffdd73;--red:#ff304f;--blue:#3ea6ff;--ink:#f5f7fb;--muted:#9aa5b5;--line:#26304a;--green:#31d07f}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -10%,#1b2849 0,#0b1020 34%,#060810 72%);color:var(--ink);font-family:system-ui,Tahoma,Arial,sans-serif}
+body{overflow-x:hidden}.app{min-height:100vh;position:relative}.stars:before,.stars:after{content:"";position:fixed;inset:0;pointer-events:none;background-image:radial-gradient(#ffffff80 1px,transparent 1px);background-size:34px 34px;opacity:.16}.stars:after{background-size:58px 58px;transform:translateY(12px);opacity:.09}
+.top{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;background:#080b14e8;backdrop-filter:blur(14px);border-bottom:1px solid #202941}
+.profile{display:flex;align-items:center;gap:9px}.avatar{width:43px;height:43px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#2a3458,#0c0f19);border:2px solid var(--gold);font-weight:950}.name{font-weight:950}.lvl{font-size:11px;color:#17120a;background:linear-gradient(90deg,var(--gold),var(--gold2));padding:3px 8px;border-radius:999px;margin-top:2px;display:inline-block}
+.wallet{display:flex;gap:8px}.chip{background:#111729;border:1px solid #2c3650;padding:7px 10px;border-radius:999px;font-weight:900;font-size:13px}.chip.gold{color:var(--gold2)}.chip.gem{color:#c994ff}
+.shell{max-width:1100px;margin:auto;padding:18px 14px 100px}.hero{text-align:center;padding:18px 0 8px}.logo{font-size:clamp(38px,8vw,76px);font-weight:1000;color:var(--gold2);text-shadow:0 0 32px #ffb21f55;letter-spacing:-2px}.sub{letter-spacing:6px;font-size:12px;color:#d5ad54}.season{display:inline-flex;gap:8px;align-items:center;margin-top:12px;padding:8px 12px;border:1px solid #5b2730;border-radius:999px;background:#2a1017;color:#ff9aa7;font-weight:800}
+.progressWrap{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;max-width:700px;margin:15px auto 0}.progress{height:11px;background:#141a27;border-radius:999px;overflow:hidden;border:1px solid #222b3f}.progress>i{display:block;height:100%;width:5%;background:linear-gradient(90deg,#d69216,var(--gold2));box-shadow:0 0 20px #f6b92b77}.floorNum{font-weight:950;color:var(--gold2)}
+.energy{display:flex;justify-content:center;gap:7px;margin:12px 0}.bolt{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#2d220d;border:1px solid #795b16;color:#ffd760}.bolt.off{filter:grayscale(1);opacity:.3}
+.scene{position:relative;margin:18px auto 0;min-height:500px;border-radius:28px;overflow:hidden;border:1px solid #27314d;background:linear-gradient(180deg,#0b1426 0%,#151427 44%,#090a12 100%);box-shadow:0 25px 90px #0009}
+.towers{position:absolute;inset:0;background:
+radial-gradient(circle at 50% 20%,#3868a833,transparent 30%),
+linear-gradient(100deg,transparent 0 14%,#0b0d15 14% 22%,transparent 22% 77%,#0a0c14 77% 85%,transparent 85%);
+opacity:.9}.mist{position:absolute;inset:auto -10% 0;height:42%;background:linear-gradient(0deg,#d6e6ff10,transparent);filter:blur(8px)}
+.question{position:relative;z-index:2;text-align:center;padding-top:28px}.question h2{font-size:clamp(24px,4vw,40px);margin:0}.question p{color:var(--muted);margin:6px 0 0}
+.doors{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:end;padding:32px 28px 30px;max-width:900px;margin:auto}.door{position:relative;min-height:330px;border-radius:120px 120px 18px 18px;padding:22px 14px 16px;cursor:pointer;border:2px solid currentColor;background:linear-gradient(180deg,#0f111b,#090a11 68%);transition:.25s;overflow:hidden}.door:before{content:"";position:absolute;inset:9px;border:1px solid currentColor;border-radius:110px 110px 12px 12px;opacity:.55}.door:hover{transform:translateY(-8px) scale(1.015)}.door.red{color:#ff3857;box-shadow:0 0 38px #ff294733 inset,0 0 40px #ff294722}.door.blue{color:#44adff;box-shadow:0 0 38px #198cff33 inset,0 0 40px #198cff22}.door.black{color:#a8b0c3;box-shadow:0 0 42px #000 inset,0 0 40px #7180a822}.doorIcon{font-size:58px;margin-top:70px;filter:drop-shadow(0 0 18px currentColor)}.door b{display:block;font-size:20px;margin-top:22px}.door small{display:block;color:#c3c9d4;margin-top:7px;line-height:1.55}.risk{font-size:11px;margin-top:11px;display:inline-block;padding:5px 8px;border-radius:999px;border:1px solid currentColor}
+.bottomGrid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}.panel{background:#0e1320;border:1px solid #222c43;border-radius:20px;padding:15px}.panel h3{margin:0 0 11px}.traits{display:flex;flex-wrap:wrap;gap:8px}.trait{padding:7px 10px;border-radius:999px;background:#161d2e;color:#cbd4e2;font-size:12px}.trait strong{color:var(--gold2)}
+.history{display:grid;gap:8px;max-height:200px;overflow:auto}.hist{padding:9px 10px;border-radius:12px;background:#121827;border-right:3px solid #364460;font-size:13px}.hist.win{border-color:var(--green)}.hist.loss{border-color:var(--red)}
+.nav{position:fixed;z-index:30;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(5,1fr);background:#090c15eb;backdrop-filter:blur(16px);border-top:1px solid #202a42;padding:7px max(8px,env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom))}.nav button{background:none;border:0;color:#a9b3c3;padding:7px 3px;font:inherit;font-size:11px}.nav button span{display:block;font-size:21px}.nav button.active{color:var(--gold2)}
+.modal{position:fixed;z-index:80;inset:0;background:#02040bdd;display:none;place-items:center;padding:18px}.modal.open{display:grid}.modalBox{width:min(620px,100%);max-height:90vh;overflow:auto;border-radius:24px;background:linear-gradient(180deg,#151b2b,#0c101b);border:1px solid #34405e;box-shadow:0 30px 120px #000;padding:20px;position:relative}.close{position:absolute;left:14px;top:12px;border:0;background:#20283b;color:#fff;border-radius:50%;width:36px;height:36px;font-size:18px}.eventIcon{text-align:center;font-size:70px}.eventTitle{text-align:center;font-size:27px;color:var(--gold2);font-weight:950}.eventText{text-align:center;color:#cad2de;line-height:1.8}.eventActions{display:grid;gap:9px;margin-top:16px}.choice{border:1px solid #3a4665;background:#161d2d;color:#fff;border-radius:14px;padding:13px;font-weight:850;text-align:right}.choice:hover{border-color:var(--gold)}.primary{background:linear-gradient(90deg,#d99317,var(--gold2));color:#1a1305;border:0;border-radius:14px;padding:13px;font-weight:950}
+.shopGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.shopItem{padding:13px;border:1px solid #2c3650;border-radius:16px;background:#121827}.shopItem .art{height:95px;border-radius:12px;display:grid;place-items:center;font-size:45px;background:radial-gradient(circle,#3e2b0e,#111827)}.shopItem b{display:block;margin-top:9px}.price{color:var(--gold2);font-weight:950;margin-top:4px}.mini{font-size:12px;color:var(--muted)}.invite{padding:14px;border-radius:14px;background:#11182a;border:1px dashed #465271;margin-top:10px;word-break:break-all}.toast{position:fixed;z-index:100;top:78px;left:50%;transform:translateX(-50%) translateY(-20px);opacity:0;pointer-events:none;background:#121827;border:1px solid #45516d;border-radius:999px;padding:10px 15px;transition:.25s;box-shadow:0 10px 35px #0008}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-width:720px){.wallet .chip:nth-child(3){display:none}.doors{gap:8px;padding:26px 8px 18px}.door{min-height:300px;border-radius:80px 80px 14px 14px;padding:12px 7px}.door:before{border-radius:70px 70px 10px 10px}.doorIcon{font-size:44px;margin-top:70px}.door b{font-size:16px}.door small{font-size:11px}.bottomGrid{grid-template-columns:1fr}.scene{min-height:450px}.shopGrid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body><div class="app stars">
+<header class="top">
+<div class="profile"><div class="avatar">M</div><div><div class="name" id="playerName">MO7A</div><div class="lvl" id="levelLabel">المستوى 1</div></div></div>
+<div class="wallet"><div class="chip">⚡ <span id="energyTop">3/3</span></div><div class="chip gold">🪙 <span id="coins">250</span></div><div class="chip gem">💎 <span id="gems">5</span></div></div>
+</header>
+<main class="shell">
+<section class="hero"><div class="logo">آخر باب</div><div class="sub">THE LAST DOOR</div><div class="season">☠️ الموسم الأول: THE COLLAPSE • <span id="seasonTime"></span></div>
+<div class="progressWrap"><div class="progress"><i id="floorBar"></i></div><div class="floorNum">الطابق <span id="floor">1</span>/100</div></div>
+<div class="energy" id="energyRow"></div></section>
+<section class="scene"><div class="towers"></div><div class="mist"></div><div class="question"><h2>أي باب ستختار؟</h2><p id="whisper">البرج يتذكّر اختياراتك.</p></div>
+<div class="doors">
+<button class="door red" data-door="red"><div class="doorIcon">🔥</div><b>باب المخاطرة</b><small>مكافآت كبيرة... لكن البرج يأخذ ثمنه.</small><span class="risk">مخاطرة عالية</span></button>
+<button class="door blue" data-door="blue"><div class="doorIcon">✦</div><b>باب الفرصة</b><small>توازن بين الأمان والمكسب.</small><span class="risk">فرصة متوازنة</span></button>
+<button class="door black" data-door="black"><div class="doorIcon">?</div><b>باب المجهول</b><small>لا أحد يعرف ماذا يخفي هذه المرة.</small><span class="risk">مجهول تمامًا</span></button>
+</div></section>
+<div class="bottomGrid"><section class="panel"><h3>🧠 شخصيتك داخل البرج</h3><div class="traits" id="traits"></div></section><section class="panel"><h3>📜 آخر القرارات</h3><div class="history" id="history"></div></section></div>
+</main>
+<nav class="nav"><button class="active"><span>🚪</span>البرج</button><button onclick="openTower()"><span>🏰</span>تقدمي</button><button onclick="openInvite()"><span>👥</span>الأصدقاء</button><button onclick="openShop()"><span>🛒</span>المتجر</button><button onclick="openProfile()"><span>👤</span>شخصيتي</button></nav>
+</div>
+<div class="toast" id="toast"></div>
+<div class="modal" id="eventModal"><div class="modalBox"><button class="close" onclick="closeModal('eventModal')">✕</button><div class="eventIcon" id="eventIcon"></div><div class="eventTitle" id="eventTitle"></div><p class="eventText" id="eventText"></p><div class="eventActions" id="eventActions"></div></div></div>
+<div class="modal" id="genericModal"><div class="modalBox"><button class="close" onclick="closeModal('genericModal')">✕</button><div id="genericContent"></div></div></div>
+<script>
+const KEY="lastDoorSaveV1";
+const defaultState={name:"MO7A",floor:1,energy:3,maxEnergy:3,coins:250,gems:5,xp:0,level:1,streak:0,lastPlay:"",startedAt:Date.now(),traits:{courage:0,mercy:0,greed:0,loyalty:0,curiosity:0},history:[],inventory:[],seen:{},seasonPass:false};
+let S=load();
+function load(){try{return {...defaultState,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch(e){return {...defaultState}}}
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function today(){return new Date().toISOString().slice(0,10)}
+function dailyReset(){if(S.lastPlay!==today()){S.energy=S.maxEnergy;S.lastPlay=today();S.streak=(S.streak||0)+1;save()}}
+dailyReset();
+const events={
+red:[
+{icon:"💰",title:"خزنة الطابق",text:"وجدت صندوقًا من عملات إمبراطورية منسية.",choices:[["اكسره الآن",{coins:120,xp:35,trait:"courage",delta:2,msg:"خرجت بـ120 عملة."}],["احتفظ بالمفتاح",{coins:45,xp:55,trait:"curiosity",delta:2,item:"مفتاح صدئ",msg:"المفتاح قد يعني شيئًا لاحقًا."}]]},
+{icon:"⚔️",title:"حارس بلا وجه",text:"الحارس يطلب ضريبة مرور. يمكنك القتال أو المساومة.",choices:[["أقاتله",{chance:.62,win:{coins:160,xp:70,trait:"courage",delta:3},lose:{coins:-60,xp:25,trait:"courage",delta:1},msg:"البرج سجل شجاعتك."}],["أدفع وأعبر",{coins:-45,xp:20,trait:"greed",delta:-1,msg:"الأمان له سعر."}]]},
+{icon:"🩸",title:"عرض الدم",text:"الباب الأحمر يعرض عليك 2 طابق مجانًا مقابل نصف عملاتك الحالية.",choices:[["أقبل",{special:"halfCoins",floors:2,xp:80,trait:"courage",delta:3,msg:"قفزت طابقين، لكن خزنتك نزفت."}],["أرفض",{xp:30,trait:"loyalty",delta:1,msg:"رفضت الصفقة."}]]}
+],
+blue:[
+{icon:"🤝",title:"غريب على الدرج",text:"لاعب مجهول عالق أمامك. يمكنك مساعدته أو أخذ خريطته.",choices:[["أساعده",{coins:35,xp:65,trait:"mercy",delta:3,item:"وعد قديم",msg:"ربما يرد الجميل يومًا."}],["آخذ الخريطة",{coins:95,xp:45,trait:"greed",delta:3,msg:"ربحت الآن، وخسرت شيئًا لا تراه."}]]},
+{icon:"🧩",title:"النقش المكسور",text:"قطعة من تاريخ البشرية تحمل رمزًا لا تفهمه.",choices:[["أدرس الرمز",{coins:20,xp:85,trait:"curiosity",delta:4,item:"شظية الرمز",msg:"أصبحت أقرب إلى سر البرج."}],["أبيعها",{coins:110,xp:25,trait:"greed",delta:2,msg:"التاجر دفع فورًا."}]]},
+{icon:"🌉",title:"جسر الثقة",text:"طريقان: قصير وخطر، أو طويل وآمن.",choices:[["الطريق القصير",{chance:.72,win:{coins:95,xp:60,trait:"courage",delta:2},lose:{coins:-30,xp:20,trait:"courage",delta:1},msg:"المخاطرة لا تنسى."}],["الطريق الطويل",{coins:35,xp:35,trait:"loyalty",delta:1,msg:"وصلت بلا ضوضاء."}]]}
+],
+black:[
+{icon:"👁️",title:"الذي يعرف اسمك",text:"صوت من الظلام يقول: «أعرف لماذا جئت إلى هنا.» ثم يعرض عليك بابًا داخل الباب.",choices:[["أدخل",{chance:.5,win:{gems:2,coins:140,xp:100,trait:"curiosity",delta:5,item:"عين سوداء"},lose:{coins:-90,xp:45,trait:"curiosity",delta:3},msg:"شيء ما بدأ يراقبك."}],["أهرب",{coins:25,xp:25,trait:"courage",delta:-1,msg:"نجوت... ربما."}]]},
+{icon:"🕯️",title:"غرفة الذكريات",text:"ترى قرارًا قديمًا لم تتخذه أنت. شخص آخر مر من هنا قبلك.",choices:[["أعيد القرار",{coins:70,xp:90,trait:"curiosity",delta:4,item:"ذكرى مسروقة",msg:"أخذت ذكرى ليست لك."}],["أغلق الغرفة",{coins:25,xp:40,trait:"loyalty",delta:2,msg:"تركت الماضي مدفونًا."}]]},
+{icon:"☠️",title:"صفقة الطابق الأسود",text:"اختر: جوهرة الآن، أو سر سيظهر بعد ثلاثة طوابق.",choices:[["الجوهرة",{gems:1,xp:30,trait:"greed",delta:2,msg:"الجوهرة أصبحت ملكك."}],["السر",{coins:10,xp:100,trait:"curiosity",delta:5,item:"وعد الطابق الأسود",msg:"البرج وعدك بشيء... لاحقًا."}]]}
+]};
+const whispers=["الباب الأسود كان مفتوحًا قبل أن تصل.","شخص آخر اختار الأحمر منذ ثوانٍ.","البرج لا يعاقبك... هو يختبرك.","كل طابق يعرف شيئًا عنك.","أحيانًا النجاة أسوأ من الخسارة."];
+function rand(a){return a[Math.floor(Math.random()*a.length)]}
+function pickDoor(type){
+ if(S.energy<=0){showToast("طاقتك انتهت اليوم. ارجع غدًا أو استكشف شخصيتك.");return}
+ S.energy--;S.seen[type]=(S.seen[type]||0)+1;save();render();
+ let ev=rand(events[type]);showEvent(ev,type);
+}
+function showEvent(ev,type){
+ document.getElementById("eventIcon").textContent=ev.icon;
+ document.getElementById("eventTitle").textContent=ev.title;
+ document.getElementById("eventText").textContent=ev.text;
+ document.getElementById("eventActions").innerHTML=ev.choices.map((c,i)=>'<button class="choice" onclick="resolveChoice('+i+')">'+c[0]+'</button>').join("");
+ window.currentEvent={ev,type};openModal("eventModal");
+}
+function resolveChoice(i){
+ const {ev,type}=window.currentEvent,choice=ev.choices[i],effect=choice[1];
+ let result=effect;
+ if(effect.chance){result=Math.random()<effect.chance?effect.win:effect.lose}
+ if(effect.special==="halfCoins")S.coins=Math.floor(S.coins/2);
+ if(result.coins)S.coins=Math.max(0,S.coins+result.coins);
+ if(result.gems)S.gems=Math.max(0,S.gems+result.gems);
+ if(result.item&&!S.inventory.includes(result.item))S.inventory.push(result.item);
+ if(result.trait)S.traits[result.trait]=(S.traits[result.trait]||0)+(result.delta||1);
+ addXp(result.xp||0);
+ S.floor=Math.min(100,S.floor+(effect.floors||1));
+ let positive=(result.coins||0)>=0;
+ S.history.unshift({at:Date.now(),door:type,title:ev.title,text:effect.msg||result.msg||choice[0],positive});S.history=S.history.slice(0,18);
+ save();closeModal("eventModal");document.getElementById("whisper").textContent=rand(whispers);render();showToast(effect.msg||result.msg||"البرج سجّل قرارك.");
+ if(S.floor>=100)setTimeout(finale,450);
+}
+function addXp(x){S.xp+=x;while(S.xp>=S.level*100){S.xp-=S.level*100;S.level++;S.maxEnergy=Math.min(5,3+Math.floor(S.level/5));showToast("⬆️ وصلت للمستوى "+S.level)}}
+function traitName(k){return {courage:"الجرأة",mercy:"الرحمة",greed:"الطمع",loyalty:"الوفاء",curiosity:"الفضول"}[k]}
+function traitIcon(k){return {courage:"🔥",mercy:"🤍",greed:"🪙",loyalty:"🛡️",curiosity:"👁️"}[k]}
+function render(){
+ document.getElementById("playerName").textContent=S.name;document.getElementById("floor").textContent=S.floor;document.getElementById("floorBar").style.width=Math.max(1,S.floor)+"%";
+ document.getElementById("coins").textContent=S.coins;document.getElementById("gems").textContent=S.gems;document.getElementById("energyTop").textContent=S.energy+"/"+S.maxEnergy;document.getElementById("levelLabel").textContent="المستوى "+S.level;
+ document.getElementById("energyRow").innerHTML=Array.from({length:S.maxEnergy},(_,i)=>'<span class="bolt '+(i>=S.energy?'off':'')+'">⚡</span>').join("");
+ let sorted=Object.entries(S.traits).sort((a,b)=>b[1]-a[1]);document.getElementById("traits").innerHTML=sorted.map(([k,v])=>'<span class="trait">'+traitIcon(k)+' '+traitName(k)+' <strong>'+v+'</strong></span>').join("");
+ document.getElementById("history").innerHTML=S.history.length?S.history.map(h=>'<div class="hist '+(h.positive?'win':'loss')+'"><b>'+doorName(h.door)+' • '+h.title+'</b><div>'+h.text+'</div></div>').join(""):'<div class="mini">اختيارك الأول سيكتب أول سطر في تاريخك.</div>';
+ document.querySelectorAll(".door").forEach(b=>b.disabled=S.energy<=0);
+}
+function doorName(t){return {red:"الأحمر",blue:"الأزرق",black:"الأسود"}[t]}
+function openModal(id){document.getElementById(id).classList.add("open")}function closeModal(id){document.getElementById(id).classList.remove("open")}
+function generic(html){document.getElementById("genericContent").innerHTML=html;openModal("genericModal")}
+function showToast(t){let x=document.getElementById("toast");x.textContent=t;x.classList.add("show");clearTimeout(window.tt);window.tt=setTimeout(()=>x.classList.remove("show"),2400)}
+function openProfile(){let s=Object.entries(S.traits).sort((a,b)=>b[1]-a[1]),top=s[0];generic('<h2>👤 هويتك داخل البرج</h2><p class="mini">البرج لا يسألك من أنت. هو يستنتجها من قراراتك.</p><div class="panel"><div class="eventIcon">'+traitIcon(top[0])+'</div><div class="eventTitle">'+traitName(top[0])+'</div><p class="eventText">هذه الصفة هي الأوضح في قراراتك حتى الآن.</p></div><h3>المخزون</h3><div class="traits">'+(S.inventory.length?S.inventory.map(i=>'<span class="trait">🎒 '+i+'</span>').join(""):'<span class="mini">لا توجد قطع نادرة بعد.</span>')+'</div><p class="mini">سلسلة الدخول: '+S.streak+' يوم</p>')}
+function openTower(){generic('<h2>🏰 سجل البرج</h2><div class="panel"><div class="eventTitle">الطابق '+S.floor+'</div><p class="eventText">باقي '+(100-S.floor)+' طابق على آخر باب.</p><div class="progress"><i style="width:'+S.floor+'%"></i></div></div><h3>إحصائيات أبوابك</h3><div class="traits"><span class="trait">🔥 الأحمر '+(S.seen.red||0)+'</span><span class="trait">✦ الأزرق '+(S.seen.blue||0)+'</span><span class="trait">? الأسود '+(S.seen.black||0)+'</span></div>')}
+function openInvite(){let code="https://lastdoor.example/invite/"+encodeURIComponent(S.name);generic('<h2>👥 افتح بابًا مع صديق</h2><p>في النسخة الكاملة، بعض الأبواب لن تُفتح إلا بتعاون لاعبين. شارك رمزك التجريبي الآن.</p><div class="invite">'+code+'</div><button class="primary" style="width:100%;margin-top:12px" onclick="navigator.clipboard?.writeText(\''+code+'\');showToast(\'تم نسخ رابط الدعوة\')">نسخ رابط الدعوة</button>')}
+function openShop(){generic('<h2>🛒 متجر البرج</h2><p class="mini">النسخة التجريبية تبيع عناصر تجميلية فقط. لا شراء قوة.</p><div class="shopGrid"><div class="shopItem"><div class="art">👑</div><b>إطار المؤسس</b><div class="mini">إطار ذهبي دائم للحساب</div><div class="price">💎 4</div><button class="primary" style="width:100%;margin-top:9px" onclick="buyCosmetic(4,\'إطار المؤسس\')">اقتناء</button></div><div class="shopItem"><div class="art">🕯️</div><b>أثر الباب الأسود</b><div class="mini">مؤثر فتح مظلم نادر</div><div class="price">💎 3</div><button class="primary" style="width:100%;margin-top:9px" onclick="buyCosmetic(3,\'أثر الباب الأسود\')">اقتناء</button></div><div class="shopItem"><div class="art">🐉</div><b>رفيق التنين</b><div class="mini">رفيق بصري لا يعطي قوة</div><div class="price">🪙 180</div><button class="primary" style="width:100%;margin-top:9px" onclick="buyCoins(180,\'رفيق التنين\')">اقتناء</button></div><div class="shopItem"><div class="art">🎟️</div><b>بطاقة الموسم</b><div class="mini">مسار قصصي ومظاهر إضافية. الدفع الحقيقي لاحقًا.</div><div class="price">قريبًا</div><button class="primary" style="width:100%;margin-top:9px" onclick="showToast(\'سيتم ربط الدفع بعد اختبار اللعبة\')">تفاصيل</button></div></div>')}
+function buyCosmetic(cost,item){if(S.gems<cost){showToast("الجواهر غير كافية");return}S.gems-=cost;if(!S.inventory.includes(item))S.inventory.push(item);save();render();showToast("تم اقتناء "+item)}
+function buyCoins(cost,item){if(S.coins<cost){showToast("العملات غير كافية");return}S.coins-=cost;if(!S.inventory.includes(item))S.inventory.push(item);save();render();showToast("تم اقتناء "+item)}
+function finale(){generic('<div class="eventIcon">🚪</div><div class="eventTitle">وصلت إلى آخر باب</div><p class="eventText">لكنه لا يفتح. نقش واحد فقط ظاهر عليه: «آخر باب كان أمامك منذ البداية.»</p><button class="primary" style="width:100%" onclick="closeModal(\'genericModal\')">يتبع في الموسم الكامل...</button>')}
+function seasonClock(){let end=S.startedAt+7*24*60*60*1000,left=Math.max(0,end-Date.now()),d=Math.floor(left/86400000),h=Math.floor(left%86400000/3600000);document.getElementById("seasonTime").textContent=d+" يوم "+h+" ساعة"}
+document.querySelectorAll(".door").forEach(b=>b.addEventListener("click",()=>pickDoor(b.dataset.door)));
+render();seasonClock();setInterval(seasonClock,60000);
+if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+</script></body></html>
