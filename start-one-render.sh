@@ -336,6 +336,49 @@ except Exception:
 PY
 }
 
+configure_staging_attachment_storage() {
+  # Render's filesystem is ephemeral. Keep new staging attachments and generated
+  # web assets in PostgreSQL so a service restart cannot leave the database
+  # pointing at vanished /tmp filestore files.
+  if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" || "$LOCAL_PG" -eq 1 ]]; then
+    return 0
+  fi
+
+  local attachment_location
+  attachment_location=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
+    "SELECT COALESCE((SELECT value FROM ir_config_parameter WHERE key='ir_attachment.location' LIMIT 1), 'file');" \
+    2>/dev/null | tr -d '[:space:]' || true)
+
+  if [[ "$attachment_location" == "db" ]]; then
+    echo "ONE ERP: staging attachment storage already persistent in PostgreSQL."
+    return 0
+  fi
+
+  echo "ONE ERP: migrating staging attachment policy to PostgreSQL and resetting generated web assets."
+  odoo shell "${ODOO_DB_ARGS[@]}" \
+    --db-filter="^${DB_NAME//./\\.}$" \
+    --no-http \
+    --data-dir="$DATA_DIR" \
+    --addons-path="$ADDONS_PATH" \
+    <<'PY'
+icp = env["ir.config_parameter"].sudo()
+icp.set_str("ir_attachment.location", "db")
+
+Attachment = env["ir.attachment"].sudo().with_context(active_test=False)
+generated_assets = Attachment.search([
+    "|",
+    ("url", "=like", "/web/assets/%"),
+    ("name", "=like", "web.assets_%"),
+])
+count = len(generated_assets)
+if generated_assets:
+    generated_assets.unlink()
+
+env.cr.commit()
+print(f"ONE ERP: PostgreSQL attachment storage enabled; reset {count} generated web asset attachment(s).")
+PY
+}
+
 upgrade_one_ui_if_needed() {
   # Persistent staging should absorb ONE UI releases without rebuilding the
   # whole ERP. Production is intentionally excluded from this automatic path.
@@ -404,6 +447,7 @@ if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
     echo "ONE ERP: existing external schema detected (one_ui=$ONE_UI_STATE)."
     if [[ "$ONE_UI_STATE" == "installed" ]]; then
       upgrade_one_ui_if_needed
+      configure_staging_attachment_storage
     else
       echo "ONE ERP: normal startup without module updates or asset deletion."
     fi
