@@ -1,0 +1,11 @@
+{
+  "name":"آخر باب | The Last Door",
+  "short_name":"آخر باب",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#070913",
+  "theme_color":"#070913",
+  "lang":"ar",
+  "dir":"rtl",
+  "icons":[]
+}
