@@ -359,7 +359,7 @@ configure_staging_attachment_storage() {
     --db-filter="^${DB_NAME//./\\.}$" \
     --no-http \
     --data-dir="$ODOO_DATA" \
-    --addons-path="$ADDONS_PATH" \
+    --addons-path=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons \
     <<'PY'
 icp = env["ir.config_parameter"].sudo()
 icp.set_str("ir_attachment.location", "db")
