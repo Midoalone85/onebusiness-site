@@ -210,6 +210,19 @@ class OneMarketing(Controller):
             "point_of_sale.group_pos_user",
         ]
         refs_ready = all(env.ref(xmlid, raise_if_not_found=False) for xmlid in required_refs)
+        navigation_refs = [
+            "one_ui.action_one_contacts",
+            "one_ui.action_one_products",
+            "one_ui.action_one_control_center",
+            "one_ui.action_one_company_profile",
+            "one_ui.action_one_users",
+            "one_ui.action_one_warehouses",
+            "one_ui.action_one_settings",
+        ]
+        navigation_ready = all(
+            env.ref(xmlid, raise_if_not_found=False)
+            for xmlid in navigation_refs
+        )
         cron = env.ref("one_ui.ir_cron_expire_one_trial_users", raise_if_not_found=False)
         plans = env["one.subscription.plan"].sudo().search([("active", "=", True)], order="sequence, id")
         plan_prices = {
@@ -219,13 +232,14 @@ class OneMarketing(Controller):
         smoke = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test")
         smoke_at = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test_at")
         module = env["ir.module.module"].sudo().search([("name", "=", "one_ui")], limit=1)
-        healthy = refs_ready and bool(cron) and len(plans) >= 6 and smoke == "passed"
+        healthy = refs_ready and navigation_ready and bool(cron) and len(plans) >= 6 and smoke == "passed"
         return request.make_json_response({
             "service": "ONE ERP",
             "status": "ok" if healthy else "degraded",
-            "version": module.latest_version or "20.0.1.31.0",
+            "version": module.latest_version or "20.0.1.33.0",
             "trial_hours": 24,
             "trial_prerequisites": bool(refs_ready and cron),
+            "action_navigation_ready": bool(navigation_ready),
             "trial_smoke_test": smoke or "not_run",
             "trial_smoke_test_at": smoke_at or None,
             "plans": len(plans),
