@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onMounted, proxy } from "@odoo/owl";
+import { Component, onMounted, useState } from "@odoo/owl";
 import { location } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
@@ -15,7 +15,7 @@ export class OneDashboard extends Component {
         this.action = useService("action");
         this.notification = useService("notification");
         this.orm = useService("orm");
-        this.state = proxy({
+        this.state = useState({
             lang: user.context.lang || "en_US",
             contacts: "…",
             sales: "…",
@@ -165,7 +165,7 @@ export class OneControlCenter extends Component {
         this.action = useService("action");
         this.notification = useService("notification");
         this.orm = useService("orm");
-        this.state = proxy({
+        this.state = useState({
             companies: "…",
             users: "…",
             warehouses: "…",
