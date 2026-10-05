@@ -377,21 +377,37 @@ if generated_assets:
 # instead of causing repeated FileNotFoundError traces during web-client load.
 legacy = Attachment.search([("store_fname", "!=", False)])
 stale_count = 0
+migrated_count = 0
 for attachment in legacy:
     path = attachment._full_path(attachment.store_fname)
-    if not os.path.exists(path):
-        attachment.write({
-            "store_fname": False,
-            "db_datas": False,
-            "checksum": False,
-            "file_size": 0,
-        })
-        stale_count += 1
+    if os.path.exists(path):
+        try:
+            raw = attachment.raw
+            attachment.write({
+                "raw": raw,
+                "mimetype": attachment.mimetype,
+            })
+            migrated_count += 1
+            continue
+        except Exception:
+            pass
+
+    # The file is unavailable on this Render instance. Detach the broken
+    # pointer so web asset generation cannot keep trying to read an ephemeral
+    # path that no longer exists.
+    attachment.write({
+        "store_fname": False,
+        "db_datas": False,
+        "checksum": False,
+        "file_size": 0,
+    })
+    stale_count += 1
 
 env.cr.commit()
 print(
     "ONE ERP: PostgreSQL attachment storage ready; "
     f"reset {asset_count} web asset attachment(s), "
+    f"migrated {migrated_count} filestore attachment(s) into PostgreSQL, "
     f"repaired {stale_count} stale filestore reference(s)."
 )
 PY
