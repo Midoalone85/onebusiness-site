@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
 <t t-name="one_ui.OneDashboard">
-    <div class="one_dashboard">
+    <div class="o_action one_dashboard">
         <section class="one_hero">
             <div class="one_hero_copy">
                 <div class="one_brandline">
