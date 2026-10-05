@@ -337,24 +337,14 @@ PY
 }
 
 configure_staging_attachment_storage() {
-  # Render's filesystem is ephemeral. Keep new staging attachments and generated
-  # web assets in PostgreSQL so a service restart cannot leave the database
-  # pointing at vanished /tmp filestore files.
+  # Render's filesystem is ephemeral. Keep staging attachments and generated
+  # web assets in PostgreSQL. Also repair stale filestore references left by
+  # older staging instances whose /tmp filesystem no longer exists.
   if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" || "$LOCAL_PG" -eq 1 ]]; then
     return 0
   fi
 
-  local attachment_location
-  attachment_location=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
-    "SELECT COALESCE((SELECT value FROM ir_config_parameter WHERE key='ir_attachment.location' LIMIT 1), 'file');" \
-    2>/dev/null | tr -d '[:space:]' || true)
-
-  if [[ "$attachment_location" == "db" ]]; then
-    echo "ONE ERP: staging attachment storage already persistent in PostgreSQL."
-    return 0
-  fi
-
-  echo "ONE ERP: migrating staging attachment policy to PostgreSQL and resetting generated web assets."
+  echo "ONE ERP: enforcing PostgreSQL attachment storage and refreshing web assets."
   odoo shell "${ODOO_DB_ARGS[@]}" \
     -d "$DB_NAME" \
     --db-filter="^${DB_NAME//./\\.}$" \
@@ -362,21 +352,48 @@ configure_staging_attachment_storage() {
     --data-dir="$ODOO_DATA" \
     --addons-path=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons \
     <<'PY'
+import os
+
 icp = env["ir.config_parameter"].sudo()
 icp.set_str("ir_attachment.location", "db")
 
 Attachment = env["ir.attachment"].sudo().with_context(active_test=False)
+
+# Compiled bundles are disposable. Remove every cached web bundle on each
+# staging boot so Odoo rebuilds it into PostgreSQL instead of redirecting to
+# a stale attachment created by a previous ephemeral instance.
 generated_assets = Attachment.search([
     "|",
     ("url", "=like", "/web/assets/%"),
     ("name", "=like", "web.assets_%"),
 ])
-count = len(generated_assets)
+asset_count = len(generated_assets)
 if generated_assets:
     generated_assets.unlink()
 
+# Older staging boots stored binary rows in /tmp. After Render sleeps/restarts,
+# those files vanish while their database rows survive. Keep the metadata for
+# ordinary attachments but detach the dead file pointer so reads return cleanly
+# instead of causing repeated FileNotFoundError traces during web-client load.
+legacy = Attachment.search([("store_fname", "!=", False)])
+stale_count = 0
+for attachment in legacy:
+    path = attachment._full_path(attachment.store_fname)
+    if not os.path.exists(path):
+        attachment.write({
+            "store_fname": False,
+            "db_datas": False,
+            "checksum": False,
+            "file_size": 0,
+        })
+        stale_count += 1
+
 env.cr.commit()
-print(f"ONE ERP: PostgreSQL attachment storage enabled; reset {count} generated web asset attachment(s).")
+print(
+    "ONE ERP: PostgreSQL attachment storage ready; "
+    f"reset {asset_count} web asset attachment(s), "
+    f"repaired {stale_count} stale filestore reference(s)."
+)
 PY
 }
 
