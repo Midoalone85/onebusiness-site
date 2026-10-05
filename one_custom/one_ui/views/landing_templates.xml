@@ -49,17 +49,22 @@
                                 <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--xl one-btn--primary">
                                     <t t-if="is_ar">ابدأ تجربة كاملة لمدة يوم</t><t t-else="">Start a full 24-hour trial</t>
                                 </a>
-                                <a href="#engineering" class="one-btn one-btn--xl one-btn--ghost">
-                                    <t t-if="is_ar">شاهد لماذا المطور سيحترمه</t><t t-else="">See the engineering case</t>
+                                <a href="#commercial" class="one-btn one-btn--xl one-btn--ghost">
+                                    <t t-if="is_ar">شوف القيمة على شغلك</t><t t-else="">See the business case</t>
                                 </a>
                                 <a t-att-href="'/one/demo?lang=ar' if is_ar else '/one/demo?lang=en'" class="one-btn one-btn--xl one-btn--ghost">
-                                    <t t-if="is_ar">اطلب عرضًا تجاريًا</t><t t-else="">Request a commercial demo</t>
+                                    <t t-if="is_ar">اطلب عرضًا مخصصًا</t><t t-else="">Request a tailored demo</t>
                                 </a>
                             </div>
                             <div class="one-trustline">
                                 <span>✓ <t t-if="is_ar">بدون بطاقة</t><t t-else="">No card</t></span>
                                 <span>✓ <t t-if="is_ar">عربي + English</t><t t-else="">Arabic + English</t></span>
                                 <span>✓ <t t-if="is_ar">تجربة معزولة لشركتك</t><t t-else="">Isolated trial company</t></span>
+                            </div>
+                            <div class="one-hero-facts">
+                                <article><strong>24h</strong><span><t t-if="is_ar">تجربة تشغيل فعلية</t><t t-else="">real product trial</t></span></article>
+                                <article><strong>6</strong><span><t t-if="is_ar">خطط قابلة للتوسع</t><t t-else="">scalable plans</t></span></article>
+                                <article><strong>0</strong><span><t t-if="is_ar">API مدفوع مطلوب لـ Ask ONE Lite</t><t t-else="">paid AI APIs for Ask ONE Lite</t></span></article>
                             </div>
                         </div>
 
@@ -147,6 +152,38 @@
                     </section>
 
 
+                    <section class="one-section one-value-case">
+                        <div class="one-value-copy">
+                            <span class="one-eyebrow">THE BUSINESS CASE</span>
+                            <h2><t t-if="is_ar">بدل ما شركتك تجري وراء البيانات، خلّي البيانات تيجي للقرار.</t><t t-else="">Stop chasing business data. Bring it to the decision.</t></h2>
+                            <p><t t-if="is_ar">المشكلة مش في نقص البرامج. المشكلة إن البيع والمخزون والمحاسبة والمشتريات كل واحد عايش في جزيرة. ONE ERP يربط الرحلة من أول الحركة التشغيلية لحد أثرها المالي في نفس المسار.</t><t t-else="">The problem is rarely a lack of software. It is sales, inventory, finance and purchasing living on separate islands. ONE ERP connects the operational event to its financial impact in one flow.</t></p>
+                            <div class="one-value-badges">
+                                <span><t t-if="is_ar">تجارة وتوزيع</t><t t-else="">Trading &amp; distribution</t></span>
+                                <span><t t-if="is_ar">خدمات</t><t t-else="">Services</t></span>
+                                <span><t t-if="is_ar">تصنيع خفيف</t><t t-else="">Light manufacturing</t></span>
+                                <span><t t-if="is_ar">فروع متعددة</t><t t-else="">Multi-branch operations</t></span>
+                            </div>
+                        </div>
+                        <div class="one-before-after">
+                            <div class="one-ba-head">
+                                <span><t t-if="is_ar">قبل</t><t t-else="">Before</t></span>
+                                <strong>→</strong>
+                                <span class="one-ba-after"><t t-if="is_ar">مع ONE ERP</t><t t-else="">With ONE ERP</t></span>
+                            </div>
+                            <div class="one-ba-row"><span><t t-if="is_ar">أرقام موزعة بين ملفات وشاشات</t><t t-else="">Numbers scattered across files and screens</t></span><b>→</b><span><t t-if="is_ar">مصدر بيانات موحّد حسب الصلاحيات</t><t t-else="">One permission-aware source of truth</t></span></div>
+                            <div class="one-ba-row"><span><t t-if="is_ar">متابعة يدوية لما يحتاج قرار</t><t t-else="">Manual follow-up for what needs attention</t></span><b>→</b><span><t t-if="is_ar">ONE Pulse وBusiness Radar للأولويات</t><t t-else="">ONE Pulse and Business Radar for priorities</t></span></div>
+                            <div class="one-ba-row"><span><t t-if="is_ar">الفاتورة منفصلة عن المخزون والتشغيل</t><t t-else="">Invoice disconnected from operations</t></span><b>→</b><span><t t-if="is_ar">مسار مترابط من العملية للقيد والتقرير</t><t t-else="">Connected flow from operation to ledger and report</t></span></div>
+                            <div class="one-ba-row"><span><t t-if="is_ar">ذكاء اصطناعي غامض أو غير منضبط</t><t t-else="">Opaque or uncontrolled AI</t></span><b>→</b><span><t t-if="is_ar">ذكاء مساعد داخل الصلاحيات وموافقة الإنسان</t><t t-else="">Assistive intelligence inside permissions and human approval</t></span></div>
+                        </div>
+                    </section>
+
+                    <section class="one-section one-buy-signals">
+                        <div class="one-buy-signal"><small>01</small><strong><t t-if="is_ar">قرار أسرع</t><t t-else="">Faster decisions</t></strong><span><t t-if="is_ar">الأولوية تظهر قبل ما تضيع وسط التقارير.</t><t t-else="">Priority surfaces before it gets buried in reports.</t></span></div>
+                        <div class="one-buy-signal"><small>02</small><strong><t t-if="is_ar">رقابة أوضح</t><t t-else="">Clearer control</t></strong><span><t t-if="is_ar">صلاحيات ومسار مراجعة بدل الاعتماد على الذاكرة.</t><t t-else="">Permissions and audit trail instead of relying on memory.</t></span></div>
+                        <div class="one-buy-signal"><small>03</small><strong><t t-if="is_ar">تشغيل مترابط</t><t t-else="">Connected operations</t></strong><span><t t-if="is_ar">المبيعات والمخزون والشراء والتصنيع والمالية في نفس الرحلة.</t><t t-else="">Sales, stock, purchasing, manufacturing and finance in one journey.</t></span></div>
+                        <div class="one-buy-signal"><small>04</small><strong><t t-if="is_ar">جاهزية سعودية</t><t t-else="">Saudi-ready setup</t></strong><span><t t-if="is_ar">ضرائب وعنوان وطني ومسار إعداد للفوترة الإلكترونية.</t><t t-else="">Tax, national address and e-invoicing setup workflow.</t></span></div>
+                    </section>
+
                     <section id="commercial" class="one-section one-commercial">
                         <div class="one-section-head">
                             <span class="one-eyebrow">COMMERCIAL DECISION ROOM</span>
@@ -181,9 +218,9 @@
 
                     <section id="pricing" class="one-section one-pricing">
                         <div class="one-section-head">
-                            <span class="one-eyebrow">SIMPLE PLANS, EDITABLE FROM CONTROL CENTER</span>
-                            <h2><t t-if="is_ar">ابدأ صغيرًا، ووسّع النظام مع الشركة.</t><t t-else="">Start lean. Expand as the company grows.</t></h2>
-                            <p><t t-if="is_ar">الأسعار المعروضة أسعار إطلاق قابلة للتعديل من لوحة التحكم قبل الإطلاق التجاري النهائي.</t><t t-else="">Displayed launch pricing can be edited from Control Center before commercial launch.</t></p>
+                            <span class="one-eyebrow">CLEAR ENTRY, ROOM TO GROW</span>
+                            <h2><t t-if="is_ar">ابدأ من احتياجك الحقيقي، مش من أكبر باقة.</t><t t-else="">Start with what you actually need, not the biggest plan.</t></h2>
+                            <p><t t-if="is_ar">باقات إطلاق تبدأ من 149 ر.س شهريًا، وتتوسع مع المشتريات والمخزون والمحاسبة والتصنيع والامتثال السعودي حسب احتياجك. الأسعار قابلة للتعديل قبل الإطلاق التجاري النهائي.</t><t t-else="">Launch plans start from SAR 149/month and expand into purchasing, inventory, accounting, manufacturing and Saudi compliance as needed. Pricing remains editable before final commercial launch.</t></p>
                         </div>
                         <div class="one-plan-grid">
                             <article t-foreach="plans" t-as="plan" t-att-class="'one-plan one-plan--featured' if plan['featured'] else 'one-plan'">
@@ -197,8 +234,8 @@
                     </section>
 
                     <section class="one-cta">
-                        <div><span>ONE ERP</span><h2><t t-if="is_ar">خلي القرار بعد التجربة، مش قبلها.</t><t t-else="">Make the decision after using it, not before.</t></h2><p><t t-if="is_ar">24 ساعة، شركة منفصلة، صلاحيات حقيقية، وكل الأدوات الأساسية أمامك.</t><t t-else="">24 hours, an isolated company, real permissions and the core workspace ready to explore.</t></p></div>
-                        <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--xl one-btn--light"><t t-if="is_ar">ابدأ الآن</t><t t-else="">Start now</t></a>
+                        <div><span>ONE ERP · TRY BEFORE YOU BUY</span><h2><t t-if="is_ar">شوف شركتك وهي ماشية في مسار واحد قبل ما تدفع ريال.</t><t t-else="">See your business run in one flow before paying a riyal.</t></h2><p><t t-if="is_ar">24 ساعة، شركة تجريبية منفصلة، صلاحيات تشغيلية حقيقية، بدون بطاقة بنكية.</t><t t-else="">24 hours, an isolated trial company, real operational permissions and no credit card.</t></p></div>
+                        <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--xl one-btn--light"><t t-if="is_ar">أنشئ مساحة التجربة</t><t t-else="">Create trial workspace</t></a>
                     </section>
                 </main>
 
