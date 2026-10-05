@@ -231,15 +231,17 @@ class OneMarketing(Controller):
         }
         smoke = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test")
         smoke_at = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test_at")
+        attachment_storage = env["ir.config_parameter"].sudo().get_str("ir_attachment.location") or "file"
         module = env["ir.module.module"].sudo().search([("name", "=", "one_ui")], limit=1)
-        healthy = refs_ready and navigation_ready and bool(cron) and len(plans) >= 6 and smoke == "passed"
+        healthy = refs_ready and navigation_ready and bool(cron) and len(plans) >= 6 and smoke == "passed" and attachment_storage == "db"
         return request.make_json_response({
             "service": "ONE ERP",
             "status": "ok" if healthy else "degraded",
-            "version": module.latest_version or "20.0.1.34.0",
+            "version": module.latest_version or "20.0.1.35.0",
             "trial_hours": 24,
             "trial_prerequisites": bool(refs_ready and cron),
             "action_navigation_ready": bool(navigation_ready),
+            "attachment_storage": attachment_storage,
             "trial_smoke_test": smoke or "not_run",
             "trial_smoke_test_at": smoke_at or None,
             "plans": len(plans),
