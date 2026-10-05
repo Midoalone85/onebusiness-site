@@ -372,9 +372,10 @@ if generated_assets:
     generated_assets.unlink()
 
 # Older staging boots stored binary rows in /tmp. After Render sleeps/restarts,
-# those files vanish while their database rows survive. Keep the metadata for
-# ordinary attachments but detach the dead file pointer so reads return cleanly
-# instead of causing repeated FileNotFoundError traces during web-client load.
+# those files vanish while their database rows survive. Keep any file that still
+# exists long enough to migrate it into PostgreSQL, then hard-clear only dead
+# local-file pointers. The direct SQL fallback is intentional: store_fname is a
+# storage implementation detail and older ORM rows can keep a stale pointer.
 legacy = Attachment.search([("store_fname", "!=", False)])
 stale_count = 0
 migrated_count = 0
@@ -392,23 +393,25 @@ for attachment in legacy:
         except Exception:
             pass
 
-    # The file is unavailable on this Render instance. Detach the broken
-    # pointer so web asset generation cannot keep trying to read an ephemeral
-    # path that no longer exists.
-    attachment.write({
-        "store_fname": False,
-        "db_datas": False,
-        "checksum": False,
-        "file_size": 0,
-    })
     stale_count += 1
+
+if stale_count:
+    env.cr.execute("""
+        UPDATE ir_attachment
+           SET store_fname = NULL,
+               checksum = NULL,
+               file_size = 0,
+               db_datas = NULL
+         WHERE store_fname IS NOT NULL
+           AND COALESCE(store_fname, '') <> ''
+    """)
 
 env.cr.commit()
 print(
     "ONE ERP: PostgreSQL attachment storage ready; "
     f"reset {asset_count} web asset attachment(s), "
     f"migrated {migrated_count} filestore attachment(s) into PostgreSQL, "
-    f"repaired {stale_count} stale filestore reference(s)."
+    f"hard-repaired {stale_count} stale filestore reference(s)."
 )
 PY
 }
