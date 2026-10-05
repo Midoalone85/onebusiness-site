@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#090b12">
+<title>THE LAST DOOR | آخر باب</title>
+<style>
+:root{
+ --bg:#070910;--panel:#101420;--panel2:#151b2b;--line:#ffffff14;--text:#f5f2e8;--muted:#98a1b5;
+ --gold:#d6b45b;--red:#d45151;--blue:#4d82df;--green:#5fbf83;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:radial-gradient(circle at 50% -20%,#233259 0,#0b0e18 38%,#05060a 78%);color:var(--text);font-family:Tahoma,Arial,sans-serif;min-height:100%}
+button{font:inherit}
+#shell{min-height:100vh}
+header{height:66px;position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#080a12ee;border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}
+.brand{display:flex;gap:10px;align-items:center}.brand b{letter-spacing:2px}.brand small{display:block;color:var(--gold);margin-top:2px}.mark{width:38px;height:38px;border:1px solid #d6b45b88;border-radius:50%;display:grid;place-items:center;color:var(--gold);box-shadow:0 0 24px #d6b45b22}
+.hud{display:flex;flex-wrap:wrap;gap:7px}.hud span{font-size:12px;background:#ffffff08;border:1px solid var(--line);padding:6px 9px;border-radius:999px}
+main{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;max-width:1600px;margin:auto;padding:14px}
+#gameWrap{position:relative;min-width:0;background:#090b12;border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 30px 80px #0009}
+#chapterBar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#0d1019;border-bottom:1px solid var(--line)}#chapterBar small{display:block;color:var(--muted);margin-top:3px}.danger{font-size:11px;color:#111;background:var(--gold);font-weight:bold;padding:6px 9px;border-radius:999px}
+canvas{width:100%;height:auto;display:block;aspect-ratio:16/9;background:#0c111b}
+#bossBar{position:absolute;top:60px;left:50%;transform:translateX(-50%);width:min(70%,650px);z-index:5;background:#090b12cc;border:1px solid #ffffff15;padding:9px 12px;border-radius:14px;backdrop-filter:blur(8px)}.bossTitle{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}.meter{height:10px;background:#ffffff11;border-radius:999px;overflow:hidden}.meter i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#9f1d2f,#e55c50);transition:.15s}.meter.energy i{background:linear-gradient(90deg,#2d66d0,#5ca4ff)}
+#playerBars{position:absolute;left:14px;bottom:84px;width:250px;z-index:6;display:grid;gap:7px;background:#080a12bb;border:1px solid #ffffff12;padding:10px;border-radius:14px;backdrop-filter:blur(8px)}#playerBars>div{display:grid;grid-template-columns:28px 1fr 36px;gap:7px;align-items:center;font-size:11px}
+#skillBar{position:absolute;right:14px;bottom:14px;display:flex;gap:8px;z-index:7;direction:ltr}#skillBar button{position:relative;width:66px;height:60px;background:#0a0d16dd;border:1px solid #ffffff18;border-radius:15px;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}#skillBar button span{font-size:22px}#skillBar button small{font-size:10px;color:#b8c0cf}#skillBar em{position:absolute;inset:0;display:grid;place-items:center;background:#0009;border-radius:14px;font-style:normal;font-weight:bold}
+#touchPad{position:absolute;left:14px;bottom:14px;z-index:7;display:none;direction:ltr}#touchPad>button,#touchPad div button{width:46px;height:42px;background:#0a0d16cc;color:#fff;border:1px solid #ffffff18}#touchPad>button{display:block;margin:auto;border-radius:12px 12px 5px 5px}#touchPad div button:first-child{border-radius:12px 5px 5px 12px}#touchPad div button:last-child{border-radius:5px 12px 12px 5px}
+aside{background:#0c1019;border:1px solid var(--line);border-radius:20px;padding:12px;min-height:720px}nav{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}nav button{background:#ffffff07;border:1px solid var(--line);color:#dce1ea;border-radius:11px;padding:9px;font-size:12px}nav button.active{border-color:#d6b45b66;color:var(--gold);background:#d6b45b0d}
+.sidepanel{display:none}.sidepanel.active{display:block}.sidepanel h3{margin:8px 0 12px}.sidepanel h4{margin:18px 0 8px;color:var(--gold)}
+.mapnodes{display:grid;gap:7px}.mapnode{display:flex;justify-content:space-between;align-items:center;background:#ffffff06;border:1px solid var(--line);border-radius:12px;padding:10px}.mapnode.current{border-color:#d6b45b66;box-shadow:inset 0 0 18px #d6b45b10}.mapnode.locked{opacity:.4}
+.season{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:12px;border-radius:13px;background:linear-gradient(135deg,#1a2440,#21162c);border:1px solid var(--line)}.season small{display:block;color:var(--muted);margin-top:3px}.season span{color:var(--gold);font-size:12px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stats div{background:#ffffff06;border:1px solid var(--line);border-radius:12px;padding:10px}.stats span{display:block;color:var(--muted);font-size:11px}.stats b{font-size:20px;color:var(--gold)}
+.skillrow,.card,.quest,.achievement{background:#ffffff06;border:1px solid var(--line);border-radius:12px;padding:11px;margin:7px 0}.skillrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.skillrow small,.card p,.quest small,.achievement small{color:var(--muted)}.skillrow button,.quest button,.achievement button{background:#ffffff0a;color:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 9px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}.card{margin:0}.card .icon{font-size:28px}.card h4{margin:6px 0}.card p{font-size:11px;margin:0}.card b{font-size:11px}
+.overlay{position:absolute;inset:0;background:#03050acd;display:grid;place-items:center;z-index:12;padding:18px;backdrop-filter:blur(7px)}.hidden{display:none!important}.modal{width:min(760px,95%);background:linear-gradient(145deg,#121725,#0c0f18);border:1px solid #ffffff18;border-radius:22px;padding:22px;text-align:center;box-shadow:0 30px 100px #000}.eyebrow{color:var(--gold);font-size:11px;letter-spacing:3px}.portalChoices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}.portalChoices button{min-height:150px;border-radius:18px;color:white;border:1px solid #ffffff18;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}.portalChoices button span{font-size:38px}.portalChoices .red{background:radial-gradient(circle,#8f2d31,#25090c)}.portalChoices .blue{background:radial-gradient(circle,#2d5ba8,#0b1730)}.portalChoices .gold{background:radial-gradient(circle,#8f7731,#2b2109)}.portalChoices small{color:#d0d5df}
+.primary{background:linear-gradient(135deg,#d6b45b,#9e7a2e);border:0;border-radius:12px;padding:11px 16px;font-weight:bold;color:#090a0e}.dangerTxt{color:#ef6969}
+#toast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#101521;border:1px solid #d6b45b55;padding:9px 15px;border-radius:999px;opacity:0;transition:.2s;z-index:30;pointer-events:none}#toast.show{opacity:1;transform:translateX(-50%)}
+@media(max-width:1050px){main{grid-template-columns:1fr}aside{min-height:0}.cards{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:760px){header{height:auto;align-items:flex-start}.hud{justify-content:flex-end}.hud span{padding:4px 6px}.brand b{font-size:13px}main{padding:8px;gap:8px}aside{display:none}#touchPad{display:block}#playerBars{bottom:86px;width:210px}.portalChoices{grid-template-columns:1fr}.portalChoices button{min-height:100px}.cards{grid-template-columns:1fr 1fr}#chapterBar{font-size:12px}#skillBar button{width:58px;height:56px}}
+
+.fullScreen{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:radial-gradient(circle at 50% 15%,#283760 0,#0a0d17 38%,#05060a 78%);overflow:hidden;padding:20px}
+.fullScreen.hidden{display:none}.titleFog{position:absolute;inset:-20%;background:
+radial-gradient(circle at 30% 40%,#6c273028,transparent 28%),
+radial-gradient(circle at 70% 45%,#2b568d22,transparent 30%),
+radial-gradient(circle at 50% 60%,#d6b45b12,transparent 25%);filter:blur(30px);animation:fog 10s ease-in-out infinite alternate}
+@keyframes fog{from{transform:translate3d(-2%,0,0) scale(1)}to{transform:translate3d(2%,-2%,0) scale(1.06)}}
+.titleCard{position:relative;z-index:2;width:min(620px,94vw);padding:34px;background:#0a0d16dd;border:1px solid #ffffff18;border-radius:28px;text-align:center;box-shadow:0 40px 120px #000c;backdrop-filter:blur(14px)}
+.titleCard.compact{width:min(480px,94vw)}.titleCard h1{font-size:clamp(38px,7vw,74px);letter-spacing:6px;margin:10px 0 0}.titleCard h2{color:var(--gold);font-size:30px;margin:3px 0 10px}.titleCard p{color:#bac1cf;line-height:1.8}.giant{margin:auto;width:74px;height:74px;font-size:34px}.big{width:100%;padding:13px 16px;margin-top:9px}.secondary{background:#ffffff08;color:#fff;border:1px solid #ffffff18;border-radius:12px;padding:10px 14px}.build{display:block;color:#7d879b;margin-top:16px;letter-spacing:1px}
+.settingRow{display:flex;justify-content:space-between;align-items:center;padding:12px;margin:9px 0;background:#ffffff06;border:1px solid #ffffff10;border-radius:13px}
+.pauseBtn{position:absolute;right:14px;top:62px;z-index:11;width:38px;height:38px;border-radius:10px;background:#080a12cc;border:1px solid #ffffff15;display:grid;place-items:center;cursor:pointer;color:#fff}
+.runStats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0}.runStats div{background:#ffffff08;border:1px solid #ffffff12;border-radius:12px;padding:12px}.runStats b{display:block;color:var(--gold);font-size:20px}
+.combo{position:absolute;left:50%;top:110px;transform:translateX(-50%);font-size:28px;font-weight:bold;color:#ffd46a;text-shadow:0 0 14px #ffb341;opacity:0;transition:.15s;z-index:8}.combo.show{opacity:1;transform:translateX(-50%) scale(1.08)}
+#codexList,#dailyBox{display:grid;gap:8px}.codexEntry{padding:9px;background:#ffffff06;border:1px solid #ffffff10;border-radius:10px;font-size:12px;color:#c8cfda}
+.dailyReward{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.dailyReward div{padding:12px;text-align:center;background:#ffffff06;border:1px solid #ffffff10;border-radius:12px}.dailyReward .today{border-color:#d6b45b77}
+@media(max-width:760px){.titleCard{padding:24px}.titleCard h1{font-size:40px}.pauseBtn{top:52px}}
+
+</style>
+</head>
+<body>
+
+<div id="titleScreen" class="fullScreen">
+  <div class="titleFog"></div>
+  <div class="titleCard">
+    <div class="mark giant">◈</div>
+    <div class="eyebrow">A CHOICE-DRIVEN DARK FANTASY</div>
+    <h1>THE LAST DOOR</h1>
+    <h2>آخر باب</h2>
+    <p>كل باب يغيّر ما بعده. لا توجد رحلة متطابقة مرتين.</p>
+    <button id="continueBtn" class="primary big">متابعة الرحلة</button>
+    <button id="newRunBtn" class="secondary big">رحلة جديدة</button>
+    <button id="titleSettingsBtn" class="secondary big">الإعدادات</button>
+    <small class="build">GLOBAL PROTOTYPE • V5</small>
+  </div>
+</div>
+
+<div id="pauseScreen" class="fullScreen hidden">
+  <div class="titleCard compact">
+    <div class="eyebrow">PAUSED</div>
+    <h2>اللعبة متوقفة</h2>
+    <button id="resumeBtn" class="primary big">متابعة</button>
+    <button id="pauseSettingsBtn" class="secondary big">الإعدادات</button>
+    <button id="returnTitleBtn" class="secondary big">القائمة الرئيسية</button>
+  </div>
+</div>
+
+<div id="settingsScreen" class="fullScreen hidden">
+  <div class="titleCard compact">
+    <div class="eyebrow">SETTINGS</div>
+    <h2>الإعدادات</h2>
+    <div class="settingRow"><span>الصوت</span><button id="soundToggle" class="secondary">ON</button></div>
+    <div class="settingRow"><span>اهتزاز الشاشة</span><button id="shakeToggle" class="secondary">ON</button></div>
+    <div class="settingRow"><span>مساعدة التحكم</span><button id="assistToggle" class="secondary">ON</button></div>
+    <div class="settingRow"><span>الجودة</span><button id="qualityToggle" class="secondary">HIGH</button></div>
+    <button id="closeSettingsBtn" class="primary big">حفظ وإغلاق</button>
+  </div>
+</div>
+
+<div id="shell">
+  <header>
+    <div class="brand"><div class="mark">◈</div><div><b>THE LAST DOOR</b><small>آخر باب</small></div></div>
+    <div class="hud">
+      <span>Lv <b id="lv">1</b></span>
+      <span>XP <b id="xp">0</b>/<b id="need">100</b></span>
+      <span>🪙 <b id="coins">100</b></span>
+      <span>💎 <b id="gems">3</b></span>
+      <span>🚪 <b id="floor">1</b></span>
+    </div>
+  </header>
+
+  <main>
+    <section id="gameWrap">
+      <div id="chapterBar">
+        <div>
+          <b id="zoneName">بوابة الرماد</b>
+          <small id="objective">اهزم الحارس وافتح الباب التالي</small>
+        </div>
+        <div class="danger" id="danger">NORMAL</div>
+      </div>
+
+      <canvas id="game" width="1280" height="720"></canvas><div id="comboText" class="combo">COMBO x2</div>
+
+      <div id="bossBar" class="hidden">
+        <div class="bossTitle"><span id="bossName">حارس الرماد</span><span id="phaseText">PHASE I</span></div>
+        <div class="meter"><i id="bossFill"></i></div>
+      </div>
+
+      <div id="playerBars">
+        <div><label>HP</label><div class="meter"><i id="hpFill"></i></div><b id="hpText">100</b></div>
+        <div><label>EN</label><div class="meter energy"><i id="enFill"></i></div><b id="enText">100</b></div>
+      </div>
+
+      <div id="skillBar">
+        <button id="attackBtn"><span>⚔️</span><small>هجوم</small></button>
+        <button id="skillBtn"><span>🔥</span><small>Nova</small><em id="skillCd"></em></button>
+        <button id="dashBtn"><span>💨</span><small>Dash</small><em id="dashCd"></em></button>
+        <button id="potionBtn"><span>🧪</span><small id="potionCount">3</small></button>
+      </div>
+
+      <div id="touchPad">
+        <button data-dir="up">▲</button>
+        <div><button data-dir="left">◀</button><button data-dir="down">▼</button><button data-dir="right">▶</button></div>
+      </div>
+
+      <div id="portalPanel" class="overlay hidden">
+        <div class="modal">
+          <div class="eyebrow">ROOM CLEARED</div>
+          <h2>اختر الباب التالي</h2>
+          <p>كل اختيار يغيّر الخطر والمكافأة ومسار الرحلة.</p>
+          <div class="portalChoices">
+            <button data-portal="combat" class="red"><span>⚔️</span><b>المعركة</b><small>خطر أعلى • غنائم أقوى</small></button>
+            <button data-portal="puzzle" class="blue"><span>🧩</span><b>اللغز</b><small>اختبار سريع • XP</small></button>
+            <button data-portal="mystery" class="gold"><span>🌘</span><b>المجهول</b><small>حدث نادر • نتيجة غير مضمونة</small></button>
+          </div>
+        </div>
+      </div>
+
+      <div id="eventPanel" class="overlay hidden">
+        <div class="modal" id="eventModal"></div>
+      </div>
+
+      <div id="deathPanel" class="overlay hidden">
+        <div class="modal">
+          <div class="eyebrow dangerTxt">FALLEN</div>
+          <h2>سقطت عند الباب</h2>
+          <p id="deathText"></p>
+          <button id="retryBtn" class="primary">حاول مرة أخرى</button>
+        </div>
+      </div>
+
+      
+<div id="pauseBtn" class="pauseBtn">Ⅱ</div>
+<div id="runSummary" class="overlay hidden">
+  <div class="modal">
+    <div class="eyebrow">RUN COMPLETE</div>
+    <h2>انتهت الرحلة الحالية</h2>
+    <div id="runStats" class="runStats"></div>
+    <button id="runAgainBtn" class="primary">ابدأ رحلة جديدة</button>
+  </div>
+</div>
+<div id="toast"></div>
+    </section>
+
+    <aside>
+      <nav>
+        <button class="active" data-panel="journey">🗺️ الرحلة</button>
+        <button data-panel="character">🧙 الشخصية</button>
+        <button data-panel="inventory">🎒 المخزون</button>
+        <button data-panel="quests">📜 المهام</button>
+        <button data-panel="achievements">🏅 الإنجازات</button><button data-panel="codex">📖 السجل</button><button data-panel="daily">🎁 اليومية</button>
+      </nav>
+
+      <div id="journey" class="sidepanel active">
+        <h3>مسار العالم</h3>
+        <div id="mapNodes" class="mapnodes"></div>
+        <div class="season">
+          <div><b>الموسم 0: الانهيار</b><small>Season Prototype</small></div>
+          <span id="seasonTier">Tier 1</span>
+        </div>
+      </div>
+
+      <div id="character" class="sidepanel">
+        <h3>الشخصية</h3>
+        <div class="stats">
+          <div><span>القوة</span><b id="power">13</b></div>
+          <div><span>الانتصارات</span><b id="wins">0</b></div>
+          <div><span>أفضل طابق</span><b id="best">1</b></div>
+          <div><span>نقاط المهارة</span><b id="sp">0</b></div>
+        </div>
+        <h4>شجرة المهارات</h4>
+        <div id="skills"></div>
+      </div>
+
+      <div id="inventory" class="sidepanel">
+        <h3>المخزون</h3>
+        <div id="inventoryGrid" class="cards"></div>
+      </div>
+
+      <div id="quests" class="sidepanel">
+        <h3>المهام</h3>
+        <div id="questList"></div>
+      </div>
+
+      <div id="achievements" class="sidepanel">
+        <h3>الإنجازات</h3>
+        <div id="achievementList"></div>
+      </div>
+    
+<div id="codex" class="sidepanel">
+  <h3>سجل العالم</h3>
+  <div id="codexList"></div>
+</div>
+<div id="daily" class="sidepanel">
+  <h3>المكافأة اليومية</h3>
+  <div id="dailyBox"></div>
+</div>
+</aside>
+  </main>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const canvas=$("#game"), ctx=canvas.getContext("2d");
+
+const defaultState={
+  level:1,xp:0,need:100,coins:100,gems:3,floor:1,best:1,wins:0,doors:0,puzzles:0,
+  skillPoints:0,seasonXp:0,seasonTier:1,
+  skills:{power:0,focus:0,luck:0},
+  inventory:[
+    {id:"potion",name:"جرعة علاج",icon:"🧪",qty:3,desc:"+35 HP"},
+    {id:"blade",name:"سيف الصدى",icon:"🗡️",qty:1,desc:"Starter weapon"}
+  ],
+  quests:[
+    {id:"kill",name:"اهزم 3 حراس",goal:3,progress:0,reward:120,claimed:false},
+    {id:"doors",name:"افتح 5 أبواب",goal:5,progress:0,reward:150,claimed:false},
+    {id:"puzzle",name:"حل لغزين",goal:2,progress:0,reward:100,claimed:false}
+  ],
+  achievements:{}
+};
+let S=load();
+function load(){try{return {...defaultState,...JSON.parse(localStorage.getItem("lastDoorV4")||"{}")}}catch{return structuredClone(defaultState)}}
+function save(){localStorage.setItem("lastDoorV4",JSON.stringify(S));renderMeta();hud()}
+function toast(t){const x=$("#toast");x.textContent=t;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),1400)}
+function gainXp(n){S.xp+=n;while(S.xp>=S.need){S.xp-=S.need;S.level++;S.need=Math.round(S.need*1.22);S.skillPoints++;toast("✨ LEVEL "+S.level+" • +1 Skill Point")}}
+function quest(id,n=1){const q=S.quests.find(x=>x.id===id);if(q&&!q.claimed)q.progress=Math.min(q.goal,q.progress+n)}
+function addItem(item){const x=S.inventory.find(i=>i.id===item.id);x?x.qty++:S.inventory.push({...item,qty:1})}
+function hud(){$("#lv").textContent=S.level;$("#xp").textContent=S.xp;$("#need").textContent=S.need;$("#coins").textContent=S.coins;$("#gems").textContent=S.gems;$("#floor").textContent=S.floor;$("#potionCount").textContent=(S.inventory.find(i=>i.id==="potion")||{qty:0}).qty}
+
+let keys={}, touch={up:false,down:false,left:false,right:false};
+window.addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true;if(e.code==="Space"){e.preventDefault();basicAttack()}if(e.key.toLowerCase()==="q")nova();if(e.key.toLowerCase()==="e")dash()});
+window.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+$$("[data-dir]").forEach(b=>{
+  const d=b.dataset.dir;
+  const on=e=>{e.preventDefault();touch[d]=true},off=e=>{e.preventDefault();touch[d]=false};
+  b.addEventListener("touchstart",on,{passive:false});b.addEventListener("touchend",off,{passive:false});
+  b.addEventListener("mousedown",on);b.addEventListener("mouseup",off);b.addEventListener("mouseleave",off)
+});
+
+const W=1280,H=720;
+let player,enemies,projectiles,particles,roomCleared=false,last=0,attackFlash=0;
+let skillCd=0,dashCd=0,invuln=0,shake=0;
+const zones=[
+  ["بوابة الرماد","#161b27","#392226"],
+  ["الجسر المكسور","#0e1728","#1d3557"],
+  ["معبد الصمت","#171421","#3b2e4d"],
+  ["فم النار","#21100e","#5b2519"],
+  ["قلعة النهاية","#101014","#3b3430"]
+];
+function zoneIndex(){return Math.min(4,Math.floor((S.floor-1)/5))}
+function initRoom(){
+  roomCleared=false;projectiles=[];particles=[];attackFlash=0;skillCd=0;dashCd=0;invuln=0;
+  player={x:W*.5,y:H*.78,r:22,hp:100,maxHp:100,en:100,speed:260,dir:-Math.PI/2};
+  const count=Math.min(8,2+Math.floor(S.floor/2));
+  enemies=[];
+  for(let i=0;i<count;i++){
+    const ang=(Math.PI*2*i/count)+.4;
+    enemies.push({type:"mob",x:W*.5+Math.cos(ang)*220,y:H*.37+Math.sin(ang)*115,r:18,hp:28+S.floor*4,maxHp:28+S.floor*4,speed:75+S.floor*2,hit:0});
+  }
+  if(S.floor%5===0){
+    enemies=[{type:"boss",x:W*.5,y:H*.29,r:42,hp:220+S.floor*18,maxHp:220+S.floor*18,speed:58+S.floor,hit:0,phase:1,shot:0}];
+    $("#bossBar").classList.remove("hidden");
+    $("#bossName").textContent=["حارس الرماد","عروس الجسر","كاهن الصمت","ملك اللهب","آخر الحراس"][zoneIndex()];
+    $("#danger").textContent="BOSS";
+  }else{
+    $("#bossBar").classList.add("hidden");$("#danger").textContent=S.floor>10?"HIGH":"NORMAL";
+  }
+  const z=zones[zoneIndex()];$("#zoneName").textContent=z[0];$("#objective").textContent=S.floor%5===0?"اهزم زعيم المنطقة":"طهر الغرفة وافتح الباب";
+  $("#portalPanel").classList.add("hidden");$("#deathPanel").classList.add("hidden");updateBars()
+}
+function updateBars(){
+  $("#hpFill").style.width=(player.hp/player.maxHp*100)+"%";$("#hpText").textContent=Math.ceil(player.hp);
+  $("#enFill").style.width=player.en+"%";$("#enText").textContent=Math.ceil(player.en);
+  const boss=enemies.find(e=>e.type==="boss");
+  if(boss){
+    $("#bossFill").style.width=Math.max(0,boss.hp/boss.maxHp*100)+"%";
+    const r=boss.hp/boss.maxHp;$("#phaseText").textContent=r>.66?"PHASE I":r>.33?"PHASE II":"RAGE";
+  }
+  $("#skillCd").textContent=skillCd>0?skillCd.toFixed(1):"";$("#dashCd").textContent=dashCd>0?dashCd.toFixed(1):"";
+}
+function damageEnemy(e,d){
+  e.hp-=d;e.hit=.12;spawn(e.x,e.y,8,"#ffd37a");
+  if(e.hp<=0){spawn(e.x,e.y,20,"#ff705f");S.coins+=8+Math.floor(Math.random()*7);if(Math.random()<.08+.03*S.skills.luck)addItem({id:"shard",name:"شظية الباب",icon:"🔷",desc:"Rare crafting shard"})}
+}
+function basicAttack(){
+  if(roomCleared||player.hp<=0)return;
+  const cost=8;if(player.en<cost)return toast("طاقة غير كافية");player.en-=cost;attackFlash=.13;
+  let hit=false;
+  enemies.forEach(e=>{const dx=e.x-player.x,dy=e.y-player.y,dist=Math.hypot(dx,dy),ang=Math.atan2(dy,dx);let diff=Math.abs(Math.atan2(Math.sin(ang-player.dir),Math.cos(ang-player.dir)));if(dist<115&&diff<1.2){damageEnemy(e,16+S.level*2+S.skills.power*4);hit=true}});
+  if(hit)shake=.08;
+}
+function nova(){
+  if(skillCd>0||player.en<35||roomCleared)return;if(player.hp<=0)return;
+  player.en-=35;skillCd=5;spawn(player.x,player.y,36,"#ffb347");
+  enemies.forEach(e=>{if(Math.hypot(e.x-player.x,e.y-player.y)<180)damageEnemy(e,30+S.level*3+S.skills.power*5)});shake=.15
+}
+function dash(){
+  if(dashCd>0||player.en<20||roomCleared)return;if(player.hp<=0)return;
+  player.en-=20;dashCd=3;invuln=.45;player.x+=Math.cos(player.dir)*110;player.y+=Math.sin(player.dir)*110;clampPlayer();spawn(player.x,player.y,18,"#6fb8ff")
+}
+$("#attackBtn").onclick=basicAttack;$("#skillBtn").onclick=nova;$("#dashBtn").onclick=dash;
+$("#potionBtn").onclick=()=>{if(player.hp<=0)return;const p=S.inventory.find(i=>i.id==="potion");if(!p||p.qty<=0)return toast("لا توجد جرعات");p.qty--;player.hp=Math.min(100,player.hp+35);save();updateBars();toast("+35 HP")};
+function clampPlayer(){player.x=Math.max(35,Math.min(W-35,player.x));player.y=Math.max(95,Math.min(H-35,player.y))}
+function spawn(x,y,n,c){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-.5)*240,vy:(Math.random()-.5)*240,life:.25+Math.random()*.35,c})}
+function playerHit(d){if(invuln>0||player.hp<=0)return;player.hp=Math.max(0,player.hp-d);invuln=.5;shake=.14;spawn(player.x,player.y,16,"#ff4e5c");if(player.hp<=0){$("#deathText").textContent=`وصلت إلى الطابق ${S.floor}. تقدمك الدائم محفوظ.`;$("#deathPanel").classList.remove("hidden")}}
+function update(dt){
+  if(player.hp<=0||roomCleared)return;
+  let dx=(keys["d"]||keys["arrowright"]||touch.right?1:0)-(keys["a"]||keys["arrowleft"]||touch.left?1:0);
+  let dy=(keys["s"]||keys["arrowdown"]||touch.down?1:0)-(keys["w"]||keys["arrowup"]||touch.up?1:0);
+  if(dx||dy){const m=Math.hypot(dx,dy);dx/=m;dy/=m;player.x+=dx*player.speed*dt;player.y+=dy*player.speed*dt;player.dir=Math.atan2(dy,dx);clampPlayer()}
+  player.en=Math.min(100,player.en+(11+S.skills.focus*1.5)*dt);skillCd=Math.max(0,skillCd-dt);dashCd=Math.max(0,dashCd-dt);invuln=Math.max(0,invuln-dt);attackFlash=Math.max(0,attackFlash-dt);shake=Math.max(0,shake-dt);
+  enemies=enemies.filter(e=>e.hp>0);
+  enemies.forEach(e=>{
+    e.hit=Math.max(0,e.hit-dt);const vx=player.x-e.x,vy=player.y-e.y,dist=Math.max(1,Math.hypot(vx,vy));
+    if(e.type==="boss"){
+      const ratio=e.hp/e.maxHp;e.phase=ratio>.66?1:ratio>.33?2:3;e.shot-=dt;
+      const sp=e.speed*(e.phase===3?1.45:e.phase===2?1.18:1);
+      if(dist>95){e.x+=vx/dist*sp*dt;e.y+=vy/dist*sp*dt}
+      if(dist<90)playerHit((e.phase===3?19:e.phase===2?14:10)*dt*2.2);
+      if(e.phase>=2&&e.shot<=0){e.shot=e.phase===3?1.1:1.8;const a=Math.atan2(vy,vx);for(let k=-1;k<=1;k++)projectiles.push({x:e.x,y:e.y,vx:Math.cos(a+k*.22)*250,vy:Math.sin(a+k*.22)*250,r:7,life:3})}
+    }else{
+      if(dist>42){e.x+=vx/dist*e.speed*dt;e.y+=vy/dist*e.speed*dt}else playerHit(9*dt*2.4)
+    }
+  });
+  projectiles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;if(Math.hypot(p.x-player.x,p.y-player.y)<player.r+p.r){p.life=0;playerHit(12)}});
+  projectiles=projectiles.filter(p=>p.life>0&&p.x>-30&&p.x<W+30&&p.y>-30&&p.y<H+30);
+  particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;p.life-=dt});particles=particles.filter(p=>p.life>0);
+  if(enemies.length===0&&!roomCleared){roomCleared=true;roomWin()}
+  updateBars()
+}
+function roomWin(){
+  const xp=28+S.floor*5;gainXp(xp);S.wins++;quest("kill");S.seasonXp+=18;if(S.seasonXp>=S.seasonTier*100)S.seasonTier++;
+  if(S.floor%5===0){S.gems++;toast("💎 زعيم منطقة +1 جوهرة")}save();setTimeout(()=>$("#portalPanel").classList.remove("hidden"),500)
+}
+function draw(){
+  const z=zones[zoneIndex()];
+  const sx=shake>0?(Math.random()-.5)*10:0,sy=shake>0?(Math.random()-.5)*10:0;
+  ctx.save();ctx.translate(sx,sy);
+  let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,z[1]);g.addColorStop(1,"#07090f");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="#ffffff0b";ctx.lineWidth=1;for(let x=0;x<W;x+=64){ctx.beginPath();ctx.moveTo(x,80);ctx.lineTo(x,H);ctx.stroke()}for(let y=80;y<H;y+=64){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  // altar
+  ctx.fillStyle=z[2]+"aa";ctx.beginPath();ctx.arc(W*.5,H*.28,105,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#d6b45b33";ctx.lineWidth=4;ctx.stroke();
+  projectiles.forEach(p=>{ctx.fillStyle="#b25aff";ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=15;ctx.shadowColor="#b25aff";ctx.fill();ctx.shadowBlur=0});
+  enemies.forEach(e=>{
+    ctx.save();ctx.translate(e.x,e.y);if(e.hit>0)ctx.globalAlpha=.55;
+    const col=e.type==="boss"?"#8e2636":"#9d3b35";ctx.fillStyle=col;ctx.shadowBlur=e.type==="boss"?28:12;ctx.shadowColor=col;ctx.beginPath();ctx.arc(0,0,e.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle="#f0d7a2";ctx.beginPath();ctx.arc(-e.r*.3,-e.r*.2,3,0,Math.PI*2);ctx.arc(e.r*.3,-e.r*.2,3,0,Math.PI*2);ctx.fill();
+    if(e.type!=="boss"){ctx.fillStyle="#0008";ctx.fillRect(-22,e.r+7,44,5);ctx.fillStyle="#e05b5b";ctx.fillRect(-22,e.r+7,44*Math.max(0,e.hp/e.maxHp),5)}
+    ctx.restore()
+  });
+  ctx.save();ctx.translate(player.x,player.y);ctx.rotate(player.dir);ctx.fillStyle=invuln>0?"#86c8ff":"#d8dce8";ctx.shadowBlur=18;ctx.shadowColor="#6ba8ff";ctx.beginPath();ctx.arc(0,0,player.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle="#1b2436";ctx.fillRect(-9,-10,18,24);ctx.fillStyle="#d6b45b";ctx.fillRect(8,-3,28,6);
+  if(attackFlash>0){ctx.strokeStyle="#ffd36f";ctx.lineWidth=9;ctx.beginPath();ctx.arc(0,0,84,-.8,.8);ctx.stroke()}ctx.restore();
+  particles.forEach(p=>{ctx.globalAlpha=Math.max(0,p.life*2);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,4,4);ctx.globalAlpha=1});
+  ctx.restore()
+}
+function loop(t){const dt=Math.min(.033,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+
+const puzzles=[
+ {q:"1 • 1 • 2 • 3 • 5 • ?",c:["6","8","10"],a:"8"},
+ {q:"2 • 4 • 8 • 16 • ?",c:["24","28","32"],a:"32"},
+ {q:"🌑 🌒 🌓 🌔 ?",c:["🌕","🌘","🌗"],a:"🌕"}
+];
+const mysteries=[
+ {text:"صندوق بلا قفل يهمس باسمك.",choices:[["افتحه",()=>{S.coins+=140;toast("+140 🪙")}],["اتركه",()=>{gainXp(35);toast("+35 XP")}],["المسه",()=>{S.gems++;toast("+1 💎")}]]},
+ {text:"ظل يعرض عليك مفتاحًا مقابل 50 عملة.",choices:[["ادفع",()=>{if(S.coins>=50){S.coins-=50;addItem({id:"key",name:"مفتاح مجهول",icon:"🗝️",desc:"Rare key"});toast("حصلت على مفتاح")}else toast("لا توجد عملات كافية")}],["ارفض",()=>gainXp(20)],["هاجمه",()=>{S.coins+=30;toast("+30 🪙")}]]}
+];
+$$("[data-portal]").forEach(b=>b.onclick=()=>choosePortal(b.dataset.portal));
+function choosePortal(type){
+  $("#portalPanel").classList.add("hidden");S.doors++;quest("doors");
+  if(type==="combat")nextFloor(1);
+  if(type==="puzzle")openPuzzle();
+  if(type==="mystery")openMystery();
+}
+function nextFloor(extra=0){S.floor+=1+extra;S.best=Math.max(S.best,S.floor);save();initRoom()}
+function openPuzzle(){
+  const p=puzzles[Math.floor(Math.random()*puzzles.length)],m=$("#eventModal");m.innerHTML=`<div class="eyebrow">PUZZLE DOOR</div><h2>${p.q}</h2><div class="portalChoices" id="pc"></div>`;
+  const pc=m.querySelector("#pc");p.c.forEach(c=>{const b=document.createElement("button");b.className="blue";b.innerHTML=`<b>${c}</b>`;b.onclick=()=>{if(c===p.a){S.coins+=70;gainXp(35);S.puzzles++;quest("puzzle");toast("✅ صحيح +70 🪙")}else toast("❌ إجابة خاطئة");save();$("#eventPanel").classList.add("hidden");nextFloor()};pc.appendChild(b)});$("#eventPanel").classList.remove("hidden")
+}
+function openMystery(){
+  const e=mysteries[Math.floor(Math.random()*mysteries.length)],m=$("#eventModal");m.innerHTML=`<div class="eyebrow">UNKNOWN</div><h2>${e.text}</h2><div class="portalChoices" id="mc"></div>`;const mc=m.querySelector("#mc");
+  e.choices.forEach(c=>{const b=document.createElement("button");b.className="gold";b.innerHTML=`<b>${c[0]}</b>`;b.onclick=()=>{c[1]();save();$("#eventPanel").classList.add("hidden");nextFloor()};mc.appendChild(b)});$("#eventPanel").classList.remove("hidden")
+}
+$("#retryBtn").onclick=()=>initRoom();
+
+const skillDefs=[
+ ["power","قوة الباب","+4 ضرر لكل مستوى"],
+ ["focus","تركيز الظل","استرجاع طاقة أسرع"],
+ ["luck","حظ الشق","غنائم نادرة أكثر"]
+];
+function renderMeta(){
+ $("#power").textContent=13+S.level*3+S.skills.power*4;$("#wins").textContent=S.wins;$("#best").textContent=S.best;$("#sp").textContent=S.skillPoints;$("#seasonTier").textContent="Tier "+S.seasonTier;
+ const map=$("#mapNodes");map.innerHTML="";const names=["بوابة الرماد","الجسر المكسور","معبد الصمت","فم النار","قلعة النهاية"];
+ names.forEach((n,i)=>{const req=i*5+1;map.innerHTML+=`<div class="mapnode ${S.best>=req&&S.best<req+5?"current":""} ${S.best<req?"locked":""}"><span>${i===0?"🏚️":i===1?"🌉":i===2?"🗿":i===3?"🌋":"🏰"} ${n}</span><small>${req}-${req+4}</small></div>`});
+ const sk=$("#skills");sk.innerHTML="";skillDefs.forEach(([id,n,d])=>{const row=document.createElement("div");row.className="skillrow";row.innerHTML=`<div><b>${n}</b><br><small>${d}</small><br><small>Lv ${S.skills[id]}/5</small></div>`;const b=document.createElement("button");b.textContent=S.skills[id]>=5?"MAX":"ترقية";b.disabled=S.skillPoints<1||S.skills[id]>=5;b.onclick=()=>{S.skillPoints--;S.skills[id]++;save()};row.appendChild(b);sk.appendChild(row)});
+ $("#inventoryGrid").innerHTML=S.inventory.map(i=>`<div class="card"><div class="icon">${i.icon}</div><h4>${i.name}</h4><p>${i.desc}</p><b>x${i.qty}</b></div>`).join("");
+ const ql=$("#questList");ql.innerHTML="";S.quests.forEach(q=>{const r=document.createElement("div");r.className="quest";const done=q.progress>=q.goal;r.innerHTML=`<b>${q.name}</b><br><small>${q.progress}/${q.goal} • ${q.reward} 🪙</small><br>`;const b=document.createElement("button");b.textContent=q.claimed?"تم الاستلام":done?"استلام":"قيد التنفيذ";b.disabled=!done||q.claimed;b.onclick=()=>{q.claimed=true;S.coins+=q.reward;save();toast("تم استلام المكافأة")};r.appendChild(b);ql.appendChild(r)});
+ renderAchievements()
+}
+const achievements=[
+ ["first","الدم الأول","اهزم أول عدو",()=>S.wins>=1,1],
+ ["ten","عابر العشرة","صل للطابق 10",()=>S.best>=10,2],
+ ["doors","سائر الأبواب","افتح 10 أبواب",()=>S.doors>=10,2],
+ ["mind","عقل المرآة","حل 5 ألغاز",()=>S.puzzles>=5,2]
+];
+function renderAchievements(){
+ const a=$("#achievementList");a.innerHTML="";achievements.forEach(([id,n,d,check,reward])=>{if(check()&&!S.achievements[id])S.achievements[id]="ready";const st=S.achievements[id]||"locked";const r=document.createElement("div");r.className="achievement";r.innerHTML=`<b>${n}</b><br><small>${d}</small><br>`;const b=document.createElement("button");b.textContent=st==="ready"?`استلام ${reward} 💎`:st==="claimed"?"تم الاستلام":"مغلق";b.disabled=st!=="ready";b.onclick=()=>{S.gems+=reward;S.achievements[id]="claimed";save()};r.appendChild(b);a.appendChild(r)})
+}
+$$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");$$(".sidepanel").forEach(x=>x.classList.remove("active"));$("#"+b.dataset.panel).classList.add("active")});
+
+hud();renderMeta();initRoom();
+
+
+// ====================== V5 FINAL SYSTEMS ======================
+let gamePaused=true, titleOpen=true, settingsOpen=false, combo=0, comboTimer=0, runStartFloor=S.floor, runStartCoins=S.coins;
+S.settings=S.settings||{sound:true,shake:true,assist:true,quality:"HIGH"};
+S.codex=S.codex||["بدأت الرحلة عند بوابة الرماد."];
+S.daily=S.daily||{last:null,streak:0};
+
+function logCodex(t){
+  S.codex.unshift(new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})+" — "+t);
+  S.codex=S.codex.slice(0,40);
+}
+function tone(freq=440,dur=.08,type="sine",vol=.04){
+  if(!S.settings.sound)return;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    window._ldAudio=window._ldAudio||new AC();
+    const a=window._ldAudio,o=a.createOscillator(),g=a.createGain();
+    o.type=type;o.frequency.value=freq;g.gain.value=vol;o.connect(g);g.connect(a.destination);o.start();
+    g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);o.stop(a.currentTime+dur);
+  }catch{}
+}
+function sfx(name){
+  if(name==="hit")tone(150,.06,"square",.03);
+  if(name==="kill"){tone(320,.07,"triangle",.04);setTimeout(()=>tone(500,.09,"triangle",.03),45)}
+  if(name==="loot")tone(720,.12,"sine",.03);
+  if(name==="dash")tone(240,.06,"sawtooth",.025);
+  if(name==="hurt")tone(95,.08,"square",.035);
+  if(name==="boss")tone(70,.18,"sawtooth",.04);
+}
+const _damageEnemy=damageEnemy;
+damageEnemy=function(e,d){
+  const before=e.hp;_damageEnemy(e,d);sfx("hit");
+  combo++;comboTimer=1.8;
+  $("#comboText").textContent="COMBO x"+combo;$("#comboText").classList.add("show");
+  if(before>0&&e.hp<=0){sfx("kill");gainXp(4+Math.floor(S.floor/3));}
+};
+const _playerHit=playerHit;
+playerHit=function(d){const old=player.hp;_playerHit(d);if(player.hp<old){sfx("hurt");combo=0;$("#comboText").classList.remove("show")}};
+const _dash=dash;
+dash=function(){const before=player.x;_dash();if(player.x!==before)sfx("dash")};
+
+const _update=update;
+update=function(dt){
+  if(gamePaused)return;
+  _update(dt);
+  comboTimer=Math.max(0,comboTimer-dt);if(comboTimer<=0){combo=0;$("#comboText").classList.remove("show")}
+};
+const _draw=draw;
+draw=function(){
+  _draw();
+  if(S.settings.assist&&!roomCleared&&player.hp>0){
+    const alive=enemies[0];
+    if(alive){
+      ctx.save();ctx.strokeStyle="#ffffff22";ctx.setLineDash([7,8]);ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(alive.x,alive.y);ctx.stroke();ctx.restore()
+    }
+  }
+};
+const _spawn=spawn;
+spawn=function(x,y,n,c){_spawn(x,y,S.settings.quality==="LOW"?Math.ceil(n*.45):n,c)};
+
+function setPause(v){
+  gamePaused=v;
+  if(v&&!titleOpen&&!settingsOpen)$("#pauseScreen").classList.remove("hidden");
+  else $("#pauseScreen").classList.add("hidden")
+}
+$("#pauseBtn").onclick=()=>{if(!titleOpen){gamePaused=true;$("#pauseScreen").classList.remove("hidden")}};
+$("#resumeBtn").onclick=()=>{gamePaused=false;$("#pauseScreen").classList.add("hidden")};
+$("#returnTitleBtn").onclick=()=>{titleOpen=true;gamePaused=true;$("#pauseScreen").classList.add("hidden");$("#titleScreen").classList.remove("hidden")};
+
+function showSettings(){
+  settingsOpen=true;gamePaused=true;$("#settingsScreen").classList.remove("hidden");
+  $("#soundToggle").textContent=S.settings.sound?"ON":"OFF";
+  $("#shakeToggle").textContent=S.settings.shake?"ON":"OFF";
+  $("#assistToggle").textContent=S.settings.assist?"ON":"OFF";
+  $("#qualityToggle").textContent=S.settings.quality;
+}
+$("#titleSettingsBtn").onclick=showSettings;$("#pauseSettingsBtn").onclick=()=>{$("#pauseScreen").classList.add("hidden");showSettings()};
+$("#soundToggle").onclick=()=>{S.settings.sound=!S.settings.sound;$("#soundToggle").textContent=S.settings.sound?"ON":"OFF";save()};
+$("#shakeToggle").onclick=()=>{S.settings.shake=!S.settings.shake;$("#shakeToggle").textContent=S.settings.shake?"ON":"OFF";save()};
+$("#assistToggle").onclick=()=>{S.settings.assist=!S.settings.assist;$("#assistToggle").textContent=S.settings.assist?"ON":"OFF";save()};
+$("#qualityToggle").onclick=()=>{S.settings.quality=S.settings.quality==="HIGH"?"LOW":"HIGH";$("#qualityToggle").textContent=S.settings.quality;save()};
+$("#closeSettingsBtn").onclick=()=>{settingsOpen=false;$("#settingsScreen").classList.add("hidden");if(titleOpen){gamePaused=true}else gamePaused=false};
+
+$("#continueBtn").onclick=()=>{
+  titleOpen=false;$("#titleScreen").classList.add("hidden");gamePaused=false;
+  tone(220,.1,"triangle",.03);setTimeout(()=>tone(330,.12,"triangle",.025),70)
+};
+$("#newRunBtn").onclick=()=>{
+  if(confirm("بدء رحلة جديدة سيعيد الطابق الحالي فقط، مع الاحتفاظ بالتقدم الدائم والمهارات. هل تريد المتابعة؟")){
+    S.floor=1;runStartFloor=1;runStartCoins=S.coins;initRoom();titleOpen=false;$("#titleScreen").classList.add("hidden");gamePaused=false;logCodex("بدأت رحلة جديدة.");save()
+  }
+};
+
+const _initRoom=initRoom;
+initRoom=function(){
+  _initRoom();
+  if(S.floor%5===0){sfx("boss");logCodex("دخلت مواجهة زعيم في الطابق "+S.floor)}
+};
+const _roomWin=roomWin;
+roomWin=function(){
+  _roomWin();
+  logCodex("تم تطهير الطابق "+S.floor+".");
+  if(combo>=6){S.coins+=15;toast("🔥 Combo Bonus +15 🪙")}
+  save()
+};
+
+const _nextFloor=nextFloor;
+nextFloor=function(extra=0){
+  _nextFloor(extra);
+  if(S.floor>=26){
+    gamePaused=true;
+    const gained=S.coins-runStartCoins;
+    $("#runStats").innerHTML=`<div>أفضل طابق<b>${S.best}</b></div><div>الانتصارات<b>${S.wins}</b></div><div>عملات الرحلة<b>${Math.max(0,gained)}</b></div><div>المستوى<b>${S.level}</b></div>`;
+    $("#runSummary").classList.remove("hidden");
+    logCodex("وصلت إلى نهاية الفصل الأول.");
+  }
+};
+$("#runAgainBtn").onclick=()=>{$("#runSummary").classList.add("hidden");S.floor=1;runStartCoins=S.coins;runStartFloor=1;save();initRoom();gamePaused=false};
+
+function renderCodex(){
+  $("#codexList").innerHTML=(S.codex||[]).map(x=>`<div class="codexEntry">${x}</div>`).join("");
+}
+function renderDaily(){
+  const today=new Date().toISOString().slice(0,10), claimed=S.daily.last===today;
+  let html='<div class="dailyReward">';
+  const rewards=["25 🪙","35 🪙","45 🪙","60 🪙","80 🪙","100 🪙","2 💎"];
+  for(let i=0;i<7;i++)html+=`<div class="${i===Math.min(6,S.daily.streak)?"today":""}"><b>يوم ${i+1}</b><br><small>${rewards[i]}</small></div>`;
+  html+='</div><button id="claimDailyBtn" class="primary" style="margin-top:10px;width:100%">'+(claimed?"تم الاستلام":"استلام مكافأة اليوم")+'</button>';
+  $("#dailyBox").innerHTML=html;
+  $("#claimDailyBtn").disabled=claimed;
+  $("#claimDailyBtn").onclick=()=>{
+    const y=new Date(Date.now()-86400000).toISOString().slice(0,10);
+    S.daily.streak=S.daily.last===y?Math.min(6,S.daily.streak+1):0;S.daily.last=today;
+    if(S.daily.streak===6){S.gems+=2;toast("+2 💎")}else{const vals=[25,35,45,60,80,100];S.coins+=vals[S.daily.streak];toast("+"+vals[S.daily.streak]+" 🪙")}
+    logCodex("استلمت مكافأة اليوم.");save();renderDaily()
+  }
+}
+const _renderMeta=renderMeta;
+renderMeta=function(){_renderMeta();renderCodex();renderDaily()};
+
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&!titleOpen&&!settingsOpen){gamePaused=true;$("#pauseScreen").classList.remove("hidden")}});
+
+// Improve portal choice economy
+const _choosePortal=choosePortal;
+choosePortal=function(type){
+  if(type==="combat"){S.coins+=5;}
+  if(type==="puzzle"){gainXp(5);}
+  if(type==="mystery"&&Math.random()<.08){S.gems++;toast("🌘 حدث نادر: +1 💎")}
+  _choosePortal(type);save()
+};
+
+// more mystery events
+mysteries.push(
+ {text:"تمثال بلا وجه يحمل تاجًا من زجاج.",choices:[
+   ["ارتدِ التاج",()=>{gainXp(60);toast("+60 XP")}],
+   ["بع التاج",()=>{S.coins+=180;toast("+180 🪙")}],
+   ["اكسره",()=>{addItem({id:"glass",name:"زجاج الذاكرة",icon:"💠",desc:"Relic fragment"});toast("وجدت Relic")}]
+ ]},
+ {text:"باب صغير داخل الباب الأكبر. خلفه ضوء أبيض فقط.",choices:[
+   ["ادخل",()=>{S.floor+=1;S.best=Math.max(S.best,S.floor);toast("اختصار سري +1 طابق")}],
+   ["أغلقه",()=>{gainXp(25);toast("+25 XP")}],
+   ["ضع عملة",()=>{if(S.coins>=1){S.coins-=1;S.gems+=1;toast("تحولت العملة إلى جوهرة 💎")}}]
+ ]}
+);
+
+// keyboard pause
+window.addEventListener("keydown",e=>{if(e.key==="Escape"&&!titleOpen&&!settingsOpen){gamePaused=!gamePaused;$("#pauseScreen").classList.toggle("hidden",!gamePaused)}});
+
+renderMeta();hud();
+
+</script>
+</body>
+</html>
