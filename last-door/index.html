@@ -33,7 +33,7 @@ opacity:.9}.mist{position:absolute;inset:auto -10% 0;height:42%;background:linea
 </head>
 <body><div class="app stars">
 <header class="top">
-<div class="profile"><div class="avatar">M</div><div><div class="name" id="playerName">MO7A</div><div class="lvl" id="levelLabel">المستوى 1</div></div></div>
+<div class="profile"><div class="avatar" id="avatarLetter">M</div><div><div class="name" id="playerName">PLAYER</div><div><span class="lvl" id="levelLabel">المستوى 1</span> <span class="lvl" id="rankLabel" style="background:#222b42;color:#dce5f4">غير مصنف</span></div></div></div>
 <div class="wallet"><div class="chip">⚡ <span id="energyTop">3/3</span></div><div class="chip gold">🪙 <span id="coins">250</span></div><div class="chip gem">💎 <span id="gems">5</span></div></div>
 </header>
 <main class="shell">
@@ -46,16 +46,16 @@ opacity:.9}.mist{position:absolute;inset:auto -10% 0;height:42%;background:linea
 <button class="door blue" data-door="blue"><div class="doorIcon">✦</div><b>باب الفرصة</b><small>توازن بين الأمان والمكسب.</small><span class="risk">فرصة متوازنة</span></button>
 <button class="door black" data-door="black"><div class="doorIcon">?</div><b>باب المجهول</b><small>لا أحد يعرف ماذا يخفي هذه المرة.</small><span class="risk">مجهول تمامًا</span></button>
 </div></section>
-<div class="bottomGrid"><section class="panel"><h3>🧠 شخصيتك داخل البرج</h3><div class="traits" id="traits"></div></section><section class="panel"><h3>📜 آخر القرارات</h3><div class="history" id="history"></div></section></div><section class="panel" id="globalPanel" style="margin-top:14px"><h3>🌍 حدث البشرية</h3><div class="mini">جاري الاتصال بالعالم...</div></section>
+<div class="bottomGrid"><section class="panel"><h3>🧠 شخصيتك داخل البرج</h3><div class="traits" id="traits"></div></section><section class="panel"><h3>📜 آخر القرارات</h3><div class="history" id="history"></div></section></div><section class="panel" id="missionPanel" style="margin-top:14px"><h3>🎯 مهام اليوم</h3><div id="missions" class="history"></div></section><section class="panel" id="globalPanel" style="margin-top:14px"><h3>🌍 حدث البشرية</h3><div class="mini">جاري الاتصال بالعالم...</div></section>
 </main>
 <nav class="nav"><button class="active"><span>🚪</span>البرج</button><button onclick="openLeaderboard()"><span>🏆</span>التصنيف</button><button onclick="openInvite()"><span>👥</span>الأصدقاء</button><button onclick="openShop()"><span>🛒</span>المتجر</button><button onclick="openProfile()"><span>👤</span>شخصيتي</button></nav>
 </div>
 <div class="toast" id="toast"></div>
 <div class="modal" id="eventModal"><div class="modalBox"><button class="close" onclick="closeModal('eventModal')">✕</button><div class="eventIcon" id="eventIcon"></div><div class="eventTitle" id="eventTitle"></div><p class="eventText" id="eventText"></p><div class="eventActions" id="eventActions"></div></div></div>
-<div class="modal" id="genericModal"><div class="modalBox"><button class="close" onclick="closeModal('genericModal')">✕</button><div id="genericContent"></div></div></div>
+<div class="modal" id="genericModal"><div class="modalBox"><button class="close" onclick="closeModal('genericModal')">✕</button><div id="genericContent"></div></div></div><div class="modal" id="onboardModal"><div class="modalBox"><div class="eventIcon">🚪</div><div class="eventTitle">اكتب اسمك داخل البرج</div><p class="eventText">ده الاسم اللي هيظهر في التصنيف العالمي. تقدر تبدأ فورًا بدون إيميل.</p><input id="onboardName" maxlength="22" placeholder="اسم اللاعب" style="width:100%;padding:14px;border-radius:14px;border:1px solid #35415e;background:#0c111d;color:#fff;font:inherit"><button class="primary" id="startWorldBtn" style="width:100%;margin-top:12px">ابدأ الموسم</button></div></div>
 <script>
 const KEY="lastDoorSaveV1";const API="https://last-door-api.onrender.com";
-const defaultState={name:"MO7A",floor:1,energy:3,maxEnergy:3,coins:250,gems:5,xp:0,level:1,streak:0,lastPlay:"",startedAt:Date.now(),traits:{courage:0,mercy:0,greed:0,loyalty:0,curiosity:0},history:[],inventory:[],seen:{},seasonPass:false,playerId:"",playerToken:"",inviteCode:"",serverScore:0};
+const defaultState={name:"PLAYER",floor:1,energy:3,maxEnergy:3,coins:250,gems:5,xp:0,level:1,streak:0,lastPlay:"",startedAt:Date.now(),traits:{courage:0,mercy:0,greed:0,loyalty:0,curiosity:0},history:[],inventory:[],seen:{},seasonPass:false,playerId:"",playerToken:"",inviteCode:"",serverScore:0,chosenName:false,daily:{date:"",doors:0,black:0,coins:0,claimed:[]},achievements:[]};
 let S=load();
 function load(){try{return {...defaultState,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch(e){return {...defaultState}}}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
@@ -81,7 +81,7 @@ async function syncServer(){
 }
 
 function today(){return new Date().toISOString().slice(0,10)}
-function dailyReset(){if(S.lastPlay!==today()){S.energy=S.maxEnergy;S.lastPlay=today();S.streak=(S.streak||0)+1;save()}}
+function dailyReset(){if(S.lastPlay!==today()){S.energy=S.maxEnergy;S.lastPlay=today();S.streak=(S.streak||0)+1;S.daily={date:today(),doors:0,black:0,coins:0,claimed:[]};save()}if(!S.daily||S.daily.date!==today())S.daily={date:today(),doors:0,black:0,coins:0,claimed:[]}}
 dailyReset();
 const events={
 red:[
@@ -101,9 +101,13 @@ black:[
 ]};
 const whispers=["الباب الأسود كان مفتوحًا قبل أن تصل.","شخص آخر اختار الأحمر منذ ثوانٍ.","البرج لا يعاقبك... هو يختبرك.","كل طابق يعرف شيئًا عنك.","أحيانًا النجاة أسوأ من الخسارة."];
 function rand(a){return a[Math.floor(Math.random()*a.length)]}
+function missionDefs(){return[{id:"doors3",title:"افتح 3 أبواب",now:S.daily.doors||0,target:3,reward:80},{id:"black1",title:"واجه الباب الأسود مرة",now:S.daily.black||0,target:1,reward:60},{id:"coins150",title:"اجمع 150 عملة اليوم",now:S.daily.coins||0,target:150,reward:100}]}
+function renderMissions(){let host=document.getElementById("missions");if(!host)return;host.innerHTML=missionDefs().map(m=>{let done=m.now>=m.target,claimed=(S.daily.claimed||[]).includes(m.id);return '<div class="hist '+(done?'win':'')+'"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><div><b>'+m.title+'</b><div class="mini">'+Math.min(m.now,m.target)+' / '+m.target+' • مكافأة '+m.reward+' 🪙</div></div>'+(claimed?'<span class="trait">✓ استلمت</span>':done?'<button class="primary" style="padding:7px 10px" onclick="claimMission(\''+m.id+'\')">استلام</button>':'')+'</div></div>'}).join("")}
+function claimMission(id){let m=missionDefs().find(x=>x.id===id);if(!m||m.now<m.target||(S.daily.claimed||[]).includes(id))return;S.daily.claimed.push(id);S.coins+=m.reward;save();syncServer();render();showToast("🎁 استلمت "+m.reward+" عملة")}
+function checkAchievements(){const defs=[["floor10",S.floor>=10,"بلغت الطابق 10"],["black5",(S.seen.black||0)>=5,"واجهت المجهول 5 مرات"],["streak3",S.streak>=3,"3 أيام متتالية"]];for(const [id,ok,title] of defs){if(ok&&!S.achievements.includes(id)){S.achievements.push(id);S.gems+=1;showToast("🏅 إنجاز جديد: "+title+" + 💎1")}}}
 function pickDoor(type){
  if(S.energy<=0){showToast("طاقتك انتهت اليوم. ارجع غدًا أو استكشف شخصيتك.");return}
- S.energy--;S.seen[type]=(S.seen[type]||0)+1;save();render();
+ S.energy--;S.seen[type]=(S.seen[type]||0)+1;S.daily.doors=(S.daily.doors||0)+1;if(type==="black")S.daily.black=(S.daily.black||0)+1;save();render();
  let ev=rand(events[type]);showEvent(ev,type);
 }
 function showEvent(ev,type){
@@ -118,13 +122,13 @@ function resolveChoice(i){
  let result=effect;
  if(effect.chance){result=Math.random()<effect.chance?effect.win:effect.lose}
  if(effect.special==="halfCoins")S.coins=Math.floor(S.coins/2);
- if(result.coins)S.coins=Math.max(0,S.coins+result.coins);
+ if(result.coins){S.coins=Math.max(0,S.coins+result.coins);if(result.coins>0)S.daily.coins=(S.daily.coins||0)+result.coins;}
  if(result.gems)S.gems=Math.max(0,S.gems+result.gems);
  if(result.item&&!S.inventory.includes(result.item))S.inventory.push(result.item);
  if(result.trait)S.traits[result.trait]=(S.traits[result.trait]||0)+(result.delta||1);
  addXp(result.xp||0);
  S.floor=Math.min(100,S.floor+(effect.floors||1));
- let positive=(result.coins||0)>=0;
+ let positive=(result.coins||0)>=0;checkAchievements();
  S.history.unshift({at:Date.now(),door:type,title:ev.title,text:effect.msg||result.msg||choice[0],positive});S.history=S.history.slice(0,18);
  save();syncServer();closeModal("eventModal");document.getElementById("whisper").textContent=rand(whispers);render();showToast(effect.msg||result.msg||"البرج سجّل قرارك.");
  if(S.floor>=100)setTimeout(finale,450);
@@ -133,12 +137,12 @@ function addXp(x){S.xp+=x;while(S.xp>=S.level*100){S.xp-=S.level*100;S.level++;S
 function traitName(k){return {courage:"الجرأة",mercy:"الرحمة",greed:"الطمع",loyalty:"الوفاء",curiosity:"الفضول"}[k]}
 function traitIcon(k){return {courage:"🔥",mercy:"🤍",greed:"🪙",loyalty:"🛡️",curiosity:"👁️"}[k]}
 function render(){
- document.getElementById("playerName").textContent=S.name;document.getElementById("floor").textContent=S.floor;document.getElementById("floorBar").style.width=Math.max(1,S.floor)+"%";
+ document.getElementById("playerName").textContent=S.name;document.getElementById("avatarLetter").textContent=(S.name||"P").trim().charAt(0).toUpperCase();document.getElementById("floor").textContent=S.floor;document.getElementById("floorBar").style.width=Math.max(1,S.floor)+"%";
  document.getElementById("coins").textContent=S.coins;document.getElementById("gems").textContent=S.gems;document.getElementById("energyTop").textContent=S.energy+"/"+S.maxEnergy;document.getElementById("levelLabel").textContent="المستوى "+S.level;
  document.getElementById("energyRow").innerHTML=Array.from({length:S.maxEnergy},(_,i)=>'<span class="bolt '+(i>=S.energy?'off':'')+'">⚡</span>').join("");
  let sorted=Object.entries(S.traits).sort((a,b)=>b[1]-a[1]);document.getElementById("traits").innerHTML=sorted.map(([k,v])=>'<span class="trait">'+traitIcon(k)+' '+traitName(k)+' <strong>'+v+'</strong></span>').join("");
  document.getElementById("history").innerHTML=S.history.length?S.history.map(h=>'<div class="hist '+(h.positive?'win':'loss')+'"><b>'+doorName(h.door)+' • '+h.title+'</b><div>'+h.text+'</div></div>').join(""):'<div class="mini">اختيارك الأول سيكتب أول سطر في تاريخك.</div>';
- document.querySelectorAll(".door").forEach(b=>b.disabled=S.energy<=0);
+ document.querySelectorAll(".door").forEach(b=>b.disabled=S.energy<=0);renderMissions();
 }
 function doorName(t){return {red:"الأحمر",blue:"الأزرق",black:"الأسود"}[t]}
 function openModal(id){document.getElementById(id).classList.add("open")}function closeModal(id){document.getElementById(id).classList.remove("open")}
@@ -149,7 +153,7 @@ async function openLeaderboard(){
  generic('<h2>🏆 التصنيف العالمي</h2><div id="rankList" class="history"><div class="mini">جاري تحميل المنافسين...</div></div>');
  try{
   let r=await fetch(API+"/api/leaderboard?limit=50",{cache:"no-store"}),d=await r.json(),rows=d.players||[];
-  let me=rows.find(x=>x.id===S.playerId);if(me)S.serverScore=me.score;
+  let me=rows.find(x=>x.id===S.playerId);if(me){S.serverScore=me.score;document.getElementById("rankLabel").textContent="#"+me.rank}else document.getElementById("rankLabel").textContent="غير مصنف";
   document.getElementById("rankList").innerHTML=rows.length?rows.map(p=>'<div class="hist '+(p.id===S.playerId?'win':'')+'" style="display:grid;grid-template-columns:45px 1fr auto;align-items:center;gap:10px"><b>#'+p.rank+'</b><div><b>'+p.name+(p.id===S.playerId?' • أنت':'')+'</b><div class="mini">الطابق '+p.floor+' • المستوى '+p.level+'</div></div><strong style="color:var(--gold2)">'+p.score+'</strong></div>').join(""):'<div class="mini">كن أول لاعب في الموسم.</div>';
  }catch(e){document.getElementById("rankList").innerHTML='<div class="mini">تعذر تحميل التصنيف الآن.</div>'}
 }
@@ -175,7 +179,10 @@ function buyCosmetic(cost,item){if(S.gems<cost){showToast("الجواهر غير
 function buyCoins(cost,item){if(S.coins<cost){showToast("العملات غير كافية");return}S.coins-=cost;if(!S.inventory.includes(item))S.inventory.push(item);save();render();showToast("تم اقتناء "+item)}
 function finale(){generic('<div class="eventIcon">🚪</div><div class="eventTitle">وصلت إلى آخر باب</div><p class="eventText">لكنه لا يفتح. نقش واحد فقط ظاهر عليه: «آخر باب كان أمامك منذ البداية.»</p><button class="primary" style="width:100%" onclick="closeModal(\'genericModal\')">يتبع في الموسم الكامل...</button>')}
 function seasonClock(){let end=S.startedAt+7*24*60*60*1000,left=Math.max(0,end-Date.now()),d=Math.floor(left/86400000),h=Math.floor(left%86400000/3600000);document.getElementById("seasonTime").textContent=d+" يوم "+h+" ساعة"}
+async function startWorld(){let v=(document.getElementById("onboardName").value||"").trim().replace(/[<>]/g,"").slice(0,22);if(v.length<2){showToast("اكتب اسم من حرفين على الأقل");return}S.name=v;S.chosenName=true;save();closeModal("onboardModal");render();await ensureAccount();await syncServer();await loadGlobalEvent();await refreshMyRank()}
+async function refreshMyRank(){try{let r=await fetch(API+"/api/leaderboard?limit=100",{cache:"no-store"}),d=await r.json(),me=(d.players||[]).find(x=>x.id===S.playerId);document.getElementById("rankLabel").textContent=me?"#"+me.rank:"غير مصنف"}catch(e){}}
+document.getElementById("startWorldBtn").onclick=startWorld;
 document.querySelectorAll(".door").forEach(b=>b.addEventListener("click",()=>pickDoor(b.dataset.door)));
-render();seasonClock();ensureAccount().then(()=>{syncServer();loadGlobalEvent()});setInterval(seasonClock,60000);setInterval(syncServer,30000);
-if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js?v=2").catch(()=>{});
+render();seasonClock();if(!S.chosenName&&!S.playerToken){openModal("onboardModal")}else{ensureAccount().then(()=>{syncServer();loadGlobalEvent();refreshMyRank()})}setInterval(seasonClock,60000);setInterval(()=>{syncServer();refreshMyRank()},30000);
+if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js?v=3").catch(()=>{});
 </script></body></html>
