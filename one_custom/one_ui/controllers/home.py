@@ -116,4 +116,8 @@ class OneHome(Home):
                 query=request.params,
             )
 
+        dashboard = request.env.ref("one_ui.action_one_dashboard", raise_if_not_found=False)
+        if dashboard:
+            return request.redirect(f"/odoo/action-{dashboard.id}")
+
         return self.web_client(s_action=s_action, **kw)
