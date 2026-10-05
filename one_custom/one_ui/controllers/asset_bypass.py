@@ -4,14 +4,13 @@ from contextlib import nullcontext
 
 from odoo import api
 from odoo.http import request, route
-from odoo.http.stream import STATIC_CACHE_LONG
 from odoo.addons.web.controllers.binary import Binary
 
 _logger = logging.getLogger(__name__)
 
 
 class OneStagingAssetBinary(Binary):
-    """Serve staging assets directly and bypass Odoo hash redirect checks."""
+    """Serve staging assets as raw bytes to bypass Odoo stream redirects."""
 
     @route(
         "/web/assets/<string:unique>/<string:filename>",
@@ -30,10 +29,9 @@ class OneStagingAssetBinary(Binary):
 
         env = request.env
         assets_params = assets_params or {}
-        stream = None
+        payload = None
+        mimetype = "application/octet-stream"
 
-        # Ignore the incoming version hash entirely on staging. Search any
-        # existing attachment for this exact bundle filename first.
         attachment = env["ir.attachment"].sudo().search([
             ("public", "=", True),
             ("url", "!=", False),
@@ -45,12 +43,13 @@ class OneStagingAssetBinary(Binary):
 
         if attachment:
             try:
-                stream = env["ir.binary"]._get_stream_from(attachment, "raw", filename)
-            except FileNotFoundError:
+                payload = bytes(attachment.raw)
+                mimetype = attachment.mimetype or mimetype
+            except (FileNotFoundError, OSError):
                 attachment.unlink()
-                stream = None
+                payload = None
 
-        if stream is None:
+        if payload is None:
             if env.cr.readonly:
                 env.cr.rollback()
                 cursor_manager = env.registry.cursor(readonly=False)
@@ -89,20 +88,25 @@ class OneStagingAssetBinary(Binary):
                     generated = bundle.bin(extension)
 
                 if generated:
-                    stream = rw_env["ir.binary"]._get_stream_from(generated, "raw", filename)
+                    payload = bytes(generated.raw)
+                    mimetype = generated.mimetype or mimetype
 
-        if stream is None:
+        if payload is None:
             raise request.not_found()
 
+        if filename.endswith(".css"):
+            mimetype = "text/css"
+        elif filename.endswith(".js"):
+            mimetype = "application/javascript"
+
         _logger.info(
-            "ONE ERP staging direct asset 200: requested=%s file=%s",
+            "ONE ERP staging raw asset 200: requested=%s file=%s bytes=%s",
             unique,
             filename,
+            len(payload),
         )
-        send_file_kwargs = {
-            "as_attachment": False,
-            "content_security_policy": None,
-            "immutable": False,
-            "max_age": None if nocache else 0,
-        }
-        return stream.get_response(**send_file_kwargs)
+        headers = [
+            ("Content-Type", mimetype),
+            ("Cache-Control", "no-store, max-age=0"),
+        ]
+        return request.make_response(payload, headers=headers, status=200)
