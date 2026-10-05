@@ -322,6 +322,46 @@ bootstrap_batch() {
   echo "ONE ERP bootstrap: batch [$modules] complete."
 }
 
+one_ui_code_version() {
+  python3 - <<'PY'
+import ast
+from pathlib import Path
+
+manifest = Path("/mnt/extra-addons/one_ui/__manifest__.py")
+try:
+    values = ast.literal_eval(manifest.read_text(encoding="utf-8"))
+    print(values.get("version", ""))
+except Exception:
+    print("")
+PY
+}
+
+upgrade_one_ui_if_needed() {
+  # Persistent staging should absorb ONE UI releases without rebuilding the
+  # whole ERP. Production is intentionally excluded from this automatic path.
+  if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" || "$LOCAL_PG" -eq 1 || "${ONE_AUTO_UPDATE_ONE_UI:-1}" != "1" ]]; then
+    return 0
+  fi
+
+  local code_version db_version
+  code_version="$(one_ui_code_version | tr -d '[:space:]')"
+  db_version=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc     "SELECT COALESCE((SELECT latest_version FROM ir_module_module WHERE name='one_ui' LIMIT 1), '');"     2>/dev/null | tr -d '[:space:]' || true)
+
+  if [[ -z "$code_version" ]]; then
+    echo "ONE ERP: unable to read ONE UI code version; skipping automatic staging upgrade." >&2
+    return 0
+  fi
+
+  if [[ "$db_version" == "$code_version" ]]; then
+    echo "ONE ERP: ONE UI already current ($code_version); no module upgrade required."
+    return 0
+  fi
+
+  echo "ONE ERP: ONE UI release changed ($db_version -> $code_version); upgrading staging module only."
+  odoo "${COMMON[@]}" -d "$DB_NAME" -u one_ui --stop-after-init --no-http
+  echo "ONE ERP: ONE UI staging upgrade complete ($code_version)."
+}
+
 # Install a fresh local staging database in small batches. Running all ONE ERP
 # dependencies in one Odoo process can exceed the memory available on Render's
 # free web service. A tiny temporary HTTP server keeps Render's port detector
@@ -361,7 +401,12 @@ if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
     echo "ONE ERP: partial external staging schema detected (one_ui=$ONE_UI_STATE); safely resuming bootstrap."
     run_staging_bootstrap
   else
-    echo "ONE ERP: existing external schema detected (one_ui=$ONE_UI_STATE); normal startup without module updates or asset deletion."
+    echo "ONE ERP: existing external schema detected (one_ui=$ONE_UI_STATE)."
+    if [[ "$ONE_UI_STATE" == "installed" ]]; then
+      upgrade_one_ui_if_needed
+    else
+      echo "ONE ERP: normal startup without module updates or asset deletion."
+    fi
   fi
 elif [[ "$HAS_ODOO_SCHEMA" == "0" && "$LOCAL_PG" -eq 1 ]]; then
   echo "ONE ERP: fresh staging database detected."
