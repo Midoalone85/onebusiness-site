@@ -358,7 +358,7 @@ configure_staging_attachment_storage() {
   odoo shell "${ODOO_DB_ARGS[@]}" \
     --db-filter="^${DB_NAME//./\\.}$" \
     --no-http \
-    --data-dir="$DATA_DIR" \
+    --data-dir="$ODOO_DATA" \
     --addons-path="$ADDONS_PATH" \
     <<'PY'
 icp = env["ir.config_parameter"].sudo()
