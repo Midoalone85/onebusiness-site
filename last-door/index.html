@@ -46,19 +46,40 @@ opacity:.9}.mist{position:absolute;inset:auto -10% 0;height:42%;background:linea
 <button class="door blue" data-door="blue"><div class="doorIcon">✦</div><b>باب الفرصة</b><small>توازن بين الأمان والمكسب.</small><span class="risk">فرصة متوازنة</span></button>
 <button class="door black" data-door="black"><div class="doorIcon">?</div><b>باب المجهول</b><small>لا أحد يعرف ماذا يخفي هذه المرة.</small><span class="risk">مجهول تمامًا</span></button>
 </div></section>
-<div class="bottomGrid"><section class="panel"><h3>🧠 شخصيتك داخل البرج</h3><div class="traits" id="traits"></div></section><section class="panel"><h3>📜 آخر القرارات</h3><div class="history" id="history"></div></section></div>
+<div class="bottomGrid"><section class="panel"><h3>🧠 شخصيتك داخل البرج</h3><div class="traits" id="traits"></div></section><section class="panel"><h3>📜 آخر القرارات</h3><div class="history" id="history"></div></section></div><section class="panel" id="globalPanel" style="margin-top:14px"><h3>🌍 حدث البشرية</h3><div class="mini">جاري الاتصال بالعالم...</div></section>
 </main>
-<nav class="nav"><button class="active"><span>🚪</span>البرج</button><button onclick="openTower()"><span>🏰</span>تقدمي</button><button onclick="openInvite()"><span>👥</span>الأصدقاء</button><button onclick="openShop()"><span>🛒</span>المتجر</button><button onclick="openProfile()"><span>👤</span>شخصيتي</button></nav>
+<nav class="nav"><button class="active"><span>🚪</span>البرج</button><button onclick="openLeaderboard()"><span>🏆</span>التصنيف</button><button onclick="openInvite()"><span>👥</span>الأصدقاء</button><button onclick="openShop()"><span>🛒</span>المتجر</button><button onclick="openProfile()"><span>👤</span>شخصيتي</button></nav>
 </div>
 <div class="toast" id="toast"></div>
 <div class="modal" id="eventModal"><div class="modalBox"><button class="close" onclick="closeModal('eventModal')">✕</button><div class="eventIcon" id="eventIcon"></div><div class="eventTitle" id="eventTitle"></div><p class="eventText" id="eventText"></p><div class="eventActions" id="eventActions"></div></div></div>
 <div class="modal" id="genericModal"><div class="modalBox"><button class="close" onclick="closeModal('genericModal')">✕</button><div id="genericContent"></div></div></div>
 <script>
-const KEY="lastDoorSaveV1";
-const defaultState={name:"MO7A",floor:1,energy:3,maxEnergy:3,coins:250,gems:5,xp:0,level:1,streak:0,lastPlay:"",startedAt:Date.now(),traits:{courage:0,mercy:0,greed:0,loyalty:0,curiosity:0},history:[],inventory:[],seen:{},seasonPass:false};
+const KEY="lastDoorSaveV1";const API="https://last-door-api.onrender.com";
+const defaultState={name:"MO7A",floor:1,energy:3,maxEnergy:3,coins:250,gems:5,xp:0,level:1,streak:0,lastPlay:"",startedAt:Date.now(),traits:{courage:0,mercy:0,greed:0,loyalty:0,curiosity:0},history:[],inventory:[],seen:{},seasonPass:false,playerId:"",playerToken:"",inviteCode:"",serverScore:0};
 let S=load();
 function load(){try{return {...defaultState,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch(e){return {...defaultState}}}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function topTrait(){return Object.entries(S.traits).sort((a,b)=>b[1]-a[1])[0]?.[0]||"curiosity"}
+async function ensureAccount(){
+ try{
+  if(S.playerToken){
+   let r=await fetch(API+"/api/me",{headers:{"X-Player-Token":S.playerToken}});
+   if(r.ok){let d=await r.json();S.playerId=d.player.id;S.inviteCode=d.player.inviteCode;S.serverScore=d.player.score||0;save();return true}
+  }
+  const invite=new URLSearchParams(location.search).get("invite")||"";
+  let r=await fetch(API+"/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:S.name,invite})});
+  if(!r.ok)return false;let d=await r.json();S.playerToken=d.token;S.playerId=d.player.id;S.inviteCode=d.player.inviteCode;S.serverScore=d.player.score||0;
+  if(d.player.coins>S.coins)S.coins=d.player.coins;save();showToast("🌍 انضممت إلى الموسم العالمي");return true;
+ }catch(e){return false}
+}
+async function syncServer(){
+ if(!S.playerToken)return;
+ try{
+  let r=await fetch(API+"/api/sync",{method:"POST",headers:{"Content-Type":"application/json","X-Player-Token":S.playerToken},body:JSON.stringify({floor:S.floor,level:S.level,xp:S.xp,coins:S.coins,gems:S.gems,streak:S.streak,topTrait:topTrait()})});
+  if(r.ok){let d=await r.json();S.serverScore=d.player.score||S.serverScore;S.inviteCode=d.player.inviteCode||S.inviteCode;save()}
+ }catch(e){}
+}
+
 function today(){return new Date().toISOString().slice(0,10)}
 function dailyReset(){if(S.lastPlay!==today()){S.energy=S.maxEnergy;S.lastPlay=today();S.streak=(S.streak||0)+1;save()}}
 dailyReset();
@@ -105,7 +126,7 @@ function resolveChoice(i){
  S.floor=Math.min(100,S.floor+(effect.floors||1));
  let positive=(result.coins||0)>=0;
  S.history.unshift({at:Date.now(),door:type,title:ev.title,text:effect.msg||result.msg||choice[0],positive});S.history=S.history.slice(0,18);
- save();closeModal("eventModal");document.getElementById("whisper").textContent=rand(whispers);render();showToast(effect.msg||result.msg||"البرج سجّل قرارك.");
+ save();syncServer();closeModal("eventModal");document.getElementById("whisper").textContent=rand(whispers);render();showToast(effect.msg||result.msg||"البرج سجّل قرارك.");
  if(S.floor>=100)setTimeout(finale,450);
 }
 function addXp(x){S.xp+=x;while(S.xp>=S.level*100){S.xp-=S.level*100;S.level++;S.maxEnergy=Math.min(5,3+Math.floor(S.level/5));showToast("⬆️ وصلت للمستوى "+S.level)}}
@@ -124,14 +145,37 @@ function openModal(id){document.getElementById(id).classList.add("open")}functio
 function generic(html){document.getElementById("genericContent").innerHTML=html;openModal("genericModal")}
 function showToast(t){let x=document.getElementById("toast");x.textContent=t;x.classList.add("show");clearTimeout(window.tt);window.tt=setTimeout(()=>x.classList.remove("show"),2400)}
 function openProfile(){let s=Object.entries(S.traits).sort((a,b)=>b[1]-a[1]),top=s[0];generic('<h2>👤 هويتك داخل البرج</h2><p class="mini">البرج لا يسألك من أنت. هو يستنتجها من قراراتك.</p><div class="panel"><div class="eventIcon">'+traitIcon(top[0])+'</div><div class="eventTitle">'+traitName(top[0])+'</div><p class="eventText">هذه الصفة هي الأوضح في قراراتك حتى الآن.</p></div><h3>المخزون</h3><div class="traits">'+(S.inventory.length?S.inventory.map(i=>'<span class="trait">🎒 '+i+'</span>').join(""):'<span class="mini">لا توجد قطع نادرة بعد.</span>')+'</div><p class="mini">سلسلة الدخول: '+S.streak+' يوم</p>')}
+async function openLeaderboard(){
+ generic('<h2>🏆 التصنيف العالمي</h2><div id="rankList" class="history"><div class="mini">جاري تحميل المنافسين...</div></div>');
+ try{
+  let r=await fetch(API+"/api/leaderboard?limit=50",{cache:"no-store"}),d=await r.json(),rows=d.players||[];
+  let me=rows.find(x=>x.id===S.playerId);if(me)S.serverScore=me.score;
+  document.getElementById("rankList").innerHTML=rows.length?rows.map(p=>'<div class="hist '+(p.id===S.playerId?'win':'')+'" style="display:grid;grid-template-columns:45px 1fr auto;align-items:center;gap:10px"><b>#'+p.rank+'</b><div><b>'+p.name+(p.id===S.playerId?' • أنت':'')+'</b><div class="mini">الطابق '+p.floor+' • المستوى '+p.level+'</div></div><strong style="color:var(--gold2)">'+p.score+'</strong></div>').join(""):'<div class="mini">كن أول لاعب في الموسم.</div>';
+ }catch(e){document.getElementById("rankList").innerHTML='<div class="mini">تعذر تحميل التصنيف الآن.</div>'}
+}
 function openTower(){generic('<h2>🏰 سجل البرج</h2><div class="panel"><div class="eventTitle">الطابق '+S.floor+'</div><p class="eventText">باقي '+(100-S.floor)+' طابق على آخر باب.</p><div class="progress"><i style="width:'+S.floor+'%"></i></div></div><h3>إحصائيات أبوابك</h3><div class="traits"><span class="trait">🔥 الأحمر '+(S.seen.red||0)+'</span><span class="trait">✦ الأزرق '+(S.seen.blue||0)+'</span><span class="trait">? الأسود '+(S.seen.black||0)+'</span></div>')}
-function openInvite(){let code="https://lastdoor.example/invite/"+encodeURIComponent(S.name);generic('<h2>👥 افتح بابًا مع صديق</h2><p>في النسخة الكاملة، بعض الأبواب لن تُفتح إلا بتعاون لاعبين. شارك رمزك التجريبي الآن.</p><div class="invite">'+code+'</div><button class="primary" style="width:100%;margin-top:12px" onclick="navigator.clipboard?.writeText(\''+code+'\');showToast(\'تم نسخ رابط الدعوة\')">نسخ رابط الدعوة</button>')}
+function openInvite(){let url=location.origin+location.pathname+"?invite="+encodeURIComponent(S.inviteCode||"");generic('<h2>👥 ابنِ سلالتك</h2><p>كل صديق يدخل من رابطك يحصل على 50 عملة، وأنت تحصل على 50 عملة ودفعة في ترتيب الموسم.</p><div class="invite">'+url+'</div><button class="primary" style="width:100%;margin-top:12px" onclick="navigator.clipboard?.writeText(\''+url+'\');showToast(\'تم نسخ رابط الدعوة\')">نسخ رابط الدعوة</button><div class="mini" style="margin-top:10px">رمزك: '+(S.inviteCode||"جاري الإنشاء...")+'</div>')}
+async function loadGlobalEvent(){
+ try{
+  let r=await fetch(API+"/api/global-event",{cache:"no-store"}),d=await r.json(),e=d.event,counts=d.counts||[],total=counts.reduce((a,b)=>a+b,0);
+  document.getElementById("globalPanel").innerHTML='<h3>🌍 '+e.title+'</h3><p>'+e.question+'</p><div class="traits">'+e.options.map((x,i)=>'<span class="trait">'+x+' <strong>'+counts[i]+'</strong></span>').join("")+'</div><button class="primary" style="width:100%;margin-top:10px" onclick="openGlobalVote()">شارك في قرار البشرية</button><div class="mini" style="margin-top:7px">'+total+' صوت في الحدث حتى الآن</div>';
+  window.globalEvent=d;
+ }catch(e){document.getElementById("globalPanel").innerHTML='<h3>🌍 حدث البشرية</h3><div class="mini">العالم صامت للحظة...</div>'}
+}
+function openGlobalVote(){
+ let d=window.globalEvent;if(!d)return loadGlobalEvent();let e=d.event,counts=d.counts||[];
+ generic('<h2>🌍 '+e.title+'</h2><p>'+e.question+'</p><div class="eventActions">'+e.options.map((x,i)=>'<button class="choice" onclick="voteGlobal('+i+')">'+x+' <span class="mini">('+counts[i]+')</span></button>').join("")+'</div><p class="mini">قرار المجتمع سيصبح جزءًا من تاريخ الموسم.</p>')
+}
+async function voteGlobal(i){
+ if(!S.playerToken){showToast("جاري إنشاء حسابك العالمي");await ensureAccount()}
+ try{let r=await fetch(API+"/api/global-event/vote",{method:"POST",headers:{"Content-Type":"application/json","X-Player-Token":S.playerToken},body:JSON.stringify({option:i})});if(r.ok){showToast("✅ تم تسجيل صوتك");closeModal("genericModal");await loadGlobalEvent()}else showToast("تعذر تسجيل الصوت")}catch(e){showToast("تعذر الاتصال بالعالم")}
+}
 function openShop(){generic('<h2>🛒 متجر البرج</h2><p class="mini">النسخة التجريبية تبيع عناصر تجميلية فقط. لا شراء قوة.</p><div class="shopGrid"><div class="shopItem"><div class="art">👑</div><b>إطار المؤسس</b><div class="mini">إطار ذهبي دائم للحساب</div><div class="price">💎 4</div><button class="primary" style="width:100%;margin-top:9px" onclick="buyCosmetic(4,\'إطار المؤسس\')">اقتناء</button></div><div class="shopItem"><div class="art">🕯️</div><b>أثر الباب الأسود</b><div class="mini">مؤثر فتح مظلم نادر</div><div class="price">💎 3</div><button class="primary" style="width:100%;margin-top:9px" onclick="buyCosmetic(3,\'أثر الباب الأسود\')">اقتناء</button></div><div class="shopItem"><div class="art">🐉</div><b>رفيق التنين</b><div class="mini">رفيق بصري لا يعطي قوة</div><div class="price">🪙 180</div><button class="primary" style="width:100%;margin-top:9px" onclick="buyCoins(180,\'رفيق التنين\')">اقتناء</button></div><div class="shopItem"><div class="art">🎟️</div><b>بطاقة الموسم</b><div class="mini">مسار قصصي ومظاهر إضافية. الدفع الحقيقي لاحقًا.</div><div class="price">قريبًا</div><button class="primary" style="width:100%;margin-top:9px" onclick="showToast(\'سيتم ربط الدفع بعد اختبار اللعبة\')">تفاصيل</button></div></div>')}
 function buyCosmetic(cost,item){if(S.gems<cost){showToast("الجواهر غير كافية");return}S.gems-=cost;if(!S.inventory.includes(item))S.inventory.push(item);save();render();showToast("تم اقتناء "+item)}
 function buyCoins(cost,item){if(S.coins<cost){showToast("العملات غير كافية");return}S.coins-=cost;if(!S.inventory.includes(item))S.inventory.push(item);save();render();showToast("تم اقتناء "+item)}
 function finale(){generic('<div class="eventIcon">🚪</div><div class="eventTitle">وصلت إلى آخر باب</div><p class="eventText">لكنه لا يفتح. نقش واحد فقط ظاهر عليه: «آخر باب كان أمامك منذ البداية.»</p><button class="primary" style="width:100%" onclick="closeModal(\'genericModal\')">يتبع في الموسم الكامل...</button>')}
 function seasonClock(){let end=S.startedAt+7*24*60*60*1000,left=Math.max(0,end-Date.now()),d=Math.floor(left/86400000),h=Math.floor(left%86400000/3600000);document.getElementById("seasonTime").textContent=d+" يوم "+h+" ساعة"}
 document.querySelectorAll(".door").forEach(b=>b.addEventListener("click",()=>pickDoor(b.dataset.door)));
-render();seasonClock();setInterval(seasonClock,60000);
-if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+render();seasonClock();ensureAccount().then(()=>{syncServer();loadGlobalEvent()});setInterval(seasonClock,60000);setInterval(syncServer,30000);
+if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js?v=2").catch(()=>{});
 </script></body></html>
