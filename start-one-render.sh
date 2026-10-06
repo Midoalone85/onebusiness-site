@@ -38,10 +38,10 @@ BOOTSTRAP_HTTP_PID=""
 
 mkdir -p "$ODOO_DATA"
 
-# Bind Render's public port immediately on staging, before PostgreSQL init or
+# Bind Render's public port immediately during staging/production bootstrap, before PostgreSQL init or
 # Odoo module bootstrap. This prevents Render from repeatedly restarting a
 # fresh instance when it discovers the port late during first boot.
-if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && ( -z "${ONE_DB_HOST:-}" || "${ONE_ALLOW_EXTERNAL_INIT:-0}" == "1" ) ]]; then
+if [[ ( "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && ( -z "${ONE_DB_HOST:-}" || "${ONE_ALLOW_EXTERNAL_INIT:-0}" == "1" ) ) || ( "${RENDER_SERVICE_NAME:-}" == "one-erp-live" && ( -z "${ONE_DB_HOST:-}" || "${ONE_ALLOW_PRODUCTION_INIT:-0}" == "1" ) ) ]]; then
   BOOTSTRAP_PAGE_DIR="/tmp/one-erp-bootstrap"
   mkdir -p "$BOOTSTRAP_PAGE_DIR"
   cat >"$BOOTSTRAP_PAGE_DIR/index.html" <<'HTML'
@@ -64,7 +64,7 @@ if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && ( -z "${ONE_DB_HOST:-}"
     <p class="sub">يتم تشغيل وحدات ONE ERP وتجهيز بيئة العمل بأمان. ستنتقل هذه الصفحة تلقائيًا إلى النظام فور اكتمال التشغيل.</p>
     <div class="bar"></div>
     <p class="en">Preparing your ONE ERP workspace. This page refreshes automatically when the application is ready.</p>
-    <div class="foot">ONE Business • Secure staging startup</div>
+    <div class="foot">ONE Business • Secure ERP startup</div>
   </main>
 </body>
 </html>
