@@ -497,9 +497,18 @@ PY
 }
 
 upgrade_one_ui_if_needed() {
-  # Persistent staging should absorb ONE UI releases without rebuilding the
-  # whole ERP. Production is intentionally excluded from this automatic path.
-  if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" || "$LOCAL_PG" -eq 1 || "${ONE_AUTO_UPDATE_ONE_UI:-1}" != "1" ]]; then
+  # Upgrade only ONE UI when its module version changes. Staging is enabled by
+  # default; live requires an explicit Render flag so production stays gated.
+  if [[ "$LOCAL_PG" -eq 1 ]]; then
+    return 0
+  fi
+
+  local service_name="${RENDER_SERVICE_NAME:-}"
+  if [[ "$service_name" == "one-erp-staging" ]]; then
+    [[ "${ONE_AUTO_UPDATE_ONE_UI:-1}" == "1" ]] || return 0
+  elif [[ "$service_name" == "one-erp-live" ]]; then
+    [[ "${ONE_AUTO_UPDATE_ONE_UI_LIVE:-0}" == "1" ]] || return 0
+  else
     return 0
   fi
 
@@ -508,7 +517,7 @@ upgrade_one_ui_if_needed() {
   db_version=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc     "SELECT COALESCE((SELECT latest_version FROM ir_module_module WHERE name='one_ui' LIMIT 1), '');"     2>/dev/null | tr -d '[:space:]' || true)
 
   if [[ -z "$code_version" ]]; then
-    echo "ONE ERP: unable to read ONE UI code version; skipping automatic staging upgrade." >&2
+    echo "ONE ERP: unable to read ONE UI code version; skipping automatic module upgrade." >&2
     return 0
   fi
 
@@ -517,9 +526,9 @@ upgrade_one_ui_if_needed() {
     return 0
   fi
 
-  echo "ONE ERP: ONE UI release changed ($db_version -> $code_version); upgrading staging module only."
+  echo "ONE ERP: ONE UI release changed ($db_version -> $code_version); upgrading $service_name module only."
   odoo "${COMMON[@]}" -d "$DB_NAME" -u one_ui --stop-after-init --no-http
-  echo "ONE ERP: ONE UI staging upgrade complete ($code_version)."
+  echo "ONE ERP: ONE UI upgrade complete on $service_name ($code_version)."
 }
 
 # Install a fresh local staging database in small batches. Running all ONE ERP
