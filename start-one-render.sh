@@ -493,6 +493,10 @@ else:
 if failures:
     raise RuntimeError("ONE ERP smoke test failed: " + " | ".join(failures))
 print("ONE ERP SMOKE RESULT: PASS")
+
+from odoo.addons.one_ui.hooks import _run_trial_smoke_test
+_run_trial_smoke_test(env)
+print("ONE ERP TRIAL SMOKE RESULT: PASS")
 PY
 }
 
