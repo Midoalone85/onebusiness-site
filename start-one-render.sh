@@ -33,6 +33,14 @@ PY
   echo "ONE ERP: DATABASE_URL detected; using external PostgreSQL."
 fi
 
+# Production is fail-closed: never allow the live service to fall back to an
+# ephemeral /tmp PostgreSQL database. A missing database configuration is a
+# deployment error, not a reason to start with disposable data.
+if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-live" && -z "${ONE_DB_HOST:-}" ]]; then
+  echo "ONE ERP FATAL: production requires DATABASE_URL or ONE_DB_HOST. Ephemeral database fallback is forbidden." >&2
+  exit 1
+fi
+
 ODOO_PID=""
 BOOTSTRAP_HTTP_PID=""
 
@@ -182,6 +190,21 @@ if [[ -n "${ONE_DB_HOST:-}" ]]; then
   fi
 
   echo "ONE ERP: persistent PostgreSQL mode enabled for database '$DB_NAME'."
+
+  echo "ONE ERP: verifying persistent PostgreSQL connectivity..."
+  DB_READY=0
+  for _ in $(seq 1 30); do
+    if "$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc "SELECT 1" >/dev/null 2>&1; then
+      DB_READY=1
+      break
+    fi
+    sleep 2
+  done
+  if [[ "$DB_READY" != "1" ]]; then
+    echo "ONE ERP FATAL: persistent PostgreSQL did not become reachable within the startup window." >&2
+    exit 1
+  fi
+  echo "ONE ERP: persistent PostgreSQL connectivity verified."
 else
   LOCAL_PG=1
 
@@ -346,6 +369,24 @@ bootstrap_batch() {
 # free web service. A tiny temporary HTTP server keeps Render's port detector
 # satisfied while the database is prepared offline in memory-bounded batches.
 HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc   "SELECT CASE WHEN to_regclass('public.ir_module_module') IS NULL THEN '0' ELSE '1' END;"   | tr -d '[:space:]')
+
+# External ONE ERP databases must keep binary content in PostgreSQL. Render
+# containers are replaceable and /tmp is not a durable filestore. Setting the
+# Odoo storage parameter to db prevents newly generated assets and uploaded
+# binaries from depending on an ephemeral container filesystem.
+if [[ "$LOCAL_PG" -eq 0 && "$HAS_ODOO_SCHEMA" == "1" ]]; then
+  "$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 >/dev/null <<'SQL'
+INSERT INTO ir_config_parameter (key, value)
+SELECT 'ir_attachment.location', 'db'
+WHERE NOT EXISTS (
+  SELECT 1 FROM ir_config_parameter WHERE key = 'ir_attachment.location'
+);
+UPDATE ir_config_parameter
+SET value = 'db'
+WHERE key = 'ir_attachment.location' AND value IS DISTINCT FROM 'db';
+SQL
+  echo "ONE ERP: database-backed attachment storage enforced."
+fi
 
 run_staging_bootstrap() {
   echo "ONE ERP: starting memory-safe batched bootstrap."

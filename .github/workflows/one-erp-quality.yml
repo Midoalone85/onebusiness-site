@@ -74,3 +74,7 @@ jobs:
           grep -q 'ONE ERP: ephemeral PostgreSQL fallback active' start-one-render.sh
           grep -q 'ONE_ALLOW_EXTERNAL_INIT' start-one-render.sh
           grep -q 'one-erp-staging' start-one-render.sh
+          grep -q 'Ephemeral database fallback is forbidden' start-one-render.sh
+          grep -q 'persistent PostgreSQL connectivity verified' start-one-render.sh
+          grep -q 'database-backed attachment storage enforced' start-one-render.sh
+          grep -q 'critical_file_backed_attachments' one_custom/one_ui/controllers/marketing.py
