@@ -4,6 +4,9 @@
         <xpath expr="//title" position="replace">
             <title>ONE ERP</title>
         </xpath>
+        <xpath expr="//head" position="inside">
+            <link rel="stylesheet" type="text/css" href="/one_ui/static/src/css/one_login.css"/>
+        </xpath>
         <xpath expr="//link[@rel='shortcut icon']" position="replace">
             <link type="image/svg+xml" rel="shortcut icon" href="/one_ui/static/src/img/one_erp.svg"/>
         </xpath>
