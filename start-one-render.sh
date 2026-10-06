@@ -241,6 +241,15 @@ if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" ]]; then
   export ONE_BOOTSTRAP_ADMIN_PASSWORD="$ONE_ADMIN_PASSWORD"
   echo "ONE ERP OWNER LOGIN: $ONE_ADMIN_LOGIN"
   echo "ONE ERP OWNER CREDENTIALS INITIALIZED."
+elif [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-live" ]]; then
+  export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
+  if [[ -z "${ONE_ADMIN_PASSWORD:-}" ]]; then
+    echo "ONE ERP: production administrator password must be supplied by Render environment." >&2
+    exit 1
+  fi
+  export ONE_BOOTSTRAP_ADMIN_PASSWORD="$ONE_ADMIN_PASSWORD"
+  echo "ONE ERP OWNER LOGIN: $ONE_ADMIN_LOGIN"
+  echo "ONE ERP OWNER CREDENTIALS INITIALIZED."
 elif [[ "$LOCAL_PG" -eq 1 ]]; then
   export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
   export ONE_ADMIN_PASSWORD="$(python3 - <<'PY'
@@ -371,10 +380,23 @@ bootstrap_batch() {
 HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc   "SELECT CASE WHEN to_regclass('public.ir_module_module') IS NULL THEN '0' ELSE '1' END;"   | tr -d '[:space:]')
 
 # External ONE ERP databases must keep binary content in PostgreSQL. Render
-# containers are replaceable and /tmp is not a durable filestore. Setting the
-# Odoo storage parameter to db prevents newly generated assets and uploaded
-# binaries from depending on an ephemeral container filesystem.
-if [[ "$LOCAL_PG" -eq 0 && "$HAS_ODOO_SCHEMA" == "1" ]]; then
+# containers are replaceable and /tmp is not a durable filestore. Enforce this
+# both for existing schemas and again after any fresh external bootstrap so the
+# first usable Odoo process can never create disposable file-backed assets.
+enforce_external_attachment_storage() {
+  if [[ "$LOCAL_PG" -ne 0 ]]; then
+    return 0
+  fi
+
+  local has_schema
+  has_schema=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc \
+    "SELECT CASE WHEN to_regclass('public.ir_config_parameter') IS NULL THEN '0' ELSE '1' END;" \
+    | tr -d '[:space:]')
+
+  if [[ "$has_schema" != "1" ]]; then
+    return 0
+  fi
+
   "$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 >/dev/null <<'SQL'
 INSERT INTO ir_config_parameter (key, value)
 SELECT 'ir_attachment.location', 'db'
@@ -386,7 +408,9 @@ SET value = 'db'
 WHERE key = 'ir_attachment.location' AND value IS DISTINCT FROM 'db';
 SQL
   echo "ONE ERP: database-backed attachment storage enforced."
-fi
+}
+
+enforce_external_attachment_storage
 
 run_staging_bootstrap() {
   echo "ONE ERP: starting memory-safe batched bootstrap."
@@ -439,6 +463,11 @@ else
   stop_local_pg
   exit 1
 fi
+
+# A fresh external database had no Odoo schema before bootstrap, so the first
+# enforcement call intentionally no-ops. Re-run it here, before the long-lived
+# Odoo process starts, to close that first-boot durability gap.
+enforce_external_attachment_storage
 
 if [[ -n "$BOOTSTRAP_HTTP_PID" ]]; then
   kill "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
