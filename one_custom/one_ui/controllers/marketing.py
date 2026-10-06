@@ -1,10 +1,17 @@
 import datetime
+import logging
 import re
 import secrets
 
 from odoo import fields
 from odoo.http import Controller, request, route
 from odoo.addons.web.controllers.utils import ensure_db
+
+
+_logger = logging.getLogger(__name__)
+
+TRIAL_DAYS = 7
+TRIAL_HOURS = TRIAL_DAYS * 24
 
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -17,7 +24,8 @@ class OneMarketing(Controller):
         return {
             "is_ar": is_ar,
             "error": error,
-            "trial_hours": 24,
+            "trial_hours": TRIAL_HOURS,
+            "trial_days": TRIAL_DAYS,
         }
 
     @route("/one/trial", type="http", auth="none", methods=["GET"])
@@ -81,7 +89,24 @@ class OneMarketing(Controller):
             )
 
         env = request.env
-        company = env["res.company"].sudo().create({"name": company_name})
+        currency = env.ref("base.SAR", raise_if_not_found=False)
+        if not currency:
+            currency = env["res.currency"].sudo().search([("active", "=", True)], limit=1)
+        if not currency:
+            message = (
+                "تعذر تجهيز العملة الافتراضية للتجربة. حاول مرة أخرى بعد قليل."
+                if is_ar else
+                "The trial currency could not be prepared. Please try again shortly."
+            )
+            return request.render(
+                "one_ui.one_trial_page",
+                self._trial_values(is_ar, message),
+            )
+
+        company = env["res.company"].sudo().create({
+            "name": company_name,
+            "currency_id": currency.id,
+        })
 
         group_refs = [
             "base.group_user",
@@ -99,7 +124,7 @@ class OneMarketing(Controller):
             if group:
                 group_ids.append(group.id)
 
-        expires_at = now + datetime.timedelta(hours=24)
+        expires_at = now + datetime.timedelta(days=TRIAL_DAYS)
         password = "One!" + secrets.token_urlsafe(9)
         dashboard_action = env.ref("one_ui.action_one_dashboard", raise_if_not_found=False)
 
@@ -120,14 +145,14 @@ class OneMarketing(Controller):
         plan = env.ref("one_ui.plan_professional", raise_if_not_found=False)
         if plan:
             env["one.subscription"].sudo().create({
-                "name": "24h ONE ERP Trial",
+                "name": "7-day ONE ERP Trial",
                 "partner_id": user.partner_id.id,
                 "plan_id": plan.id,
                 "date_start": fields.Date.today(),
-                "date_end": fields.Date.today() + datetime.timedelta(days=1),
+                "date_end": fields.Date.today() + datetime.timedelta(days=TRIAL_DAYS),
                 "status": "trial",
                 "users_limit": 1,
-                "notes": "Self-service 24-hour product trial.",
+                "notes": "Self-service 7-day product trial.",
             })
 
         return request.render(
@@ -238,7 +263,8 @@ class OneMarketing(Controller):
             "service": "ONE ERP",
             "status": "ok" if healthy else "degraded",
             "version": module.latest_version or "20.0.1.35.0",
-            "trial_hours": 24,
+            "trial_hours": TRIAL_HOURS,
+            "trial_days": TRIAL_DAYS,
             "trial_prerequisites": bool(refs_ready and cron),
             "action_navigation_ready": bool(navigation_ready),
             "attachment_storage": attachment_storage,

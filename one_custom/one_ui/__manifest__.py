@@ -1,7 +1,7 @@
 {
     "name": "ONE ERP Experience",
-    "version": "20.0.1.45.0",
-    "summary": "ONE ERP business workspace with fast unified dashboard intelligence, Decision Briefs, Ask ONE, 24-hour trials, Saudi compliance and production-readiness safeguards",
+    "version": "20.0.1.46.0",
+    "summary": "ONE ERP business workspace with fast unified dashboard intelligence, Decision Briefs, Ask ONE, 7-day trials, Saudi compliance and production-readiness safeguards",
     "author": "ONE Business",
     "license": "LGPL-3",
     "category": "ONE Business",
@@ -38,7 +38,8 @@
             "one_ui/static/src/xml/dashboard.xml"
         ],
         "web.assets_frontend": [
-            "one_ui/static/src/scss/one_login.scss"
+            "one_ui/static/src/scss/one_login.scss",
+            "one_ui/static/src/css/one_login.css"
         ]
     },
     "post_init_hook": "post_init_hook",

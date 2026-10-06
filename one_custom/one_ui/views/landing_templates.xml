@@ -25,7 +25,7 @@
                     <div class="one-navactions">
                         <a t-att-href="'/?lang=en' if is_ar else '/?lang=ar'" class="one-lang"><t t-if="is_ar">EN</t><t t-else="">AR</t></a>
                         <a href="/web/login?redirect=/" class="one-btn one-btn--ghost"><t t-if="is_ar">تسجيل الدخول</t><t t-else="">Sign in</t></a>
-                        <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--primary"><t t-if="is_ar">جرّب 24 ساعة</t><t t-else="">Try 24 hours</t></a>
+                        <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--primary"><t t-if="is_ar">جرّب 7 أيام</t><t t-else="">Try 7 days</t></a>
                     </div>
                 </header>
 
@@ -47,7 +47,7 @@
                             </p>
                             <div class="one-hero-actions">
                                 <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--xl one-btn--primary">
-                                    <t t-if="is_ar">ابدأ تجربة كاملة لمدة يوم</t><t t-else="">Start a full 24-hour trial</t>
+                                    <t t-if="is_ar">ابدأ تجربة كاملة لمدة 7 أيام</t><t t-else="">Start a full 7-day trial</t>
                                 </a>
                                 <a href="#commercial" class="one-btn one-btn--xl one-btn--ghost">
                                     <t t-if="is_ar">شوف القيمة على شغلك</t><t t-else="">See the business case</t>
@@ -62,7 +62,7 @@
                                 <span>✓ <t t-if="is_ar">تجربة معزولة لشركتك</t><t t-else="">Isolated trial company</t></span>
                             </div>
                             <div class="one-hero-facts">
-                                <article><strong>24h</strong><span><t t-if="is_ar">تجربة تشغيل فعلية</t><t t-else="">real product trial</t></span></article>
+                                <article><strong>7d</strong><span><t t-if="is_ar">تجربة تشغيل فعلية</t><t t-else="">real product trial</t></span></article>
                                 <article><strong>6</strong><span><t t-if="is_ar">خطط قابلة للتوسع</t><t t-else="">scalable plans</t></span></article>
                                 <article><strong>0</strong><span><t t-if="is_ar">API مدفوع مطلوب لـ Ask ONE Lite</t><t t-else="">paid AI APIs for Ask ONE Lite</t></span></article>
                             </div>
@@ -91,7 +91,7 @@
                                 </div>
                             </div>
                             <div class="one-float one-float--a"><b>0</b><span><t t-if="is_ar">قيود يكتبها الذكاء تلقائيًا</t><t t-else="">AI-posted journal entries</t></span></div>
-                            <div class="one-float one-float--b"><b>24h</b><span><t t-if="is_ar">تجربة كاملة</t><t t-else="">Full trial</t></span></div>
+                            <div class="one-float one-float--b"><b>7d</b><span><t t-if="is_ar">تجربة كاملة</t><t t-else="">Full trial</t></span></div>
                         </div>
                     </section>
 
@@ -188,7 +188,7 @@
                         <div class="one-section-head">
                             <span class="one-eyebrow">COMMERCIAL DECISION ROOM</span>
                             <h2><t t-if="is_ar">ما نطلبش منك تقتنع. نطلب منك تختبر.</t><t t-else="">We do not ask you to believe the pitch. We ask you to test it.</t></h2>
-                            <p><t t-if="is_ar">خلال تجربة 24 ساعة، جرّب رحلة عمل حقيقية من أول العميل حتى القيد والتقرير، ثم قيّم السرعة والوضوح وقابلية التدقيق بنفسك.</t><t t-else="">During the 24-hour trial, run a real business flow from customer to ledger and reporting, then judge speed, clarity and auditability yourself.</t></p>
+                            <p><t t-if="is_ar">خلال تجربة 7 أيام، جرّب رحلة عمل حقيقية من أول العميل حتى القيد والتقرير، ثم قيّم السرعة والوضوح وقابلية التدقيق بنفسك.</t><t t-else="">During the 7-day trial, run a real business flow from customer to ledger and reporting, then judge speed, clarity and auditability yourself.</t></p>
                         </div>
                         <div class="one-decision-grid">
                             <article><span>01</span><h3><t t-if="is_ar">للإدارة</t><t t-else="">For leadership</t></h3><p><t t-if="is_ar">هل تقدر تعرف ما يحتاج قرارًا اليوم بدون فتح عشر شاشات؟</t><t t-else="">Can you see what needs a decision today without opening ten screens?</t></p><b>ONE Pulse · Business Radar · Approvals</b></article>
@@ -198,7 +198,7 @@
                         </div>
                         <div class="one-eval-board">
                             <div class="one-eval-copy">
-                                <span class="one-eyebrow">24-HOUR EVALUATION SCRIPT</span>
+                                <span class="one-eyebrow">7-DAY EVALUATION SCRIPT</span>
                                 <h3><t t-if="is_ar">خمس تجارب تقفل النقاش.</t><t t-else="">Five tests that settle the debate.</t></h3>
                                 <p><t t-if="is_ar">نفّذهم بنفسك في النسخة التجريبية، وسجّل الوقت وعدد الخطوات والوضوح.</t><t t-else="">Run them yourself in the trial and record time, steps and clarity.</t></p>
                             </div>
@@ -228,13 +228,13 @@
                                 <div class="one-price" t-if="not plan['custom']"><strong t-out="'%g' % plan['price']"/><small><t t-if="is_ar">ر.س / شهر</t><t t-else="">SAR / month</t></small></div>
                                 <div class="one-price one-price--custom" t-if="plan['custom']"><strong><t t-if="is_ar">حسب الاحتياج</t><t t-else="">Custom</t></strong><small><t t-if="is_ar">للشركات الكبيرة</t><t t-else="">for larger teams</t></small></div>
                                 <ul><li t-foreach="plan['features']" t-as="feature"><span>✓</span><t t-out="feature"/></li></ul>
-                                <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--plan"><t t-if="is_ar">جرّبها يومًا كاملًا</t><t t-else="">Try it for a full day</t></a>
+                                <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--plan"><t t-if="is_ar">جرّبها 7 أيام كاملة</t><t t-else="">Try it for 7 full days</t></a>
                             </article>
                         </div>
                     </section>
 
                     <section class="one-cta">
-                        <div><span>ONE ERP · TRY BEFORE YOU BUY</span><h2><t t-if="is_ar">شوف شركتك وهي ماشية في مسار واحد قبل ما تدفع ريال.</t><t t-else="">See your business run in one flow before paying a riyal.</t></h2><p><t t-if="is_ar">24 ساعة، شركة تجريبية منفصلة، صلاحيات تشغيلية حقيقية، بدون بطاقة بنكية.</t><t t-else="">24 hours, an isolated trial company, real operational permissions and no credit card.</t></p></div>
+                        <div><span>ONE ERP · TRY BEFORE YOU BUY</span><h2><t t-if="is_ar">شوف شركتك وهي ماشية في مسار واحد قبل ما تدفع ريال.</t><t t-else="">See your business run in one flow before paying a riyal.</t></h2><p><t t-if="is_ar">7 أيام، شركة تجريبية منفصلة، صلاحيات تشغيلية حقيقية، بدون بطاقة بنكية.</t><t t-else="">7 days, an isolated trial company, real operational permissions and no credit card.</t></p></div>
                         <a t-att-href="'/one/trial?lang=ar' if is_ar else '/one/trial?lang=en'" class="one-btn one-btn--xl one-btn--light"><t t-if="is_ar">أنشئ مساحة التجربة</t><t t-else="">Create trial workspace</t></a>
                     </section>
                 </main>
@@ -248,12 +248,12 @@
         </html>
     </template>
 
-    <template id="one_trial_page" name="ONE ERP 24-hour Trial">
+    <template id="one_trial_page" name="ONE ERP 7-day Trial">
         <html t-att-lang="'ar' if is_ar else 'en'" t-att-dir="'rtl' if is_ar else 'ltr'">
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <title>ONE ERP | 24h Trial</title>
+                <title>ONE ERP | 7-Day Trial</title>
                 <link rel="icon" type="image/svg+xml" href="/one_ui/static/src/img/one_erp.svg"/>
                 <link rel="stylesheet" href="/one_ui/static/src/css/one_marketing.css"/>
             </head>
@@ -262,9 +262,9 @@
                 <main class="one-trial-shell">
                     <section class="one-trial-intro">
                         <div class="one-brand one-brand--large"><img src="/one_ui/static/src/img/one_erp.svg" alt="ONE ERP"/><span><strong>ONE ERP</strong><small>ONE BUSINESS</small></span></div>
-                        <span class="one-eyebrow">24-HOUR FULL PRODUCT TRIAL</span>
-                        <h1><t t-if="is_ar">يوم واحد كفاية تعرف هل النظام يستحق.</t><t t-else="">One day is enough to know if the system deserves a seat.</t></h1>
-                        <p><t t-if="is_ar">هننشئ لك شركة تجريبية منفصلة ومستخدمًا حقيقيًا بصلاحيات تشغيلية. الحساب يتوقف تلقائيًا بعد 24 ساعة.</t><t t-else="">We create an isolated trial company and a real operational user. The account automatically expires after 24 hours.</t></p>
+                        <span class="one-eyebrow">7-DAY FULL PRODUCT TRIAL</span>
+                        <h1><t t-if="is_ar">أسبوع كامل يخليك تختبر النظام على شغل حقيقي براحتك.</t><t t-else="">A full week gives you time to test the system on real workflows.</t></h1>
+                        <p><t t-if="is_ar">هننشئ لك شركة تجريبية منفصلة ومستخدمًا حقيقيًا بصلاحيات تشغيلية. الحساب يتوقف تلقائيًا بعد 7 أيام.</t><t t-else="">We create an isolated trial company and a real operational user. The account automatically expires after 7 days.</t></p>
                         <ul><li>✓ <t t-if="is_ar">لا بطاقة بنكية</t><t t-else="">No credit card</t></li><li>✓ <t t-if="is_ar">لا صلاحيات Admin</t><t t-else="">No admin privileges</t></li><li>✓ <t t-if="is_ar">شركة معزولة عن التجارب الأخرى</t><t t-else="">Company-isolated workspace</t></li></ul>
                     </section>
                     <section class="one-trial-card">
@@ -277,7 +277,7 @@
                             <label><span><t t-if="is_ar">الاسم</t><t t-else="">Your name</t></span><input name="name" type="text" required="required" maxlength="120" autocomplete="name"/></label>
                             <label><span><t t-if="is_ar">البريد الإلكتروني</t><t t-else="">Work email</t></span><input name="email" type="email" required="required" maxlength="160" autocomplete="email"/></label>
                             <label><span><t t-if="is_ar">اسم الشركة التجريبية</t><t t-else="">Trial company name</t></span><input name="company" type="text" required="required" maxlength="160" autocomplete="organization"/></label>
-                            <button type="submit" class="one-btn one-btn--xl one-btn--primary one-btn--block"><t t-if="is_ar">أنشئ مساحة 24 ساعة</t><t t-else="">Create my 24-hour workspace</t></button>
+                            <button type="submit" class="one-btn one-btn--xl one-btn--primary one-btn--block"><t t-if="is_ar">أنشئ مساحة 7 أيام</t><t t-else="">Create my 7-day workspace</t></button>
                         </form>
                         <small class="one-form-note"><t t-if="is_ar">التجربة مخصصة لاختبار المنتج. لا ترفع بيانات حقيقية حساسة في بيئة العرض.</t><t t-else="">This is a product evaluation environment. Do not upload sensitive production data.</t></small>
                     </section>
@@ -303,7 +303,7 @@
                     <p><t t-if="is_ar">احفظ بيانات الدخول الآن. كلمة المرور المؤقتة تظهر في هذه الصفحة مرة واحدة.</t><t t-else="">Save these credentials now. The temporary password is shown on this page once.</t></p>
                     <div class="one-credential"><small><t t-if="is_ar">المستخدم</t><t t-else="">Login</t></small><strong t-out="login"/></div>
                     <div class="one-credential"><small><t t-if="is_ar">كلمة المرور المؤقتة</t><t t-else="">Temporary password</t></small><strong t-out="password"/></div>
-                    <div class="one-expiry"><t t-if="is_ar">ينتهي الوصول بعد 24 ساعة · </t><t t-else="">Access expires after 24 hours · </t><span t-out="expires_at"/></div>
+                    <div class="one-expiry"><t t-if="is_ar">ينتهي الوصول بعد 7 أيام · </t><t t-else="">Access expires after 7 days · </t><span t-out="expires_at"/></div>
                     <a href="/web/login?redirect=/" class="one-btn one-btn--xl one-btn--primary"><t t-if="is_ar">ادخل ONE ERP الآن</t><t t-else="">Open ONE ERP now</t></a>
                 </main>
             </body>
@@ -367,8 +367,8 @@
                     <span class="one-eyebrow">COMMERCIAL REQUEST RECEIVED</span>
                     <h1><t t-if="is_ar">طلب العرض دخل CRM.</t><t t-else="">Your demo request is in CRM.</t></h1>
                     <p><t t-if="is_ar">الطلب اتسجل كفرصة متابعة، ونقدر نبني العرض على احتياجك بدل عرض عام.</t><t t-else="">The request is now a follow-up opportunity so the demo can be tailored instead of generic.</t></p>
-                    <a href="/one/trial?lang=ar" t-if="is_ar" class="one-btn one-btn--xl one-btn--primary">ابدأ تجربة 24 ساعة الآن</a>
-                    <a href="/one/trial?lang=en" t-if="not is_ar" class="one-btn one-btn--xl one-btn--primary">Start the 24-hour trial now</a>
+                    <a href="/one/trial?lang=ar" t-if="is_ar" class="one-btn one-btn--xl one-btn--primary">ابدأ تجربة 7 أيام الآن</a>
+                    <a href="/one/trial?lang=en" t-if="not is_ar" class="one-btn one-btn--xl one-btn--primary">Start the 7-day trial now</a>
                 </main>
             </body>
         </html>
