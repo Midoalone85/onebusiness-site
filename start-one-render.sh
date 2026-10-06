@@ -154,13 +154,16 @@ if [[ -n "${ONE_DB_HOST:-}" ]]; then
   DB_PORT="${ONE_DB_PORT:-5432}"
   DB_USER="${ONE_DB_USER:-odoo}"
   DB_PASSWORD="${ONE_DB_PASSWORD:-}"
+  DB_SSLMODE="${ONE_DB_SSLMODE:-prefer}"
 
   ODOO_DB_ARGS=(
     "--db_host=$DB_HOST"
     "--db_port=$DB_PORT"
     "--db_user=$DB_USER"
+    "--db_sslmode=$DB_SSLMODE"
   )
   PSQL_ARGS=(-h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER")
+  export PGSSLMODE="$DB_SSLMODE"
 
   if [[ -n "$DB_PASSWORD" ]]; then
     ODOO_DB_ARGS+=("--db_password=$DB_PASSWORD")
