@@ -209,7 +209,10 @@ if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" ]]; then
   echo "ONE ERP OWNER CREDENTIALS INITIALIZED."
 elif [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-live" ]]; then
   export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
-  export ONE_ADMIN_PASSWORD="${ONE_ADMIN_PASSWORD:-Admin2026!}"
+  if [[ -z "${ONE_ADMIN_PASSWORD:-}" ]]; then
+    echo "ONE ERP: production administrator password must be supplied by Render environment." >&2
+    exit 1
+  fi
   export ONE_BOOTSTRAP_ADMIN_PASSWORD="$ONE_ADMIN_PASSWORD"
   echo "ONE ERP OWNER LOGIN: $ONE_ADMIN_LOGIN"
   echo "ONE ERP OWNER CREDENTIALS INITIALIZED."
