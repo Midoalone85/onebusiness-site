@@ -80,7 +80,6 @@ class OneHome(Home):
             "service": "ONE ERP",
             "status": "ok" if installed else "degraded",
             "ready": installed,
-            "database": request.session.db,
         })
 
     def _login_redirect(self, uid, redirect=None):
