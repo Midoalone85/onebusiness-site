@@ -336,7 +336,7 @@ except Exception:
 PY
 }
 
-configure_staging_attachment_storage() {
+configure_persistent_attachment_storage() {
   # Render's filesystem is ephemeral. Keep staging attachments and generated
   # web assets in PostgreSQL. Also repair stale filestore references left by
   # older staging instances whose /tmp filesystem no longer exists.
@@ -356,8 +356,14 @@ import os
 
 icp = env["ir.config_parameter"].sudo()
 icp.set_str("ir_attachment.location", "db")
-icp.set_str("web.base.url", "https://one-erp-staging.onrender.com")
-icp.set_str("web.base.url.freeze", "True")
+service_name = os.environ.get("RENDER_SERVICE_NAME", "")
+base_url = os.environ.get("ONE_PUBLIC_BASE_URL") or {
+    "one-erp-staging": "https://one-erp-staging.onrender.com",
+    "one-erp-live": "https://one-erp-live.onrender.com",
+}.get(service_name)
+if base_url:
+    icp.set_str("web.base.url", base_url)
+    icp.set_str("web.base.url.freeze", "True")
 
 Attachment = env["ir.attachment"].sudo().with_context(active_test=False)
 
@@ -418,8 +424,8 @@ print(
 PY
 }
 
-run_staging_smoke_test() {
-  if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" ]]; then
+run_deployment_smoke_test() {
+  if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" && "${RENDER_SERVICE_NAME:-}" != "one-erp-live" ]]; then
     return 0
   fi
 
@@ -501,7 +507,7 @@ upgrade_one_ui_if_needed() {
 # dependencies in one Odoo process can exceed the memory available on Render's
 # free web service. A tiny temporary HTTP server keeps Render's port detector
 # satisfied while the database is prepared offline in memory-bounded batches.
-HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc   "SELECT CASE WHEN to_regclass('public.ir_module_module') IS NULL THEN '0' ELSE '1' END;"   | tr -d '[:space:]')
+HAS_ODOO_SCHEMA=$("$PG_BIN/psql" "${PSQL_ARGS[@]}" -d "$DB_NAME" -tAc   "SELECT CASE WHEN to_regclass('ir_module_module') IS NULL THEN '0' ELSE '1' END;"   | tr -d '[:space:]')
 
 run_staging_bootstrap() {
   echo "ONE ERP: starting memory-safe batched bootstrap."
@@ -513,6 +519,9 @@ run_staging_bootstrap() {
   bootstrap_batch "crm,hr,mrp"
   bootstrap_batch "point_of_sale,l10n_sa_edi"
   bootstrap_batch "one_ui"
+
+  configure_persistent_attachment_storage
+  run_deployment_smoke_test
 
   if [[ -n "$BOOTSTRAP_HTTP_PID" ]]; then
     kill "$BOOTSTRAP_HTTP_PID" >/dev/null 2>&1 || true
@@ -539,8 +548,8 @@ if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
     echo "ONE ERP: existing external schema detected (one_ui=$ONE_UI_STATE)."
     if [[ "$ONE_UI_STATE" == "installed" ]]; then
       upgrade_one_ui_if_needed
-      configure_staging_attachment_storage
-      run_staging_smoke_test
+      configure_persistent_attachment_storage
+      run_deployment_smoke_test
     else
       echo "ONE ERP: normal startup without module updates or asset deletion."
     fi
@@ -552,8 +561,11 @@ elif [[ "$HAS_ODOO_SCHEMA" == "0" ]]; then
   if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && "${ONE_ALLOW_EXTERNAL_INIT:-0}" == "1" ]]; then
     echo "ONE ERP: verified empty external staging database; explicit initialization enabled."
     run_staging_bootstrap
+  elif [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-live" && "${ONE_ALLOW_PRODUCTION_INIT:-0}" == "1" ]]; then
+    echo "ONE ERP: verified empty external production database; explicit production initialization enabled."
+    run_staging_bootstrap
   else
-    echo "ONE ERP: external database has no application schema; refusing initialization without the staging-only ONE_ALLOW_EXTERNAL_INIT=1 safety flag." >&2
+    echo "ONE ERP: external database has no application schema; refusing initialization without an explicit environment-specific safety flag." >&2
     exit 1
   fi
 else
