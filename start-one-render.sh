@@ -355,7 +355,9 @@ configure_staging_attachment_storage() {
 import os
 
 icp = env["ir.config_parameter"].sudo()
-icp.set_str("ir_attachment.location", "db")\nicp.set_str("web.base.url", "https://one-erp-staging.onrender.com")\nicp.set_str("web.base.url.freeze", "True")
+icp.set_str("ir_attachment.location", "db")
+icp.set_str("web.base.url", "https://one-erp-staging.onrender.com")
+icp.set_str("web.base.url.freeze", "True")
 
 Attachment = env["ir.attachment"].sudo().with_context(active_test=False)
 
