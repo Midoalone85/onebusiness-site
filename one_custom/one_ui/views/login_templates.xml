@@ -6,6 +6,29 @@
         </xpath>
         <xpath expr="//head" position="inside">
             <link rel="stylesheet" type="text/css" href="/one_ui/static/src/css/one_login.css"/>
+            <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate"/>
+            <meta http-equiv="Pragma" content="no-cache"/>
+            <script type="text/javascript"><![CDATA[
+                document.addEventListener("DOMContentLoaded", function () {
+                    const form = document.querySelector("form.oe_login_form");
+                    if (!form) return;
+                    let submitted = false;
+                    form.addEventListener("submit", function (event) {
+                        if (submitted) {
+                            event.preventDefault();
+                            return false;
+                        }
+                        submitted = true;
+                        const button = form.querySelector('button[type="submit"], input[type="submit"]');
+                        if (button) {
+                            button.disabled = true;
+                            button.setAttribute("aria-disabled", "true");
+                            if (button.tagName === "BUTTON") button.textContent = "Signing in…";
+                        }
+                        return true;
+                    });
+                });
+            ]]></script>
         </xpath>
         <xpath expr="//link[@rel='shortcut icon']" position="replace">
             <link type="image/svg+xml" rel="shortcut icon" href="/one_ui/static/src/img/one_erp.svg"/>

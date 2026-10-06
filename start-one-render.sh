@@ -327,6 +327,7 @@ COMMON=(
   "--without-demo=True"
   "--workers=0"
   "--max-cron-threads=1"
+  "--db_maxconn=${ONE_DB_MAXCONN:-4}"
 )
 
 HTTP_ARGS=(
