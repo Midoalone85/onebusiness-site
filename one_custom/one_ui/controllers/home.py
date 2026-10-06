@@ -66,6 +66,23 @@ FEATURE_LABELS = {
 class OneHome(Home):
     """ONE ERP public product gateway and clean internal application root."""
 
+    @route("/one/health", type="http", auth="none", csrf=False)
+    def one_health(self, **kw):
+        """Lightweight readiness endpoint for ONE ERP staging and monitoring."""
+        ensure_db()
+        installed = bool(
+            request.env["ir.module.module"].sudo().search_count([
+                ("name", "=", "one_ui"),
+                ("state", "=", "installed"),
+            ])
+        )
+        return request.make_json_response({
+            "service": "ONE ERP",
+            "status": "ok" if installed else "degraded",
+            "ready": installed,
+            "database": request.session.db,
+        })
+
     def _login_redirect(self, uid, redirect=None):
         if redirect and redirect.startswith("/") and not redirect.startswith("//"):
             return redirect
