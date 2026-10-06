@@ -89,7 +89,8 @@ class Handler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
-        if self.path.split("?", 1)[0] == "/one/health":
+        path = self.path.split("?", 1)[0]
+        if path == "/one/health":
             body = json.dumps({
                 "service": "ONE ERP",
                 "status": "booting",
@@ -102,6 +103,10 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        # During bootstrap Render must keep every application route usable.
+        # Serve the branded preparation page for /web/login and any other
+        # deep link instead of returning Python's default 404 page.
+        self.path = "/index.html"
         return super().do_GET()
 
 ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
