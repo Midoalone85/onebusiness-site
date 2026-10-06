@@ -89,7 +89,8 @@ class OneHome(Home):
 
     def _public_plans(self, is_ar):
         Plan = request.env["one.subscription.plan"].sudo()
-        plans = Plan.search([("active", "=", True)], order="sequence, id")
+        domain = [("active", "=", True)] if "active" in Plan._fields else []
+        plans = Plan.search(domain, order="sequence, id")
         cards = []
         for plan in plans:
             meta = PLAN_META.get(plan.code, {})
