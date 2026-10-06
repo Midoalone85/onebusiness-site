@@ -207,18 +207,20 @@ if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" ]]; then
   export ONE_BOOTSTRAP_ADMIN_PASSWORD="$ONE_ADMIN_PASSWORD"
   echo "ONE ERP OWNER LOGIN: $ONE_ADMIN_LOGIN"
   echo "ONE ERP OWNER CREDENTIALS INITIALIZED."
+elif [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-live" ]]; then
+  export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
+  export ONE_ADMIN_PASSWORD="${ONE_ADMIN_PASSWORD:-Admin2026!}"
+  export ONE_BOOTSTRAP_ADMIN_PASSWORD="$ONE_ADMIN_PASSWORD"
+  echo "ONE ERP OWNER LOGIN: $ONE_ADMIN_LOGIN"
+  echo "ONE ERP OWNER CREDENTIALS INITIALIZED."
 elif [[ "$LOCAL_PG" -eq 1 ]]; then
   export ONE_ADMIN_LOGIN="${ONE_ADMIN_LOGIN:-admin}"
   if [[ -z "${ONE_ADMIN_PASSWORD:-}" ]]; then
-    if [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-live" ]]; then
-      export ONE_ADMIN_PASSWORD="Admin2026!"
-    else
-      export ONE_ADMIN_PASSWORD="$(python3 - <<'PY'
+    export ONE_ADMIN_PASSWORD="$(python3 - <<'PY'
 import secrets
 print("ONE-" + secrets.token_urlsafe(18))
 PY
 )"
-    fi
   fi
   export ONE_BOOTSTRAP_ADMIN_PASSWORD="$ONE_ADMIN_PASSWORD"
   echo "ONE ERP OWNER LOGIN: $ONE_ADMIN_LOGIN"
@@ -557,6 +559,9 @@ if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
     fi
   elif [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-staging" && "${ONE_ALLOW_EXTERNAL_INIT:-0}" == "1" && "$ONE_UI_STATE" != "installed" ]]; then
     echo "ONE ERP: partial external staging schema detected (one_ui=$ONE_UI_STATE); safely resuming bootstrap."
+    run_staging_bootstrap
+  elif [[ "${RENDER_SERVICE_NAME:-}" == "one-erp-live" && "${ONE_ALLOW_PRODUCTION_INIT:-0}" == "1" && "$ONE_UI_STATE" != "installed" ]]; then
+    echo "ONE ERP: partial external production schema detected (one_ui=$ONE_UI_STATE); safely resuming bootstrap."
     run_staging_bootstrap
   else
     echo "ONE ERP: existing external schema detected (one_ui=$ONE_UI_STATE)."
