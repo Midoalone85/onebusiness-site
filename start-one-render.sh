@@ -342,7 +342,7 @@ configure_persistent_attachment_storage() {
   # Render's filesystem is ephemeral. Keep staging attachments and generated
   # web assets in PostgreSQL. Also repair stale filestore references left by
   # older staging instances whose /tmp filesystem no longer exists.
-  if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" || "$LOCAL_PG" -eq 1 ]]; then
+  if [[ ( "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" && "${RENDER_SERVICE_NAME:-}" != "one-erp-live" ) || "$LOCAL_PG" -eq 1 ]]; then
     return 0
   fi
 
