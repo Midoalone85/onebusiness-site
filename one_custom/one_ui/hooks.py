@@ -8,16 +8,27 @@ from odoo.exceptions import AccessDenied
 
 _logger = logging.getLogger(__name__)
 
+TRIAL_DAYS = 7
+
 
 class _RollbackTrialSmoke(Exception):
     pass
 
 
 def _run_trial_smoke_test(env):
-    """Prove the 24-hour trial path without leaving any test records behind."""
+    """Prove the 7-day trial path without leaving any test records behind."""
     try:
         with env.cr.savepoint():
-            company = env["res.company"].sudo().create({"name": "ONE ERP Trial Smoke"})
+            currency = env.ref("base.SAR", raise_if_not_found=False)
+            if not currency:
+                currency = env["res.currency"].sudo().search([("active", "=", True)], limit=1)
+            if not currency:
+                raise RuntimeError("No active currency available for trial smoke test.")
+
+            company = env["res.company"].sudo().create({
+                "name": "ONE ERP Trial Smoke",
+                "currency_id": currency.id,
+            })
 
             group_refs = [
                 "base.group_user",
@@ -36,7 +47,7 @@ def _run_trial_smoke_test(env):
                     raise RuntimeError(f"Missing trial prerequisite group: {xmlid}")
                 groups |= group
 
-            expires_at = fields.Datetime.now() + datetime.timedelta(hours=24)
+            expires_at = fields.Datetime.now() + datetime.timedelta(days=TRIAL_DAYS)
             password = "OneSmoke!" + secrets.token_urlsafe(8)
             user = env["res.users"].sudo().with_context(no_reset_password=True).create({
                 "name": "ONE ERP Trial Smoke",
@@ -83,7 +94,7 @@ def _run_trial_smoke_test(env):
         env["ir.config_parameter"].sudo().set_str(
             "one.trial_smoke_test_at", fields.Datetime.to_string(fields.Datetime.now())
         )
-        _logger.info("ONE ERP 24-hour trial smoke test passed.")
+        _logger.info("ONE ERP 7-day trial smoke test passed.")
 
 
 def post_init_hook(env):
