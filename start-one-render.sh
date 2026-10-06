@@ -355,7 +355,7 @@ configure_staging_attachment_storage() {
 import os
 
 icp = env["ir.config_parameter"].sudo()
-icp.set_str("ir_attachment.location", "db")
+icp.set_str("ir_attachment.location", "db")\nicp.set_str("web.base.url", "https://one-erp-staging.onrender.com")\nicp.set_str("web.base.url.freeze", "True")
 
 Attachment = env["ir.attachment"].sudo().with_context(active_test=False)
 
@@ -413,6 +413,59 @@ print(
     f"migrated {migrated_count} filestore attachment(s) into PostgreSQL, "
     f"hard-repaired {stale_count} stale filestore reference(s)."
 )
+PY
+}
+
+run_staging_smoke_test() {
+  if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" ]]; then
+    return 0
+  fi
+
+  echo "ONE ERP: running staging smoke test across core business modules."
+  odoo shell "${ODOO_DB_ARGS[@]}" \
+    -d "$DB_NAME" \
+    --db-filter="^${DB_NAME//./\\.}$" \
+    --no-http \
+    --data-dir="$ODOO_DATA" \
+    --addons-path=/usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons \
+    <<'PY'
+checks = {
+    "Dashboard": ("res.company", "one_ui.action_one_dashboard"),
+    "Sales": ("sale.order", "one_ui.action_one_sales_orders"),
+    "Purchases": ("purchase.order", "one_ui.action_one_purchase_orders"),
+    "Inventory": ("stock.picking", "one_ui.action_one_inventory_receipts"),
+    "Accounting": ("account.move", "one_ui.action_one_journal_entries"),
+    "Manufacturing": ("mrp.production", "one_ui.action_one_mrp"),
+    "CRM": ("crm.lead", "one_ui.action_one_crm"),
+    "HR": ("hr.employee", "one_ui.action_one_hr"),
+    "POS": ("pos.config", "one_ui.action_one_pos"),
+    "Saudi Compliance": ("res.company", "one_ui.action_one_saudi_profile"),
+    "Subscriptions": ("one.subscription.plan", "one_ui.action_one_subscription_plans"),
+}
+failures = []
+for label, (model_name, xmlid) in checks.items():
+    try:
+        model = env[model_name]
+        model.search_count([], limit=1)
+        action = env.ref(xmlid, raise_if_not_found=False)
+        if not action:
+            failures.append(f"{label}: missing action {xmlid}")
+            print(f"ONE ERP SMOKE FAIL: {label} action missing")
+        else:
+            print(f"ONE ERP SMOKE PASS: {label}")
+    except Exception as exc:
+        failures.append(f"{label}: {exc}")
+        print(f"ONE ERP SMOKE FAIL: {label}: {exc}")
+
+menu = env.ref("one_ui.menu_one_root", raise_if_not_found=False)
+if not menu:
+    failures.append("ONE ERP root menu missing")
+else:
+    print("ONE ERP SMOKE PASS: Root menu")
+
+if failures:
+    raise RuntimeError("ONE ERP smoke test failed: " + " | ".join(failures))
+print("ONE ERP SMOKE RESULT: PASS")
 PY
 }
 
@@ -485,6 +538,7 @@ if [[ "$HAS_ODOO_SCHEMA" == "1" ]]; then
     if [[ "$ONE_UI_STATE" == "installed" ]]; then
       upgrade_one_ui_if_needed
       configure_staging_attachment_storage
+      run_staging_smoke_test
     else
       echo "ONE ERP: normal startup without module updates or asset deletion."
     fi
