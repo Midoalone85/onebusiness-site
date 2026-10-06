@@ -1,4 +1,5 @@
 import datetime
+import os
 import re
 import secrets
 
@@ -216,14 +217,43 @@ class OneMarketing(Controller):
             plan.code: (None if plan.code == "enterprise" and not plan.monthly_price else plan.monthly_price)
             for plan in plans
         }
-        smoke = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test")
-        smoke_at = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test_at")
+        params = env["ir.config_parameter"].sudo()
+        smoke = params.get_str("one.trial_smoke_test")
+        smoke_at = params.get_str("one.trial_smoke_test_at")
+        attachment_location = params.get_str("ir_attachment.location") or "file"
+        Attachment = env["ir.attachment"].sudo()
+        legacy_file_backed = Attachment.search_count([("store_fname", "!=", False)])
+        critical_file_backed = Attachment.search_count([
+            ("store_fname", "!=", False),
+            ("mimetype", "in", [
+                "application/javascript",
+                "text/css",
+                "text/scss",
+                "font/woff",
+                "font/woff2",
+            ]),
+        ])
+        persistent_database = bool(
+            os.environ.get("DATABASE_URL") or os.environ.get("ONE_DB_HOST")
+        )
         module = env["ir.module.module"].sudo().search([("name", "=", "one_ui")], limit=1)
-        healthy = refs_ready and bool(cron) and len(plans) >= 6 and smoke == "passed"
+        healthy = (
+            refs_ready
+            and bool(cron)
+            and len(plans) >= 6
+            and smoke == "passed"
+            and persistent_database
+            and attachment_location == "db"
+            and critical_file_backed == 0
+        )
         return request.make_json_response({
             "service": "ONE ERP",
             "status": "ok" if healthy else "degraded",
-            "version": module.latest_version or "20.0.1.24.0",
+            "version": module.latest_version or "20.0.1.32.0",
+            "persistent_database": persistent_database,
+            "attachment_storage": attachment_location,
+            "legacy_file_backed_attachments": legacy_file_backed,
+            "critical_file_backed_attachments": critical_file_backed,
             "trial_hours": 24,
             "trial_prerequisites": bool(refs_ready and cron),
             "trial_smoke_test": smoke or "not_run",
