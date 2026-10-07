@@ -1,0 +1,132 @@
+/* ONE ERP native workspace polish */
+.o_web_client,
+.o_action_manager,
+.o_action {
+    background: #f4f7fb;
+    color: #102a43;
+}
+
+.o_control_panel {
+    background: rgba(255, 255, 255, .98);
+    border-bottom: 1px solid #e3ebf3;
+    box-shadow: 0 4px 18px rgba(16, 42, 67, .04);
+}
+
+.o_control_panel .breadcrumb {
+    font-weight: 800;
+    color: #102a43;
+}
+
+.o_searchview {
+    border: 1px solid #dbe5ef !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    min-height: 38px;
+}
+
+.o_list_renderer,
+.o_kanban_renderer,
+.o_form_renderer {
+    background: #f4f7fb;
+}
+
+.o_list_renderer .o_list_table {
+    background: #fff;
+    border: 1px solid #e3ebf3;
+}
+
+.o_list_renderer .o_list_table thead {
+    background: #f8fafc;
+}
+
+.o_list_renderer .o_list_table thead th {
+    color: #4f6377;
+    font-weight: 800;
+}
+
+.o_list_renderer .o_data_row:hover {
+    background: #f7fbff !important;
+}
+
+.o_kanban_renderer .o_kanban_record {
+    border: 1px solid #e0e8f1 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 5px 18px rgba(16, 42, 67, .05);
+    overflow: hidden;
+}
+
+.o_form_view .o_form_sheet_bg {
+    background: #f4f7fb;
+}
+
+.o_form_view .o_form_sheet {
+    border: 1px solid #e0e8f1;
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(16, 42, 67, .06);
+}
+
+.btn-primary {
+    background: #153a5b !important;
+    border-color: #153a5b !important;
+    border-radius: 10px !important;
+    font-weight: 750;
+}
+
+.btn-secondary,
+.btn-light {
+    border-radius: 10px !important;
+}
+
+.o_notebook .nav-tabs .nav-link {
+    border-radius: 10px 10px 0 0;
+    font-weight: 700;
+}
+
+.o_main_navbar .dropdown-toggle,
+.o_main_navbar .o_nav_entry {
+    border-radius: 9px;
+}
+
+.o_main_navbar .dropdown-toggle:hover,
+.o_main_navbar .o_nav_entry:hover {
+    background: rgba(255,255,255,.10) !important;
+}
+
+@media (max-width: 767px) {
+    .o_control_panel {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .o_form_view .o_form_sheet {
+        border-radius: 12px;
+        margin: 8px !important;
+        padding: 14px !important;
+    }
+
+    .o_kanban_renderer {
+        padding: 8px !important;
+    }
+
+    .one_dashboard {
+        padding: 8px;
+    }
+
+    .one_hero {
+        padding: 18px;
+    }
+
+    .one_kpi_grid {
+        gap: 8px;
+    }
+
+    .one_kpi {
+        min-height: 70px;
+        padding: 10px;
+    }
+
+    .one_card {
+        min-height: 108px;
+        padding: 14px;
+    }
+}
