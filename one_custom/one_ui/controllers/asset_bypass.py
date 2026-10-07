@@ -19,7 +19,11 @@ class OneStagingAssetBinary(Binary):
         readonly=True,
     )
     def content_assets(self, filename=None, unique=None, nocache=False, assets_params=None):
-        if os.getenv("RENDER_SERVICE_NAME") != "one-erp-staging" or unique == "debug":
+        if (
+            os.getenv("RENDER_SERVICE_NAME") != "one-erp-staging"
+            or os.getenv("ONE_DB_HOST") == "oneerp-db"
+            or unique == "debug"
+        ):
             return super().content_assets(
                 filename=filename,
                 unique=unique,
@@ -107,6 +111,6 @@ class OneStagingAssetBinary(Binary):
         )
         headers = [
             ("Content-Type", mimetype),
-            ("Cache-Control", "no-store, max-age=0"),
+            ("Cache-Control", "public, max-age=31536000, immutable"),
         ]
         return request.make_response(payload, headers=headers, status=200)
