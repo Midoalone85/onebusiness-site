@@ -1220,3 +1220,35 @@ a[href*="odoo.com"],
     display: block;
     overflow: auto;
 }
+
+
+/* ONE ERP mobile interaction hardening 2026-10-07 */
+@media (max-width: 768px) {
+    .o_main_navbar,
+    .o_main_navbar .o_menu_sections,
+    .o_main_navbar .o_menu_systray,
+    .o-dropdown--menu {
+        overflow: visible !important;
+    }
+
+    .o_main_navbar .o_menu_sections .o_nav_entry,
+    .o_main_navbar .o_menu_sections .dropdown-toggle,
+    .o-dropdown--menu .o-dropdown-item,
+    .one_card,
+    .one_kpi,
+    .one_quick button {
+        pointer-events: auto !important;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: rgba(36, 106, 165, .12);
+    }
+
+    .o-dropdown--menu {
+        z-index: 2000 !important;
+    }
+
+    .o-dropdown--menu .o-dropdown-item,
+    .o_main_navbar button,
+    .o_main_navbar a {
+        min-height: 44px;
+    }
+}
