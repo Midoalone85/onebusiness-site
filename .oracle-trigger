@@ -1,2 +1,3 @@
 probe 2026-10-07
 ref=fix/oracle-mobile-ui-20261007
+probe_retry=2
