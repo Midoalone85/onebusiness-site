@@ -21,7 +21,6 @@ class OneStagingAssetBinary(Binary):
     def content_assets(self, filename=None, unique=None, nocache=False, assets_params=None):
         if (
             os.getenv("RENDER_SERVICE_NAME") != "one-erp-staging"
-            or os.getenv("ONE_DB_HOST") == "oneerp-db"
             or unique == "debug"
         ):
             return super().content_assets(
