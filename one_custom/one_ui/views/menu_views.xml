@@ -40,7 +40,7 @@
     <menuitem id="menu_one_warehouses" name="Warehouses" parent="menu_one_inventory_config" action="action_one_warehouses" sequence="10"/>
 
     <!-- ACCOUNTING -->
-    <menuitem id="menu_one_accounting" name="Accounting" parent="menu_one_root" sequence="40" groups="account.group_account_user"/>
+    <menuitem id="menu_one_accounting" name="Accounting" parent="menu_one_root" sequence="40" groups="account.group_account_user,account.group_account_manager"/>
     <menuitem id="menu_one_accounting_transactions" name="Accounting Transactions" parent="menu_one_accounting" sequence="10"/>
     <menuitem id="menu_one_journal_entries" name="Journal Entries" parent="menu_one_accounting_transactions" action="action_one_journal_entries" sequence="10"/>
     <menuitem id="menu_one_customer_invoices" name="Customer Invoices" parent="menu_one_accounting_transactions" action="action_one_customer_invoices" sequence="20"/>
