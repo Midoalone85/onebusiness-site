@@ -14,6 +14,8 @@
     <menuitem id="menu_one_sales_customer_invoices" name="Customer Invoices" parent="menu_one_sales_customers_group" action="action_one_customer_invoices" sequence="20"/>
     <menuitem id="menu_one_sales_insights" name="Sales Insights" parent="menu_one_sales" sequence="30"/>
     <menuitem id="menu_one_sales_analysis" name="Sales Analysis" parent="menu_one_sales_insights" action="action_one_sales_analysis" sequence="10"/>
+    <menuitem id="menu_one_sales_configuration" name="Configuration" parent="menu_one_sales" sequence="90" groups="base.group_system"/>
+    <menuitem id="menu_one_sales_settings" name="Settings" parent="menu_one_sales_configuration" action="action_one_sales_settings" sequence="10" groups="base.group_system"/>
 
     <!-- PURCHASES -->
     <menuitem id="menu_one_purchase" name="Purchases" parent="menu_one_root" sequence="20" groups="purchase.group_purchase_user"/>
@@ -25,6 +27,8 @@
     <menuitem id="menu_one_purchase_vendor_bills" name="Vendor Bills" parent="menu_one_supplier_billing" action="action_one_vendor_bills" sequence="20"/>
     <menuitem id="menu_one_purchase_insights" name="Purchase Insights" parent="menu_one_purchase" sequence="30"/>
     <menuitem id="menu_one_purchase_analysis" name="Purchase Analysis" parent="menu_one_purchase_insights" action="action_one_purchase_analysis" sequence="10"/>
+    <menuitem id="menu_one_purchase_configuration" name="Configuration" parent="menu_one_purchase" sequence="90" groups="base.group_system"/>
+    <menuitem id="menu_one_purchase_settings" name="Settings" parent="menu_one_purchase_configuration" action="action_one_purchase_settings" sequence="10" groups="base.group_system"/>
 
     <!-- INVENTORY -->
     <menuitem id="menu_one_inventory" name="Inventory" parent="menu_one_root" sequence="30" groups="stock.group_stock_user"/>
@@ -38,6 +42,7 @@
     <menuitem id="menu_one_reordering_rules" name="Reordering Rules" parent="menu_one_inventory_products_group" action="action_one_reordering_rules" sequence="30"/>
     <menuitem id="menu_one_inventory_config" name="Inventory Configuration" parent="menu_one_inventory" sequence="30"/>
     <menuitem id="menu_one_warehouses" name="Warehouses" parent="menu_one_inventory_config" action="action_one_warehouses" sequence="10"/>
+    <menuitem id="menu_one_inventory_settings" name="Settings" parent="menu_one_inventory_config" action="action_one_inventory_settings" sequence="90" groups="base.group_system"/>
 
     <!-- ACCOUNTING -->
     <menuitem id="menu_one_accounting" name="Accounting" parent="menu_one_root" sequence="40" groups="account.group_account_user"/>
@@ -54,6 +59,7 @@
     <menuitem id="menu_one_account_bank_cash" name="Bank &amp; Cash" parent="menu_one_accounting_setup" action="action_one_bank_cash" sequence="50"/>
     <menuitem id="menu_one_account_reports_group" name="Accounting Reports" parent="menu_one_accounting" sequence="30"/>
     <menuitem id="menu_one_account_financial_reports" name="Financial Reports" parent="menu_one_account_reports_group" action="action_one_financial_reports" sequence="10"/>
+    <menuitem id="menu_one_accounting_settings" name="Settings" parent="menu_one_accounting_setup" action="action_one_accounting_settings" sequence="90" groups="base.group_system"/>
 
     <!-- MANUFACTURING -->
     <menuitem id="menu_one_mrp" name="Manufacturing" parent="menu_one_root" sequence="50" groups="mrp.group_mrp_user"/>
@@ -64,6 +70,8 @@
     <menuitem id="menu_one_mrp_bom" name="Bills of Materials" parent="menu_one_mrp_master_group" action="action_one_mrp_bom" sequence="10"/>
     <menuitem id="menu_one_mrp_workcenters" name="Work Centers" parent="menu_one_mrp_master_group" action="action_one_mrp_workcenters" sequence="20"/>
     <menuitem id="menu_one_mrp_products" name="Product Catalog" parent="menu_one_mrp_master_group" action="action_one_products" sequence="30"/>
+    <menuitem id="menu_one_mrp_configuration" name="Configuration" parent="menu_one_mrp" sequence="90" groups="base.group_system"/>
+    <menuitem id="menu_one_mrp_settings" name="Settings" parent="menu_one_mrp_configuration" action="action_one_mrp_settings" sequence="10" groups="base.group_system"/>
 
     <!-- CRM -->
     <menuitem id="menu_one_crm" name="CRM" parent="menu_one_root" sequence="60"/>
@@ -73,6 +81,8 @@
     <menuitem id="menu_one_crm_relationships" name="Relationships" parent="menu_one_crm" sequence="20"/>
     <menuitem id="menu_one_crm_customers" name="Customers" parent="menu_one_crm_relationships" action="action_one_customers" sequence="10"/>
     <menuitem id="menu_one_contacts" name="All Contacts" parent="menu_one_crm_relationships" action="action_one_contacts" sequence="20"/>
+    <menuitem id="menu_one_crm_configuration" name="Configuration" parent="menu_one_crm" sequence="90" groups="base.group_system"/>
+    <menuitem id="menu_one_crm_settings" name="Settings" parent="menu_one_crm_configuration" action="action_one_crm_settings" sequence="10" groups="base.group_system"/>
 
     <!-- POS -->
     <menuitem id="menu_one_pos" name="Point of Sale" parent="menu_one_root" sequence="70" groups="point_of_sale.group_pos_user,point_of_sale.group_pos_manager"/>
@@ -81,6 +91,7 @@
     <menuitem id="menu_one_pos_orders" name="POS Orders" parent="menu_one_pos_operations" action="action_one_pos_orders" sequence="20"/>
     <menuitem id="menu_one_pos_setup" name="POS Setup" parent="menu_one_pos" sequence="20"/>
     <menuitem id="menu_one_pos_payment_methods" name="Payment Methods" parent="menu_one_pos_setup" action="action_one_pos_payment_methods" sequence="10"/>
+    <menuitem id="menu_one_pos_settings" name="Settings" parent="menu_one_pos_setup" action="action_one_pos_settings" sequence="90" groups="base.group_system"/>
 
     <!-- HR -->
     <menuitem id="menu_one_hr" name="Human Resources" parent="menu_one_root" sequence="80" groups="hr.group_hr_user"/>
