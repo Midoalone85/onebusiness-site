@@ -38,7 +38,7 @@ class OneStagingAssetBinary(Binary):
         attachment = env["ir.attachment"].sudo().search([
             ("public", "=", True),
             ("url", "!=", False),
-            ("url", "=like", f"/web/assets/%/{filename}"),
+            ("url", "=", f"/web/assets/{unique}/{filename}"),
             ("res_model", "=", "ir.ui.view"),
             ("res_id", "=", 0),
             ("create_uid", "=", api.SUPERUSER_ID),
