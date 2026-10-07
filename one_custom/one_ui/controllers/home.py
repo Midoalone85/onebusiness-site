@@ -1,4 +1,5 @@
 from odoo.http import request, route
+from odoo.http.session import logout
 from odoo.addons.web.controllers.home import Home
 from odoo.addons.web.controllers.utils import ensure_db, is_user_internal
 
@@ -85,7 +86,7 @@ class OneHome(Home):
     @route("/one/login", type="http", auth="none", csrf=False, methods=["GET"])
     def one_login(self, **kw):
         """Always start ONE ERP login with a clean browser session."""
-        request.session.logout(keep_db=True)
+        logout(request.session, keep_db=True)
         response = request.redirect("/web/login?db=one_erp_db&one=1")
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
