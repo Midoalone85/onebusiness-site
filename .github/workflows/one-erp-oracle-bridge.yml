@@ -1,6 +1,11 @@
 name: ONE ERP Oracle Bridge
 
 on:
+  push:
+    branches:
+      - oracle-control
+    paths:
+      - ".oracle-trigger"
   workflow_dispatch:
     inputs:
       mode:
