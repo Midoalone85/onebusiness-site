@@ -1407,3 +1407,65 @@ a[href*="odoo.com"],
         font-size: 31px !important;
     }
 }
+
+
+/* ONE ERP navbar fit 2026-10-07 */
+.o_main_navbar {
+    padding-inline: 8px !important;
+}
+.o_main_navbar .o_menu_sections {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    gap: 2px !important;
+}
+.o_main_navbar .o_menu_sections > * {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+}
+.o_main_navbar .o_menu_systray {
+    flex: 0 0 auto !important;
+}
+.o_main_navbar .o_menu_sections .o_nav_entry,
+.o_main_navbar .o_menu_sections .dropdown-toggle {
+    white-space: nowrap !important;
+    transform: none !important;
+}
+.o_main_navbar .o_menu_sections .o_nav_entry:hover,
+.o_main_navbar .o_menu_sections .dropdown-toggle:hover,
+.o_main_navbar .o_menu_sections .dropdown-toggle.show,
+.o_main_navbar .o_menu_sections .dropdown-toggle[aria-expanded="true"] {
+    transform: none !important;
+}
+.o_main_navbar .o_switch_company_menu .dropdown-toggle,
+.o_main_navbar .o_menu_systray .o_switch_company_menu {
+    max-width: 118px !important;
+}
+.o_main_navbar .o_switch_company_menu .dropdown-toggle {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+@media (max-width: 1400px) {
+    .o_main_navbar .o_menu_sections {
+        gap: 1px !important;
+    }
+    .o_main_navbar .o_menu_sections .o_nav_entry,
+    .o_main_navbar .o_menu_sections .dropdown-toggle {
+        min-height: 31px !important;
+        padding: 4px 7px !important;
+        font-size: 11.5px !important;
+    }
+    .o_main_navbar .o_switch_company_menu .dropdown-toggle,
+    .o_main_navbar .o_menu_systray .o_switch_company_menu {
+        max-width: 105px !important;
+    }
+}
+@media (max-width: 1250px) {
+    .o_main_navbar .o_menu_sections .o_nav_entry,
+    .o_main_navbar .o_menu_sections .dropdown-toggle {
+        padding-inline: 6px !important;
+        font-size: 11px !important;
+    }
+}
