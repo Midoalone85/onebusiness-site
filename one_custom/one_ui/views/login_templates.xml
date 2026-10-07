@@ -55,4 +55,23 @@
             </div>
         </xpath>
     </template>
+    <template id="one_webclient_bootstrap_guard" inherit_id="web.webclient_bootstrap" name="ONE ERP Webclient Guard">
+        <xpath expr="//t[@t-set='head']/script[1]" position="after">
+            <script type="text/javascript"><![CDATA[
+                try {
+                    localStorage.removeItem("current_tour");
+                    localStorage.removeItem("current_tour.config");
+                    localStorage.removeItem("current_tour.index");
+                    localStorage.removeItem("current_tour.on_error");
+                    if (window.odoo && odoo.__session_info__) {
+                        odoo.__session_info__.current_tour = false;
+                        odoo.__session_info__.tour_enabled = false;
+                    }
+                } catch (error) {
+                    console.warn("ONE ERP startup guard", error);
+                }
+            ]]></script>
+        </xpath>
+    </template>
+
 </odoo>
