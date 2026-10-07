@@ -82,6 +82,15 @@ class OneHome(Home):
             "ready": installed,
         })
 
+    @route("/one/login", type="http", auth="none", csrf=False, methods=["GET"])
+    def one_login(self, **kw):
+        """Always start ONE ERP login with a clean browser session."""
+        request.session.logout(keep_db=True)
+        response = request.redirect("/web/login?db=one_erp_db&one=1")
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        return response
+
     def _login_redirect(self, uid, redirect=None):
         if redirect and redirect.startswith("/") and not redirect.startswith("//"):
             return redirect
