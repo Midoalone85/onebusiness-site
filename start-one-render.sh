@@ -357,6 +357,12 @@ PY
 }
 
 configure_persistent_attachment_storage() {
+  # Oracle deployment uses persistent PostgreSQL and must keep compiled assets
+  # between restarts instead of deleting and rebuilding them on every boot.
+  if [[ "${ONE_DB_HOST:-}" == "oneerp-db" ]]; then
+    return 0
+  fi
+
   # Render's filesystem is ephemeral. Keep staging attachments and generated
   # web assets in PostgreSQL. Also repair stale filestore references left by
   # older staging instances whose /tmp filesystem no longer exists.
@@ -445,6 +451,9 @@ PY
 }
 
 run_deployment_smoke_test() {
+  if [[ "${ONE_DB_HOST:-}" == "oneerp-db" ]]; then
+    return 0
+  fi
   if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" && "${RENDER_SERVICE_NAME:-}" != "one-erp-live" ]]; then
     return 0
   fi
