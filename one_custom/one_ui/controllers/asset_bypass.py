@@ -1,3 +1,4 @@
+import gzip
 import logging
 import os
 from contextlib import nullcontext
@@ -108,8 +109,19 @@ class OneStagingAssetBinary(Binary):
             filename,
             len(payload),
         )
+        response_payload = payload
         headers = [
             ("Content-Type", mimetype),
             ("Cache-Control", "public, max-age=31536000, immutable"),
+            ("Vary", "Accept-Encoding"),
         ]
-        return request.make_response(payload, headers=headers, status=200)
+        accept_encoding = request.httprequest.headers.get("Accept-Encoding", "")
+        if (
+            len(payload) >= 1024
+            and "gzip" in accept_encoding.lower()
+            and filename.endswith((".js", ".css", ".json", ".svg"))
+        ):
+            response_payload = gzip.compress(payload, compresslevel=5)
+            headers.append(("Content-Encoding", "gzip"))
+
+        return request.make_response(response_payload, headers=headers, status=200)
