@@ -35,6 +35,7 @@
             "one_ui/static/src/js/menu_branding.js",
             "one_ui/static/src/js/dashboard.js",
             "one_ui/static/src/js/title.js",
+            "one_ui/static/src/js/report_download_compat.js",
             "one_ui/static/src/xml/dashboard.xml"
         ],
         "web.assets_frontend": [
