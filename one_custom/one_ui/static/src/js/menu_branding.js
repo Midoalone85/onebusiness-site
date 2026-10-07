@@ -1,6 +1,5 @@
 /** @odoo-module **/
 
-import { computed } from "@odoo/owl";
 import { location } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
 import { rpc } from "@web/core/network/rpc";
@@ -13,11 +12,11 @@ patch(menuService, {
         const service = await super.start(...args);
         const originalGetApps = service.getApps;
 
-        service.getApps = computed(() => {
+        service.getApps = () => {
             const apps = originalGetApps();
             const oneApps = apps.filter((app) => app.xmlid === "one_ui.menu_one_root");
             return oneApps.length ? oneApps : apps;
-        });
+        };
 
         return service;
     },
