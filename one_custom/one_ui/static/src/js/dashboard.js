@@ -229,3 +229,5 @@ export class OneControlCenter extends Component {
 }
 
 registry.category("actions").add("one_ui.control_center", OneControlCenter);
+
+// ONE ERP mobile cache generation 2026-10-07-1742
