@@ -32,11 +32,12 @@ jobs:
       ORACLE_HOST: ${{ vars.ORACLE_HOST || '141.147.137.107' }}
       ORACLE_USER: ${{ vars.ORACLE_USER || 'ubuntu' }}
       SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+      TARGET_REF: ${{ inputs.ref || 'fix/oracle-mobile-ui-20261007' }}
     steps:
       - name: Checkout requested ONE ERP ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ env.TARGET_REF }}
 
       - name: Validate ONE ERP package before touching Oracle
         run: |
