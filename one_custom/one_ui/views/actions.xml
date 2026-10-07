@@ -185,6 +185,63 @@
         <field name="target">current</field>
     </record>
 
+    <!-- Module-specific settings shortcuts -->
+    <record id="action_one_sales_settings" model="ir.actions.act_window">
+        <field name="name">Sales Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'sale'}</field>
+    </record>
+
+    <record id="action_one_purchase_settings" model="ir.actions.act_window">
+        <field name="name">Purchase Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'purchase'}</field>
+    </record>
+
+    <record id="action_one_inventory_settings" model="ir.actions.act_window">
+        <field name="name">Inventory Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'stock'}</field>
+    </record>
+
+    <record id="action_one_accounting_settings" model="ir.actions.act_window">
+        <field name="name">Accounting Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'account'}</field>
+    </record>
+
+    <record id="action_one_mrp_settings" model="ir.actions.act_window">
+        <field name="name">Manufacturing Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'mrp'}</field>
+    </record>
+
+    <record id="action_one_crm_settings" model="ir.actions.act_window">
+        <field name="name">CRM Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'crm'}</field>
+    </record>
+
+    <record id="action_one_pos_settings" model="ir.actions.act_window">
+        <field name="name">Point of Sale Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'point_of_sale'}</field>
+    </record>
+
     <!-- ONE ERP functional navigation actions -->
     <record id="action_one_sales_quotations" model="ir.actions.act_window">
         <field name="name">Quotations</field>
