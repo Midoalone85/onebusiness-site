@@ -1,0 +1,103 @@
+name: ONE ERP Oracle Bridge
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Safe Oracle action"
+        required: true
+        default: "probe"
+        type: choice
+        options:
+          - probe
+      ref:
+        description: "ONE ERP code ref to inspect"
+        required: true
+        default: "fix/oracle-mobile-ui-20261007"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  oracle-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ORACLE_HOST: ${{ vars.ORACLE_HOST || '141.147.137.107' }}
+      ORACLE_USER: ${{ vars.ORACLE_USER || 'ubuntu' }}
+      SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+    steps:
+      - name: Checkout requested ONE ERP ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Validate ONE ERP package before touching Oracle
+        run: |
+          python -m compileall -q one_custom/one_ui
+          python - <<'PY'
+          import ast
+          import pathlib
+          import xml.etree.ElementTree as ET
+
+          root = pathlib.Path("one_custom/one_ui")
+          for path in root.rglob("*.xml"):
+              ET.parse(path)
+          manifest = ast.literal_eval((root / "__manifest__.py").read_text(encoding="utf-8"))
+          print("ONE ERP package OK:", manifest.get("version"))
+          PY
+
+      - name: Require Oracle SSH key
+        run: |
+          if [ -z "$SSH_KEY" ]; then
+            echo "::error::Repository secret ORACLE_SSH_KEY is not configured."
+            exit 1
+          fi
+
+      - name: Prepare SSH
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/one_erp_oracle_key
+          chmod 600 ~/.ssh/one_erp_oracle_key
+          ssh-keyscan -T 10 -H "$ORACLE_HOST" >> ~/.ssh/known_hosts
+
+      - name: Probe Oracle safely
+        run: |
+          ssh -i ~/.ssh/one_erp_oracle_key             -o BatchMode=yes             -o ConnectTimeout=12             "$ORACLE_USER@$ORACLE_HOST" '
+              set -u
+              echo "=== IDENTITY ==="
+              hostname
+              id
+              uname -a
+
+              echo "=== ONE ERP REPOSITORIES ==="
+              for base in /opt /srv /home/ubuntu /var/www; do
+                [ -d "$base" ] || continue
+                find "$base" -maxdepth 5 -type d -name .git 2>/dev/null
+              done | while read -r gitdir; do
+                repo="${gitdir%/.git}"
+                origin="$(git -C "$repo" remote get-url origin 2>/dev/null || true)"
+                case "$origin" in
+                  *Midoalone85/onebusiness-site*)
+                    echo "ONE_ERP_REPO=$repo"
+                    echo "ONE_ERP_ORIGIN=$origin"
+                    git -C "$repo" status --short --branch || true
+                    ;;
+                esac
+              done
+
+              echo "=== ODOO / ONE SERVICES ==="
+              systemctl list-units --type=service --all --no-pager 2>/dev/null                 | grep -Ei "odoo|one[-_ ]?erp" || true
+
+              echo "=== CONTAINERS ==="
+              if command -v docker >/dev/null 2>&1; then
+                docker ps --format "{{.Names}}|{{.Image}}|{{.Status}}" 2>/dev/null                   | grep -Ei "odoo|one[-_ ]?erp|postgres" || true
+              fi
+
+              echo "=== CUSTOM ADDONS ==="
+              for base in /opt /srv /home/ubuntu /var/lib /var/www; do
+                [ -d "$base" ] || continue
+                find "$base" -maxdepth 7 -type d -path "*/one_custom/one_ui" 2>/dev/null
+              done | head -20
+            '
