@@ -297,10 +297,13 @@ import os
 user = env.ref("base.user_admin", raise_if_not_found=False)
 if not user:
     raise RuntimeError("base.user_admin not found")
-user.sudo().write({
+admin_fields = {
     "login": os.environ.get("ONE_ADMIN_LOGIN", "admin"),
     "password": os.environ["ONE_ADMIN_PASSWORD"],
-})
+}
+if os.environ.get("ONE_ADMIN_EMAIL"):
+    admin_fields["email"] = os.environ["ONE_ADMIN_EMAIL"]
+user.sudo().write(admin_fields)
 env.cr.commit()
 print("ONE ERP administrator credentials provisioned.")
 PY
