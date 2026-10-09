@@ -294,18 +294,29 @@ provision_admin() {
 
       cat >/tmp/one_set_admin.py <<'PY'
 import os
-user = env.ref("base.user_admin", raise_if_not_found=False)
-if not user:
-    raise RuntimeError("base.user_admin not found")
-admin_fields = {
-    "login": os.environ.get("ONE_ADMIN_LOGIN", "admin"),
-    "password": os.environ["ONE_ADMIN_PASSWORD"],
-}
-if os.environ.get("ONE_ADMIN_EMAIL"):
-    admin_fields["email"] = os.environ["ONE_ADMIN_EMAIL"]
-user.sudo().write(admin_fields)
-env.cr.commit()
-print("ONE ERP administrator credentials provisioned.")
+
+# A deployment/restart must NEVER overwrite a password that an administrator
+# changed from the ONE ERP account settings.
+# Re-provisioning requires ONE_FORCE_ADMIN_RESET=1 for one explicit run.
+settings = env["ir.config_parameter"].sudo()
+marker = "one_erp.admin_credentials_bootstrapped"
+forced = os.environ.get("ONE_FORCE_ADMIN_RESET", "").strip().lower() in ("1", "true", "yes")
+if settings.get_param(marker) == "1" and not forced:
+    print("ONE ERP administrator already bootstrapped; keeping existing password.")
+else:
+    user = env.ref("base.user_admin", raise_if_not_found=False)
+    if not user:
+        raise RuntimeError("base.user_admin not found")
+    admin_fields = {
+        "login": os.environ.get("ONE_ADMIN_LOGIN", "admin"),
+        "password": os.environ["ONE_ADMIN_PASSWORD"],
+    }
+    if os.environ.get("ONE_ADMIN_EMAIL"):
+        admin_fields["email"] = os.environ["ONE_ADMIN_EMAIL"]
+    user.sudo().write(admin_fields)
+    settings.set_param(marker, "1")
+    env.cr.commit()
+    print("ONE ERP administrator credentials provisioned once.")
 PY
       odoo shell "${ODOO_DB_ARGS[@]}" \
         "--data-dir=$ODOO_DATA" \
