@@ -87,7 +87,7 @@ class OneHome(Home):
     def one_login(self, **kw):
         """Always start ONE ERP login with a clean browser session."""
         logout(request.session, keep_db=True)
-        response = request.redirect("/web/login?db=one_erp_db&one=1")
+        response = request.redirect("/web/login?one=1")
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         return response
