@@ -301,3 +301,15 @@
     }
     .one_dashboard.one_v3 .one_v3_navbutton { font-size: 12px; }
 }
+
+/* Keep the final dropdown inside the viewport in both layout directions. */
+.one_dashboard.one_v3 .one_v3_navitem:last-child .one_v3_navdropdown {
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+}
+@media (max-width: 720px) {
+    .one_dashboard.one_v3 .one_v3_navitem:last-child .one_v3_navdropdown {
+        inset-inline-start: 12px;
+        inset-inline-end: 12px;
+    }
+}
