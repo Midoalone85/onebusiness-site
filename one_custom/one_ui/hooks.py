@@ -1,6 +1,5 @@
 import datetime
 import logging
-import os
 import secrets
 
 from odoo import fields
@@ -101,11 +100,9 @@ def post_init_hook(env):
     """Prepare ONE ERP defaults and verify critical trial behavior after installation."""
     env["res.lang"]._activate_and_install_lang("ar_001")
 
-    bootstrap_password = os.environ.get("ONE_BOOTSTRAP_ADMIN_PASSWORD")
-    if bootstrap_password:
-        admin = env.ref("base.user_admin", raise_if_not_found=False)
-        if admin:
-            admin.sudo().write({"password": bootstrap_password})
+    # Administrator credentials are never changed by module installation or
+    # upgrades. One-time account setup is handled through an authorized
+    # provisioning/recovery operation, not via a persistent environment secret.
 
     _run_trial_smoke_test(env)
 
