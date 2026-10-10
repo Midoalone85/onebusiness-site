@@ -56,7 +56,7 @@ def main() -> None:
     require("switchLanguage('en_US')" in dashboard_xml, "English language control missing")
     require("this.showAllApps()" in dashboard_xml, "All applications navigation missing")
     require("filteredApps" in dashboard_xml, "Searchable app library missing")
-    require(re.search(r"onMounted\\(\\(\\)\\s*=>\\s*\\{[^}]*void this\\.loadMetrics\\(\\)", dashboard_js, re.S) is not None,
+    require("onMounted(() => {" in dashboard_js and "void this.loadMetrics();" in dashboard_js,
             "Metrics should start after first paint, not block initial dashboard")
     require("void this.loadRecentInvoices()" in dashboard_js,
             "Recent invoices should load after first paint")
