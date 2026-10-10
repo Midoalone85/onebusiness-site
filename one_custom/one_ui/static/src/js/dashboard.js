@@ -137,7 +137,7 @@ export class OneDashboard extends Component {
         const max = Math.max(1, ...items.map(item => typeof item.count === "number" ? item.count : 0));
         return items.map(item => ({
             ...item,
-            height: typeof item.count === "number" ? Math.max(5, Math.round(100 * item.count / max)) : 5,
+            height: typeof item.count === "number" && item.count > 0 ? Math.max(5, Math.round(100 * item.count / max)) : 0,
             countLabel: typeof item.count === "number"
                 ? item.count.toLocaleString(this.isArabic ? "ar-SA" : "en-US")
                 : item.count,
