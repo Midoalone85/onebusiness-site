@@ -20,7 +20,7 @@
                         <i t-att-class="state.showAllApps ? 'fa fa-home' : 'fa fa-th-large'"/>
                         <span t-esc="state.lang.startsWith('ar') ? (state.showAllApps ? 'الرئيسية' : 'التطبيقات') : (state.showAllApps ? 'Home' : 'Apps')"/>
                     </button>
-
+                </div>
                 </div>
                 <nav class="one_v3_topnav" t-att-aria-label="isArabic ? 'قوائم التطبيق الرئيسية' : 'Main application menus'">
                     <button type="button" class="one_v3_navbutton one_v3_navhome"
