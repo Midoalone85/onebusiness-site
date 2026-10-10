@@ -21,6 +21,7 @@ export class OneDashboard extends Component {
         this.state = useState({
             lang: user.context.lang || "en_US",
             showAllApps: false,
+            openMenu: null,
             appQuery: "",
             category: "all",
             access: {account: false, admin: false, pos: false},
@@ -56,6 +57,26 @@ export class OneDashboard extends Component {
             {id:"zatca", ar:"الامتثال السعودي", en:"Saudi Compliance", descriptionAr:"الفوترة والعنوان الوطني", descriptionEn:"ZATCA and national address", icon:"fa fa-shield", action:"one_ui.action_one_saudi_profile", category:"system", group:"admin"},
             {id:"subscriptions", ar:"الاشتراكات", en:"Subscriptions", descriptionAr:"الباقات والاشتراكات", descriptionEn:"Plans and subscriptions", icon:"fa fa-key", action:"one_ui.action_one_subscriptions", category:"system", group:"admin"},
             {id:"settings", ar:"الإعدادات", en:"Settings", descriptionAr:"الصلاحيات والتفضيلات", descriptionEn:"Preferences and access", icon:"fa fa-cog", action:"one_ui.action_one_settings", category:"system", group:"admin"},
+        ];
+
+
+        // Top-only navigation. Menu entries reuse the same permission-filtered
+        // actions as the dashboard and cannot bypass Odoo access controls.
+        this.navSections = [
+            {id:"finance", ar:"المحاسبة", en:"Accounting", icon:"fa fa-calculator",
+                appIds:["accounting", "customer-invoices", "vendor-bills", "journal-entries", "coa", "reports"]},
+            {id:"sales", ar:"المبيعات", en:"Sales", icon:"fa fa-line-chart",
+                appIds:["sales", "crm", "customer-invoices"]},
+            {id:"purchases", ar:"المشتريات", en:"Purchases", icon:"fa fa-shopping-cart",
+                appIds:["purchases", "vendor-bills"]},
+            {id:"operations", ar:"المخزون والتصنيع", en:"Operations", icon:"fa fa-cubes",
+                appIds:["inventory", "mrp", "pos"]},
+            {id:"contacts", ar:"جهات الاتصال", en:"Contacts", icon:"fa fa-address-book",
+                appIds:["contacts", "crm"]},
+            {id:"people", ar:"الموارد البشرية", en:"People", icon:"fa fa-users",
+                appIds:["hr"]},
+            {id:"more", ar:"المزيد", en:"More", icon:"fa fa-th-large",
+                appIds:["ask", "approvals", "zatca", "subscriptions", "settings"]},
         ];
 
         onWillStart(async () => {
@@ -97,13 +118,41 @@ export class OneDashboard extends Component {
         );
     }
 
+
+    get navGroups() {
+        const permitted = new Map(this.availableApps.map(app => [app.id, app]));
+        return this.navSections.map(group => ({
+            ...group,
+            apps: group.appIds.map(id => permitted.get(id)).filter(Boolean),
+        })).filter(group => group.apps.length);
+    }
+
+    toggleMenu(id) {
+        this.state.openMenu = this.state.openMenu === id ? null : id;
+    }
+
+    closeMenu() {
+        this.state.openMenu = null;
+    }
+
+    onNavigationKeydown(event) {
+        if (event.key === "Escape") this.closeMenu();
+    }
+
+    openFromMenu(xmlId) {
+        this.closeMenu();
+        return this.open(xmlId);
+    }
+
     showAllApps() {
+        this.closeMenu();
         this.state.showAllApps = true;
         this.state.category = "all";
         this.state.appQuery = "";
     }
 
     showHome() {
+        this.closeMenu();
         this.state.showAllApps = false;
     }
 
