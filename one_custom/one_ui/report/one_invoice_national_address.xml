@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Printed/PDF invoice extension only.
+         ZATCA UBL XML mappings must be integration-tested separately. -->
+    <template id="one_invoice_buyer_national_address"
+              inherit_id="account.report_invoice_document"
+              name="ONE ERP Invoice Buyer National Address"
+              priority="45">
+        <xpath expr="//div[@id='informations']" position="after">
+            <div class="row mt-2 mb-2" name="one_invoice_buyer_national_address"
+                 t-if="o.partner_id.country_id.code == 'SA' and
+                       (o.partner_id.one_national_district or
+                        o.partner_id.one_national_building_number or
+                        o.partner_id.one_national_additional_number)">
+                <div class="col-12">
+                    <strong>Buyer National Address / العنوان الوطني للمشتري</strong>
+                    <div>
+                        <span t-if="o.partner_id.street" t-field="o.partner_id.street"/>
+                        <span t-if="o.partner_id.one_national_district">
+                            ، <span t-esc="o.partner_id.one_national_district"/>
+                        </span>
+                        <span t-if="o.partner_id.city">
+                            ، <span t-field="o.partner_id.city"/>
+                        </span>
+                        <span t-if="o.partner_id.zip">
+                            ، <span t-field="o.partner_id.zip"/>
+                        </span>
+                        <span t-if="o.partner_id.one_national_building_number">
+                            | Building: <span t-esc="o.partner_id.one_national_building_number"/>
+                        </span>
+                        <span t-if="o.partner_id.one_national_additional_number">
+                            | Additional: <span t-esc="o.partner_id.one_national_additional_number"/>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+</odoo>
