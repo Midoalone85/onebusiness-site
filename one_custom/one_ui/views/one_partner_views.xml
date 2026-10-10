@@ -19,7 +19,7 @@
                         <field name="email"/>
                         <field name="phone"/>
                         <field name="mobile"/>
-                        <label string="Use company or individual at the top of this record. Customer and supplier share one record."/>
+                        <div class="text-muted" role="note">Company or person is selected at the top of the record. A customer and a supplier may share this same contact.</div>
                     </group>
                 </group>
             </xpath>
