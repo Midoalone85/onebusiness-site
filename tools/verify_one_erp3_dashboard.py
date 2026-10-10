@@ -36,10 +36,16 @@ def main() -> None:
         path = MODULE / filename
         require(path.is_file(), f"Missing declared module data file: {filename}")
         if path.suffix == ".xml":
-            ET.parse(path)
+            try:
+                ET.parse(path)
+            except ET.ParseError as exc:
+                raise AssertionError(f"Invalid ONE ERP XML file {path.relative_to(REPO)}: {exc}") from exc
 
     for path in (MODULE / "static" / "src" / "xml").glob("*.xml"):
-        ET.parse(path)
+        try:
+            ET.parse(path)
+        except ET.ParseError as exc:
+            raise AssertionError(f"Invalid ONE ERP XML file {path.relative_to(REPO)}: {exc}") from exc
 
     dashboard_xml = (MODULE / "static/src/xml/dashboard.xml").read_text(encoding="utf-8")
     dashboard_js = (MODULE / "static/src/js/dashboard.js").read_text(encoding="utf-8")
