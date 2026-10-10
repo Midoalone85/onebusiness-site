@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Keep the native res.partner record and its company/person selector.
+         A single partner can be used by both sales and purchasing. -->
+    <record id="view_one_partner_form_extension" model="ir.ui.view">
+        <field name="name">one.erp.partner.unified.form</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="priority">26</field>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/notebook" position="before">
+                <group name="one_partner_profile" class="one_partner_profile" string="ONE ERP | Unified Contact">
+                    <group string="Relationship and legal identity">
+                        <field name="one_contact_role" widget="radio" options="{'horizontal': true}"/>
+                        <field name="one_legal_name_ar" placeholder="الاسم القانوني بالعربية"/>
+                        <field name="one_legal_name_en" placeholder="Legal name in English"/>
+                    </group>
+                    <group string="Contact details">
+                        <field name="email"/>
+                        <field name="phone"/>
+                        <field name="mobile"/>
+                        <label string="Use company or individual at the top of this record. Customer and supplier share one record."/>
+                    </group>
+                </group>
+            </xpath>
+            <xpath expr="//sheet/notebook" position="inside">
+                <page name="one_national_address" string="National Address | العنوان الوطني">
+                    <group name="one_national_address_panel" class="one_partner_address_panel">
+                        <group string="Saudi national address">
+                            <field name="country_id"/>
+                            <field name="street"/>
+                            <field name="street2"/>
+                            <field name="one_national_district"/>
+                            <field name="city"/>
+                            <field name="state_id" domain="[('country_id', '=', country_id)]"/>
+                        </group>
+                        <group string="Postal and SPL identifiers">
+                            <field name="zip"/>
+                            <field name="one_national_building_number" placeholder="1234"/>
+                            <field name="one_national_additional_number" placeholder="5678"/>
+                            <field name="one_national_short_address" placeholder="ABCD1234"/>
+                        </group>
+                    </group>
+                    <group string="Invoice address preview">
+                        <field name="one_billing_address_preview" nolabel="1" readonly="1"/>
+                    </group>
+                    <div class="alert alert-info" role="note">
+                        National address fields remain optional while drafting a contact.
+                        Validate the complete address and the active ZATCA requirements
+                        before issuing an invoice. Delivery and branch addresses can
+                        be managed through the contact's related addresses.
+                    </div>
+                </page>
+                <page name="one_partner_accounting" string="Accounting | المحاسبة"
+                      groups="account.group_account_user">
+                    <group name="one_partner_accounting_panel" class="one_partner_accounting_panel">
+                        <group string="Receivables and sales">
+                            <field name="property_account_receivable_id"
+                                   domain="[('account_type', '=', 'asset_receivable')]"
+                                   options="{'no_create': True}"/>
+                            <field name="property_payment_term_id"/>
+                        </group>
+                        <group string="Payables and purchases">
+                            <field name="property_account_payable_id"
+                                   domain="[('account_type', '=', 'liability_payable')]"
+                                   options="{'no_create': True}"/>
+                            <field name="property_supplier_payment_term_id"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="note">
+                        Receivables and payables must use their respective account types.
+                        Product revenue, expense, cost-of-goods, taxes and analytical
+                        distribution belong to invoice lines, products and posting rules,
+                        not to a replacement receivable/payable account.
+                        Company-dependent accounts follow the currently selected company.
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
