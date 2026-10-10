@@ -53,6 +53,16 @@ def main() -> None:
     require("onMounted(() => { void this.loadMetrics(); })" in dashboard_js,
             "Metrics should not block initial dashboard paint")
     require("overflow-y: auto" in dashboard_css, "Scrollable dashboard viewport missing")
+    # Navigation must live above the workspace, mirror direction and keep
+    # submenu actions filtered by the existing OWL permission checks.
+    require('class="one_v3_topnav"' in dashboard_xml, "Horizontal top navigation missing")
+    require('class="one_v3_navdropdown"' in dashboard_xml, "Dropdown submenu missing")
+    require('t-att-dir=' in dashboard_xml, "RTL/LTR binding missing")
+    require("get navGroups()" in dashboard_js, "Role-filtered nav grouping missing")
+    require("this.availableApps.map(" in dashboard_js, "Nav must reuse permission-filtered apps")
+    require("openFromMenu(xmlId)" in dashboard_js, "Submenu routing missing")
+    require("onNavigationKeydown(event)" in dashboard_js, "Escape-to-close navigation missing")
+    require("one_v3_navbutton" in (MODULE / "static/src/scss/one_accessible_workspace.scss").read_text(encoding="utf-8"), "Top nav responsive styles missing")
     require("100dvh" in dashboard_css, "Viewport-aware height missing")
     require("scrollbar-color:" in dashboard_css, "Visible scroll indicator missing")
     require("@media (max-width: 720px)" in dashboard_css, "Mobile grid styles missing")
