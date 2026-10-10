@@ -111,3 +111,193 @@
         animation-duration: .01ms !important;
     }
 }
+
+
+/* Horizontal ONE ERP3 navigation: no persistent right or left sidebar.
+   CSS logical properties automatically mirror dropdown alignment for RTL/LTR. */
+.one_dashboard.one_v3 .one_v3_header {
+    display: block;
+    overflow: visible;
+    z-index: 35;
+    padding: 13px 18px 9px;
+    background: linear-gradient(105deg, #0b2b4b, #115087 87%);
+}
+.one_dashboard.one_v3 .one_v3_header_top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 49px;
+}
+.one_dashboard.one_v3 .one_v3_topnav {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    border-block-start: 1px solid rgba(255,255,255,.18);
+    margin-block-start: 11px;
+    padding-block-start: 9px;
+}
+.one_dashboard.one_v3 .one_v3_navitem { position: relative; min-width: 0; }
+.one_dashboard.one_v3 .one_v3_navbutton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    min-height: 42px;
+    padding: 9px 13px;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.5;
+    white-space: nowrap;
+    color: #eaf3fb;
+    cursor: pointer;
+}
+.one_dashboard.one_v3 .one_v3_navbutton:hover,
+.one_dashboard.one_v3 .one_v3_navbutton.active,
+.one_dashboard.one_v3 .one_v3_navbutton:focus-visible {
+    background: #27618e;
+    border-color: #6b9fc4;
+    color: #fff;
+}
+.one_dashboard.one_v3 .one_v3_navhome {
+    background: rgba(255,255,255,.12);
+    border-color: rgba(255,255,255,.16);
+}
+.one_dashboard.one_v3 .one_v3_caret { opacity: .9; font-size: 12px; }
+.one_dashboard.one_v3 .one_v3_navdropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    inset-inline-start: 0;
+    z-index: 50;
+    width: 324px;
+    max-width: calc(100vw - 44px);
+    max-height: min(65vh, 520px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 10px;
+    border-radius: 16px;
+    border: 1px solid #b9cbdd;
+    box-shadow: 0 16px 44px rgba(12,35,59,.23);
+    background: #fff;
+    color: #173a58;
+    text-align: start;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px 12px;
+    border-block-end: 1px solid #d8e3ee;
+    font-size: 15px;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_title i { color: #1768a6; }
+.one_dashboard.one_v3 .one_v3_dropdown_action {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    min-height: 60px;
+    padding: 9px 11px;
+    border: 1px solid transparent;
+    background: #fff;
+    border-radius: 10px;
+    text-align: start;
+    color: #1a3957;
+    cursor: pointer;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_action:hover,
+.one_dashboard.one_v3 .one_v3_dropdown_action:focus-visible {
+    background: #eef6fe;
+    border-color: #bad5ef;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: #e9f4ff;
+    color: #1266a5;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_copy {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_copy strong {
+    color: #152f49;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_copy small {
+    color: #48627c;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_arrow {
+    color: #42769e;
+    font-size: 16px;
+}
+.one_dashboard.one_v3 .one_v3_nav_backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: transparent;
+}
+.one_dashboard.one_v3[dir="rtl"] .one_v3_navbutton,
+.one_dashboard.one_v3[dir="rtl"] .one_v3_dropdown_action { text-align: right; }
+.one_dashboard.one_v3[dir="ltr"] .one_v3_navbutton,
+.one_dashboard.one_v3[dir="ltr"] .one_v3_dropdown_action { text-align: left; }
+@media (max-width: 850px) {
+    .one_dashboard.one_v3 .one_v3_navbutton {
+        min-height: 41px;
+        padding: 8px 11px;
+        font-size: 13px;
+    }
+}
+@media (max-width: 720px) {
+    .one_dashboard.one_v3 .one_v3_header { padding: 11px 12px; }
+    .one_dashboard.one_v3 .one_v3_topnav {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 5px;
+    }
+    .one_dashboard.one_v3 .one_v3_navitem { min-width: 0; }
+    .one_dashboard.one_v3 .one_v3_navbutton {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        min-height: 47px;
+        gap: 5px;
+        padding: 6px 5px;
+        font-size: 12px;
+        white-space: normal;
+    }
+    .one_dashboard.one_v3 .one_v3_caret { font-size: 10px; }
+    /* The mobile dropdown becomes a readable bottom sheet. */
+    .one_dashboard.one_v3 .one_v3_navdropdown {
+        position: fixed;
+        top: auto;
+        bottom: 12px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: none;
+        max-height: 65dvh;
+        padding: 10px;
+        border-radius: 18px;
+    }
+}
+@media (max-width: 390px) {
+    .one_dashboard.one_v3 .one_v3_topnav {
+        grid-template-columns: repeat(3, minmax(0,1fr));
+    }
+    .one_dashboard.one_v3 .one_v3_navbutton { font-size: 12px; }
+}
