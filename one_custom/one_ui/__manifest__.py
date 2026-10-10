@@ -1,6 +1,6 @@
 {
     "name": "ONE ERP Experience",
-    "version": "20.0.1.12.0",
+    "version": "20.0.1.13.0",
     "summary": "ONE ERP branded workspace, Saudi setup, subscriptions and professional finance reporting",
     "author": "ONE Business",
     "license": "LGPL-3",
@@ -16,6 +16,7 @@
         "data/approval_data.xml",
         "views/login_templates.xml",
         "views/actions.xml",
+        "views/one_partner_views.xml",
         "views/saudi_profile_views.xml",
         "views/subscription_views.xml",
         "views/finance_report_views.xml",
@@ -25,11 +26,13 @@
         "report/financial_reports.xml",
         "report/partner_reports.xml",
         "report/statement_reports.xml",
+        "report/one_invoice_national_address.xml",
         "views/menu_views.xml"
     ],
     "assets": {
         "web.assets_backend": [
             "one_ui/static/src/scss/one_erp.scss",
+            "one_ui/static/src/scss/one_accessible_workspace.scss",
             "one_ui/static/src/js/menu_branding.js",
             "one_ui/static/src/js/dashboard.js",
             "one_ui/static/src/js/title.js",
