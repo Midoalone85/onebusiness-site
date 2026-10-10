@@ -23,6 +23,7 @@ export class OneDashboard extends Component {
             showAllApps: false,
             openMenu: null,
             appQuery: "",
+            recentInvoices: [], recentInvoicesLoading: true, recentInvoicesError: false,
             category: "all",
             access: {account: false, admin: false, pos: false},
             sales: "…", purchases: "…", transfers: "…", invoices: "…",
@@ -94,7 +95,10 @@ export class OneDashboard extends Component {
         });
 
         // Never hold up the first paint while waiting for dashboard analytics.
-        onMounted(() => { void this.loadMetrics(); });
+        onMounted(() => {
+            void this.loadMetrics();
+            if (this.state.access.account) void this.loadRecentInvoices();
+        });
     }
 
     get isArabic() {
@@ -118,6 +122,48 @@ export class OneDashboard extends Component {
         );
     }
 
+
+    // Honest, real-time counts already retrieved through the user's record rules.
+    // Comparing record counts rather than mixing currencies avoids fake revenue.
+    get activityBars() {
+        const items = [
+            {id: "sales", ar: "البيع", en: "Sales", count: this.state.sales},
+            {id: "purchases", ar: "الشراء", en: "Purchases", count: this.state.purchases},
+            {id: "transfers", ar: "المخزون", en: "Transfers", count: this.state.transfers},
+        ];
+        if (this.state.access.account) {
+            items.push({id: "invoices", ar: "الفواتير", en: "Invoices", count: this.state.invoices});
+        }
+        const max = Math.max(1, ...items.map(item => typeof item.count === "number" ? item.count : 0));
+        return items.map(item => ({
+            ...item,
+            height: typeof item.count === "number" ? Math.max(5, Math.round(100 * item.count / max)) : 5,
+            countLabel: typeof item.count === "number"
+                ? item.count.toLocaleString(this.isArabic ? "ar-SA" : "en-US")
+                : item.count,
+        }));
+    }
+
+    paymentStatusLabel(status) {
+        const labels = {
+            paid: ["مدفوعة", "Paid"],
+            not_paid: ["غير مدفوعة", "Unpaid"],
+            partial: ["مدفوعة جزئيًا", "Partially paid"],
+            in_payment: ["قيد الدفع", "In payment"],
+            reversed: ["معكوسة", "Reversed"],
+            blocked: ["معلقة", "Blocked"],
+        };
+        const pair = labels[status] || ["غير محدد", "Unknown"];
+        return pair[this.isArabic ? 0 : 1];
+    }
+
+    invoiceAmount(invoice) {
+        const formatted = Number(invoice.amount_total || 0).toLocaleString(
+            this.isArabic ? "ar-SA" : "en-US",
+            {minimumFractionDigits: 2, maximumFractionDigits: 2}
+        );
+        return [formatted, invoice.currency_id?.[1] || ""].filter(Boolean).join(" ");
+    }
 
     get navGroups() {
         const permitted = new Map(this.availableApps.map(app => [app.id, app]));
@@ -227,6 +273,23 @@ export class OneDashboard extends Component {
                 this.state.zatcaReady = "—";
                 this.state.zatcaConnected = "—";
             }
+        }
+    }
+
+    // Read-only invoice list: never guess monetary values or status.
+    // All queries run under the current user's Odoo companies and ACLs.
+    async loadRecentInvoices() {
+        try {
+            this.state.recentInvoices = await this.orm.searchRead(
+                "account.move",
+                [["move_type", "=", "out_invoice"], ["state", "=", "posted"]],
+                ["name", "partner_id", "invoice_date", "amount_total", "payment_state", "currency_id"],
+                {limit: 5, order: "invoice_date desc, id desc"}
+            );
+        } catch {
+            this.state.recentInvoicesError = true;
+        } finally {
+            this.state.recentInvoicesLoading = false;
         }
     }
 
