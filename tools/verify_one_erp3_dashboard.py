@@ -35,7 +35,8 @@ def main() -> None:
     for filename in manifest["data"]:
         path = MODULE / filename
         require(path.is_file(), f"Missing declared module data file: {filename}")
-        ET.parse(path)
+        if path.suffix == ".xml":
+            ET.parse(path)
 
     for path in (MODULE / "static" / "src" / "xml").glob("*.xml"):
         ET.parse(path)
