@@ -1,0 +1,452 @@
+/* ONE ERP3 visual system: readable, focused, and restrained.
+   Isolated to the branded dashboard and unified partner form. */
+.one_dashboard.one_v3,
+.o_form_view:has(.one_partner_profile) {
+    --one-navy: #102f50;
+    --one-blue: #166ab9;
+    --one-ink: #172f46;
+    --one-muted: #405b74;
+    --one-line: #c5d6e5;
+    --one-canvas: #f3f7fb;
+    font-family: "IBM Plex Sans Arabic", "Cairo", "Tajawal", "Segoe UI", Tahoma, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--one-ink);
+    -webkit-font-smoothing: antialiased;
+}
+
+.one_dashboard.one_v3 {
+    background: var(--one-canvas);
+}
+
+.one_dashboard.one_v3 .one_v3_app_label {
+    font-size: 17px;
+    font-weight: 800;
+    color: #173a5b;
+}
+.one_dashboard.one_v3 .one_v3_stat_copy small,
+.one_dashboard.one_v3 .one_v3_app small,
+.one_dashboard.one_v3 .one_v3_section_header p,
+.one_dashboard.one_v3 .one_v3_panel_heading small,
+.one_dashboard.one_v3 .one_v3_pulse small {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--one-muted);
+}
+.one_dashboard.one_v3 .one_v3_eyebrow,
+.one_dashboard.one_v3 .one_v3_section_kicker {
+    font-size: 12px;
+    font-weight: 800;
+}
+.one_dashboard.one_v3 .one_v3_stat_copy strong {
+    font-size: clamp(24px, 2vw, 30px);
+    color: var(--one-navy);
+}
+.one_dashboard.one_v3 .one_v3_app,
+.one_dashboard.one_v3 .one_v3_stat,
+.one_dashboard.one_v3 .one_v3_main_section,
+.one_dashboard.one_v3 .one_v3_panel,
+.one_dashboard.one_v3 .one_v3_library {
+    border-color: var(--one-line);
+    background-color: #fff;
+}
+.one_dashboard.one_v3 button:focus-visible,
+.o_form_view:has(.one_partner_profile) button:focus-visible,
+.o_form_view:has(.one_partner_profile) :is(input, select, textarea, a):focus-visible {
+    outline: 3px solid #167bc1;
+    outline-offset: 3px;
+}
+
+/* Unified contact form. Controls remain native Odoo widgets, retaining
+   relational search, company-dependent account properties, and ACLs. */
+.o_form_view:has(.one_partner_profile) .one_partner_profile,
+.o_form_view:has(.one_partner_profile) .one_partner_address_panel,
+.o_form_view:has(.one_partner_profile) .one_partner_accounting_panel {
+    padding: 18px 19px;
+    background: #fff;
+    border: 1px solid var(--one-line);
+    border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(16, 47, 80, .045);
+}
+.o_form_view:has(.one_partner_profile) .o_form_label,
+.o_form_view:has(.one_partner_profile) label {
+    color: #27445f;
+    font-weight: 700;
+    font-size: 15px;
+}
+.o_form_view:has(.one_partner_profile) .o_input {
+    color: #172f46;
+    font-size: 16px;
+    min-height: 40px;
+    border-color: #aabed1;
+}
+.o_form_view:has(.one_partner_profile) .o_notebook_headers {
+    font-size: 15px;
+    font-weight: 700;
+}
+.o_form_view:has(.one_partner_profile) .alert-info {
+    border-color: #a7c5df;
+    color: #204763;
+    background: #ecf6ff;
+    font-size: 14px;
+    line-height: 1.7;
+}
+@media (max-width: 720px) {
+    .one_dashboard.one_v3 { font-size: 15px; }
+    .one_dashboard.one_v3 .one_v3_app_label { font-size: 15px; }
+    .one_dashboard.one_v3 .one_v3_app small,
+    .one_dashboard.one_v3 .one_v3_stat_copy small { font-size: 13px; }
+    .o_form_view:has(.one_partner_profile) .one_partner_profile,
+    .o_form_view:has(.one_partner_profile) .one_partner_address_panel,
+    .o_form_view:has(.one_partner_profile) .one_partner_accounting_panel {
+        padding: 12px;
+        border-radius: 12px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .one_dashboard.one_v3 *,
+    .o_form_view:has(.one_partner_profile) * {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+    }
+}
+
+
+/* Horizontal ONE ERP3 navigation: no persistent right or left sidebar.
+   CSS logical properties automatically mirror dropdown alignment for RTL/LTR. */
+.one_dashboard.one_v3 .one_v3_header {
+    display: block;
+    overflow: visible;
+    z-index: 35;
+    padding: 13px 18px 9px;
+    background: linear-gradient(105deg, #0b2b4b, #115087 87%);
+}
+.one_dashboard.one_v3 .one_v3_header_top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 49px;
+}
+.one_dashboard.one_v3 .one_v3_topnav {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    border-block-start: 1px solid rgba(255,255,255,.18);
+    margin-block-start: 11px;
+    padding-block-start: 9px;
+}
+.one_dashboard.one_v3 .one_v3_navitem { position: relative; min-width: 0; }
+.one_dashboard.one_v3 .one_v3_navbutton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    min-height: 42px;
+    padding: 9px 13px;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.5;
+    white-space: nowrap;
+    color: #eaf3fb;
+    cursor: pointer;
+}
+.one_dashboard.one_v3 .one_v3_navbutton:hover,
+.one_dashboard.one_v3 .one_v3_navbutton.active,
+.one_dashboard.one_v3 .one_v3_navbutton:focus-visible {
+    background: #27618e;
+    border-color: #6b9fc4;
+    color: #fff;
+}
+.one_dashboard.one_v3 .one_v3_navhome {
+    background: rgba(255,255,255,.12);
+    border-color: rgba(255,255,255,.16);
+}
+.one_dashboard.one_v3 .one_v3_caret { opacity: .9; font-size: 12px; }
+.one_dashboard.one_v3 .one_v3_navdropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    inset-inline-start: 0;
+    z-index: 50;
+    width: 324px;
+    max-width: calc(100vw - 44px);
+    max-height: min(65vh, 520px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 10px;
+    border-radius: 16px;
+    border: 1px solid #b9cbdd;
+    box-shadow: 0 16px 44px rgba(12,35,59,.23);
+    background: #fff;
+    color: #173a58;
+    text-align: start;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px 12px;
+    border-block-end: 1px solid #d8e3ee;
+    font-size: 15px;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_title i { color: #1768a6; }
+.one_dashboard.one_v3 .one_v3_dropdown_action {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    min-height: 60px;
+    padding: 9px 11px;
+    border: 1px solid transparent;
+    background: #fff;
+    border-radius: 10px;
+    text-align: start;
+    color: #1a3957;
+    cursor: pointer;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_action:hover,
+.one_dashboard.one_v3 .one_v3_dropdown_action:focus-visible {
+    background: #eef6fe;
+    border-color: #bad5ef;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: #e9f4ff;
+    color: #1266a5;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_copy {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_copy strong {
+    color: #152f49;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_copy small {
+    color: #48627c;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.one_dashboard.one_v3 .one_v3_dropdown_arrow {
+    color: #42769e;
+    font-size: 16px;
+}
+.one_dashboard.one_v3 .one_v3_nav_backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: transparent;
+}
+.one_dashboard.one_v3[dir="rtl"] .one_v3_navbutton,
+.one_dashboard.one_v3[dir="rtl"] .one_v3_dropdown_action { text-align: right; }
+.one_dashboard.one_v3[dir="ltr"] .one_v3_navbutton,
+.one_dashboard.one_v3[dir="ltr"] .one_v3_dropdown_action { text-align: left; }
+@media (max-width: 850px) {
+    .one_dashboard.one_v3 .one_v3_navbutton {
+        min-height: 41px;
+        padding: 8px 11px;
+        font-size: 13px;
+    }
+}
+@media (max-width: 720px) {
+    .one_dashboard.one_v3 .one_v3_header { padding: 11px 12px; }
+    .one_dashboard.one_v3 .one_v3_topnav {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 5px;
+    }
+    .one_dashboard.one_v3 .one_v3_navitem { min-width: 0; }
+    .one_dashboard.one_v3 .one_v3_navbutton {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        min-height: 47px;
+        gap: 5px;
+        padding: 6px 5px;
+        font-size: 12px;
+        white-space: normal;
+    }
+    .one_dashboard.one_v3 .one_v3_caret { font-size: 10px; }
+    /* The mobile dropdown becomes a readable bottom sheet. */
+    .one_dashboard.one_v3 .one_v3_navdropdown {
+        position: fixed;
+        top: auto;
+        bottom: 12px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: none;
+        max-height: 65dvh;
+        padding: 10px;
+        border-radius: 18px;
+    }
+}
+@media (max-width: 390px) {
+    .one_dashboard.one_v3 .one_v3_topnav {
+        grid-template-columns: repeat(3, minmax(0,1fr));
+    }
+    .one_dashboard.one_v3 .one_v3_navbutton { font-size: 12px; }
+}
+
+/* Keep the final dropdown inside the viewport in both layout directions. */
+.one_dashboard.one_v3 .one_v3_navitem:last-child .one_v3_navdropdown {
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+}
+@media (max-width: 720px) {
+    .one_dashboard.one_v3 .one_v3_navitem:last-child .one_v3_navdropdown {
+        inset-inline-start: 12px;
+        inset-inline-end: 12px;
+    }
+}
+
+/* ONE ERP3 operational overview, read-only and responsive. */
+.one_dashboard.one_v3 .one_v3_insights {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+    gap: 14px;
+    margin-block-start: 15px;
+    align-items: stretch;
+}
+.one_dashboard.one_v3 .one_v3_insights > .one_v3_panel { min-width: 0; }
+.one_dashboard.one_v3 .one_v3_panel_caption {
+    color: #48627c;
+    font-size: 13px;
+    margin: -4px 0 14px;
+}
+.one_dashboard.one_v3 .one_v3_activity_graph {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    min-height: 200px;
+    align-items: stretch;
+}
+.one_dashboard.one_v3 .one_v3_activity_column {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-width: 0;
+    gap: 7px;
+    align-items: center;
+    color: #173a58;
+    text-align: center;
+}
+.one_dashboard.one_v3 .one_v3_activity_value {
+    font-size: 16px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+.one_dashboard.one_v3 .one_v3_activity_track {
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    width: min(100%, 72px);
+    height: 127px;
+    padding: 0 11px;
+    border-radius: 13px 13px 5px 5px;
+    background: #ecf3fb;
+}
+.one_dashboard.one_v3 .one_v3_activity_fill {
+    width: 100%;
+    min-height: 0;
+    border-radius: 9px 9px 2px 2px;
+    background: linear-gradient(180deg, #2083d7 0%, #12568e 100%);
+    transition: height .2s ease;
+}
+.one_dashboard.one_v3 .one_v3_activity_column:nth-child(2) .one_v3_activity_fill { background: linear-gradient(180deg, #34bfa9, #158b86); }
+.one_dashboard.one_v3 .one_v3_activity_column:nth-child(3) .one_v3_activity_fill { background: linear-gradient(180deg, #f2b24c, #dc8b24); }
+.one_dashboard.one_v3 .one_v3_activity_column:nth-child(4) .one_v3_activity_fill { background: linear-gradient(180deg, #a783e7, #7856bb); }
+.one_dashboard.one_v3 .one_v3_activity_column small {
+    max-width: 100%;
+    color: #3d5974;
+    font-size: 13px;
+    font-weight: 750;
+    overflow-wrap: anywhere;
+}
+.one_dashboard.one_v3 .one_v3_invoice_heading .one_v3_more { margin-inline-start: auto; }
+.one_dashboard.one_v3 .one_v3_table_status {
+    min-height: 168px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #405b74;
+    font-size: 15px;
+    text-align: center;
+}
+.one_dashboard.one_v3 .one_v3_table_scroll {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    max-width: 100%;
+}
+.one_dashboard.one_v3 .one_v3_invoices_table {
+    width: 100%;
+    min-width: 510px;
+    border-collapse: collapse;
+    text-align: start;
+    font-variant-numeric: tabular-nums;
+}
+.one_dashboard.one_v3 .one_v3_invoices_table th,
+.one_dashboard.one_v3 .one_v3_invoices_table td {
+    padding: 12px 9px;
+    border-block-end: 1px solid #e3edf5;
+    font-size: 13px;
+    vertical-align: middle;
+    text-align: start;
+}
+.one_dashboard.one_v3 .one_v3_invoices_table th {
+    font-weight: 850;
+    color: #395b78;
+    background: #eef5fc;
+}
+.one_dashboard.one_v3 .one_v3_invoices_table td { color: #1d3853; }
+.one_dashboard.one_v3 .one_v3_invoice_ref { font-weight: 850; color: #1768a6 !important; }
+.one_dashboard.one_v3 .one_v3_invoice_amount {
+    font-weight: 850;
+    white-space: nowrap;
+    direction: ltr;
+    unicode-bidi: isolate;
+}
+.one_dashboard.one_v3 .one_v3_payment_tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #cbd8e5;
+    background: #f2f6fa;
+    color: #385570;
+    border-radius: 99px;
+    padding: 4px 9px;
+    font-size: 12px;
+    font-weight: 750;
+    white-space: nowrap;
+}
+.one_dashboard.one_v3 .one_v3_payment_paid { background: #e6f7ef; color: #146c49; border-color: #b6e1cc; }
+.one_dashboard.one_v3 .one_v3_payment_not_paid { background: #fff1e6; color: #995116; border-color: #f4d2b0; }
+.one_dashboard.one_v3 .one_v3_payment_partial,
+.one_dashboard.one_v3 .one_v3_payment_in_payment { background: #e9f1ff; color: #245aa0; border-color: #c4d8f4; }
+@media (max-width: 1050px) {
+    .one_dashboard.one_v3 .one_v3_insights { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+    .one_dashboard.one_v3 .one_v3_insights { gap: 10px; margin-block-start: 12px; }
+    .one_dashboard.one_v3 .one_v3_activity_graph { min-height: 155px; gap: 6px; }
+    .one_dashboard.one_v3 .one_v3_activity_track { height: 95px; padding-inline: 8px; }
+    .one_dashboard.one_v3 .one_v3_activity_column small { font-size: 12px; }
+    .one_dashboard.one_v3 .one_v3_invoice_heading { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .one_dashboard.one_v3 .one_v3_activity_fill { transition: none; }
+}

@@ -1,0 +1,31 @@
+name: ONE ERP3 dashboard checks
+
+on:
+  push:
+    branches:
+      - feature/one-erp-v3-mobile-dashboard-20261010
+    paths:
+      - 'one_custom/one_ui/**'
+      - 'tools/verify_one_erp3_dashboard.py'
+      - 'tools/verify_one_erp3_contacts.py'
+      - '.github/workflows/one-erp3-dashboard-check.yml'
+  pull_request:
+    branches:
+      - one-erp-live
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard-assets:
+    name: Static dashboard verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify ONE ERP3 action definitions and responsive styles
+        run: python3 tools/verify_one_erp3_dashboard.py
+      - name: Verify unified contacts and Saudi national address
+        run: python3 tools/verify_one_erp3_contacts.py
+      - name: Parse dashboard JavaScript module
+        run: node --input-type=module --check < one_custom/one_ui/static/src/js/dashboard.js
