@@ -61,7 +61,7 @@ def main():
     inherits = report.findall(".//template")
     check(any(t.attrib.get("inherit_id") == "account.report_invoice_document"
               for t in inherits), "Printed invoice must extend standard invoice report")
-    check(report.findall(".//xpath[@expr=\"//div[@id='informations']\"]"),
+    check(any(node.get("expr") == "//div[@id=\'informations\']" for node in report.findall(".//xpath")),
           "National address must be inserted after the invoice details")
 
     manifest = ast.literal_eval((ROOT / "__manifest__.py").read_text(encoding="utf-8"))
