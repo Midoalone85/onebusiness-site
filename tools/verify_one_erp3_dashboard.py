@@ -56,8 +56,16 @@ def main() -> None:
     require("switchLanguage('en_US')" in dashboard_xml, "English language control missing")
     require("this.showAllApps()" in dashboard_xml, "All applications navigation missing")
     require("filteredApps" in dashboard_xml, "Searchable app library missing")
-    require("onMounted(() => { void this.loadMetrics(); })" in dashboard_js,
-            "Metrics should not block initial dashboard paint")
+    require(re.search(r"onMounted\\(\\(\\)\\s*=>\\s*\\{[^}]*void this\\.loadMetrics\\(\\)", dashboard_js, re.S) is not None,
+            "Metrics should start after first paint, not block initial dashboard")
+    require("void this.loadRecentInvoices()" in dashboard_js,
+            "Recent invoices should load after first paint")
+    require("get activityBars()" in dashboard_js and "activityBars" in dashboard_xml,
+            "Read-only operations chart missing")
+    require("state.access.account" in dashboard_xml and "state.recentInvoices" in dashboard_xml,
+            "Permission-gated invoice table missing")
+    require("one_v3_insights" in (MODULE / "static/src/scss/one_accessible_workspace.scss").read_text(encoding="utf-8"),
+            "Responsive dashboard insights styles missing")
     require("overflow-y: auto" in dashboard_css, "Scrollable dashboard viewport missing")
     # Navigation must live above the workspace, mirror direction and keep
     # submenu actions filtered by the existing OWL permission checks.
