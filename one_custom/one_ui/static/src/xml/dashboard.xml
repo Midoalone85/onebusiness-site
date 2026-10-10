@@ -1,198 +1,172 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-<t t-name="one_ui.OneDashboard">
-    <div class="one_dashboard">
-        <section class="one_hero">
-            <div class="one_hero_copy">
-                <div class="one_brandline">
-                    <span class="one_brandmark">ONE</span>
-                    <span class="one_eyebrow">ONE BUSINESS · BUSINESS OS</span>
-                </div>
-                <h1>ONE ERP</h1>
-                <p>Business operations, finance and Saudi compliance in one connected workspace.</p>
-            </div>
-            <div class="one_hero_actions">
-                <div class="one_language_switch" role="group" aria-label="Language">
-                    <button type="button"
-                            t-att-class="state.lang === 'ar_001' ? 'active' : ''"
-                            t-on-click="() => this.switchLanguage('ar_001')">العربية</button>
-                    <button type="button"
-                            t-att-class="state.lang === 'en_US' ? 'active' : ''"
-                            t-on-click="() => this.switchLanguage('en_US')">English</button>
-                </div>
-                <div class="one_hero_status">
-                    <span class="one_live_dot"/>
-                    <span>Workspace Ready</span>
-                </div>
-            </div>
-        </section>
-
-        <section class="one_kpi_grid">
-            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_sales')">
-                <span class="one_kpi_icon"><i class="fa fa-line-chart"/></span>
-                <span class="one_kpi_meta"><small>Sales</small><strong t-esc="state.sales"/></span>
-            </button>
-            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_purchase')">
-                <span class="one_kpi_icon"><i class="fa fa-shopping-cart"/></span>
-                <span class="one_kpi_meta"><small>Purchases</small><strong t-esc="state.purchases"/></span>
-            </button>
-            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_inventory')">
-                <span class="one_kpi_icon"><i class="fa fa-cubes"/></span>
-                <span class="one_kpi_meta"><small>Transfers</small><strong t-esc="state.transfers"/></span>
-            </button>
-            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_accounting')">
-                <span class="one_kpi_icon"><i class="fa fa-calculator"/></span>
-                <span class="one_kpi_meta"><small>Invoices</small><strong t-esc="state.invoices"/></span>
-            </button>
-            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_crm')">
-                <span class="one_kpi_icon"><i class="fa fa-bullseye"/></span>
-                <span class="one_kpi_meta"><small>CRM</small><strong t-esc="state.opportunities"/></span>
-            </button>
-            <button class="one_kpi" t-on-click="() => this.open('one_ui.action_one_hr')">
-                <span class="one_kpi_icon"><i class="fa fa-users"/></span>
-                <span class="one_kpi_meta"><small>People</small><strong t-esc="state.employees"/></span>
-            </button>
-        </section>
-
-        <div class="one_dashboard_layout">
-            <section class="one_workspace">
-                <div class="one_section_title">
-                    <div>
-                        <span>CORE WORKSPACE</span>
-                        <h2>Run the business</h2>
+    <t t-name="one_ui.OneDashboard">
+        <div class="one_dashboard one_v3" t-att-dir="state.lang.startsWith('ar') ? 'rtl' : 'ltr'">
+            <header class="one_v3_header">
+                <div class="one_v3_identity">
+                    <span class="one_v3_logo" aria-hidden="true">ONE</span>
+                    <div class="one_v3_identity_copy">
+                        <strong>ONE ERP</strong>
+                        <small t-esc="state.lang.startsWith('ar') ? 'منصة إدارة الأعمال' : 'Business management'"/>
                     </div>
                 </div>
-
-                <div class="one_group">
-                    <div class="one_group_label">Operations</div>
-                    <div class="one_cards">
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_contacts')">
-                            <i class="fa fa-address-book"/><b>Contacts</b><small>Customers and suppliers</small>
-                        </button>
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_sales')">
-                            <i class="fa fa-line-chart"/><b>Sales</b><small>Quotations and orders</small>
-                        </button>
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_purchase')">
-                            <i class="fa fa-shopping-cart"/><b>Purchases</b><small>Purchase orders and suppliers</small>
-                        </button>
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_inventory')">
-                            <i class="fa fa-cubes"/><b>Inventory</b><small>Stock and transfers</small>
-                        </button>
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_mrp')">
-                            <i class="fa fa-industry"/><b>Manufacturing</b><small>Production and manufacturing orders</small>
-                        </button>
+                <div class="one_v3_header_actions">
+                    <div class="one_v3_language" role="group" aria-label="Language">
+                        <button type="button" t-att-class="state.lang.startsWith('ar') ? 'active' : ''" t-on-click="() => this.switchLanguage('ar_001')">ع</button>
+                        <button type="button" t-att-class="!state.lang.startsWith('ar') ? 'active' : ''" t-on-click="() => this.switchLanguage('en_US')">EN</button>
                     </div>
+                    <button type="button" class="one_v3_all_link" t-on-click="() => state.showAllApps ? this.showHome() : this.showAllApps()">
+                        <i t-att-class="state.showAllApps ? 'fa fa-home' : 'fa fa-th-large'"/>
+                        <span t-esc="state.lang.startsWith('ar') ? (state.showAllApps ? 'الرئيسية' : 'التطبيقات') : (state.showAllApps ? 'Home' : 'Apps')"/>
+                    </button>
                 </div>
+            </header>
 
-                <div class="one_group">
-                    <div class="one_group_label">Finance &amp; Growth</div>
-                    <div class="one_cards">
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_accounting')">
-                            <i class="fa fa-calculator"/><b>Accounting</b><small>Invoices, journals and finance</small>
-                        </button>
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_crm')">
-                            <i class="fa fa-bullseye"/><b>CRM</b><small>Pipeline and opportunities</small>
-                        </button>
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_hr')">
-                            <i class="fa fa-users"/><b>People</b><small>Employees and human resources</small>
-                        </button>
-                        <button t-if="state.posAccess" class="one_card" t-on-click="() => this.open('one_ui.action_one_pos')">
-                            <i class="fa fa-credit-card"/><b>Point of Sale</b><small>Registers and checkout</small>
-                        </button>
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_ask')">
-                            <i class="fa fa-comments-o"/><b>Ask ONE</b><small>Instant answers without external API</small>
-                        </button>
-                        <button class="one_card" t-on-click="() => this.open('one_ui.action_one_approvals')">
-                            <i class="fa fa-check-square-o"/><b>Approval Center</b><small>Requests, decisions and controls</small>
-                        </button>
+            <t t-if="!state.showAllApps">
+                <section class="one_v3_welcome">
+                    <div class="one_v3_welcome_text">
+                        <span class="one_v3_eyebrow" t-esc="state.lang.startsWith('ar') ? 'لوحة القيادة' : 'COMMAND CENTER'"/>
+                        <h1 t-esc="state.lang.startsWith('ar') ? 'أعمالك في مكان واحد' : 'Your business, connected'"/>
+                        <p t-esc="state.lang.startsWith('ar') ? 'تابع أداء شركتك وادخل إلى تطبيقاتك بسرعة.' : 'Track performance and access your daily tools in one place.'"/>
                     </div>
-                </div>
-            </section>
+                    <span class="one_v3_welcome_emblem" aria-hidden="true"><i class="fa fa-line-chart"/></span>
+                </section>
 
-            <aside class="one_side">
-                <section class="one_panel one_panel_pulse">
-                    <div class="one_panel_head">
-                        <span class="one_panel_icon"><i class="fa fa-heartbeat"/></span>
-                        <div><small>ONE PULSE</small><h3>Financial snapshot</h3></div>
-                    </div>
-                    <div class="one_pulse_grid">
-                        <div><span>Receivables</span><strong t-esc="state.pulseReceivables"/></div>
-                        <div><span>Overdue</span><strong t-esc="state.pulseOverdue"/></div>
-                        <div><span>Payables</span><strong t-esc="state.pulsePayables"/></div>
-                        <div><span>Month revenue</span><strong t-esc="state.pulseMonthRevenue"/></div>
-                        <div class="one_pulse_wide"><span>Month profit / loss</span><strong t-esc="state.pulseMonthProfit"/></div>
-                    </div>
-                    <button class="one_secondary_btn" t-on-click="() => this.open('one_ui.action_one_financial_reports')">
-                        Open financial reports
+                <section class="one_v3_stat_grid" aria-label="Quick indicators">
+                    <button type="button" class="one_v3_stat" t-on-click="() => this.open('one_ui.action_one_sales')">
+                        <span class="one_v3_stat_icon"><i class="fa fa-line-chart"/></span>
+                        <span class="one_v3_stat_copy"><small t-esc="state.lang.startsWith('ar') ? 'المبيعات' : 'Sales'"/><strong t-esc="state.sales"/></span>
+                    </button>
+                    <button type="button" class="one_v3_stat" t-on-click="() => this.open('one_ui.action_one_purchase')">
+                        <span class="one_v3_stat_icon"><i class="fa fa-shopping-cart"/></span>
+                        <span class="one_v3_stat_copy"><small t-esc="state.lang.startsWith('ar') ? 'المشتريات' : 'Purchases'"/><strong t-esc="state.purchases"/></span>
+                    </button>
+                    <button type="button" class="one_v3_stat" t-on-click="() => this.open('one_ui.action_one_inventory')">
+                        <span class="one_v3_stat_icon"><i class="fa fa-cubes"/></span>
+                        <span class="one_v3_stat_copy"><small t-esc="state.lang.startsWith('ar') ? 'التحويلات' : 'Transfers'"/><strong t-esc="state.transfers"/></span>
+                    </button>
+                    <button t-if="state.access.account" type="button" class="one_v3_stat" t-on-click="() => this.open('one_ui.action_one_accounting')">
+                        <span class="one_v3_stat_icon"><i class="fa fa-file-text-o"/></span>
+                        <span class="one_v3_stat_copy"><small t-esc="state.lang.startsWith('ar') ? 'الفواتير' : 'Invoices'"/><strong t-esc="state.invoices"/></span>
+                    </button>
+                    <button t-else="" type="button" class="one_v3_stat" t-on-click="() => this.open('one_ui.action_one_crm')">
+                        <span class="one_v3_stat_icon"><i class="fa fa-bullseye"/></span>
+                        <span class="one_v3_stat_copy"><small t-esc="state.lang.startsWith('ar') ? 'الفرص' : 'Leads'"/><strong t-esc="state.opportunities"/></span>
                     </button>
                 </section>
 
-                <section class="one_panel one_panel_attention">
-                    <div class="one_panel_head">
-                        <span class="one_panel_icon"><i class="fa fa-bolt"/></span>
-                        <div><small>NEEDS ATTENTION</small><h3>Today's command center</h3></div>
+                <section class="one_v3_main_section">
+                    <div class="one_v3_section_header">
+                        <div>
+                            <span class="one_v3_section_kicker" t-esc="state.lang.startsWith('ar') ? 'مساحة العمل' : 'YOUR WORKSPACE'"/>
+                            <h2 t-esc="state.lang.startsWith('ar') ? 'التطبيقات الرئيسية' : 'Your main apps'"/>
+                        </div>
+                        <button type="button" class="one_v3_more" t-on-click="() => this.showAllApps()">
+                            <span t-esc="state.lang.startsWith('ar') ? 'كل التطبيقات' : 'All apps'"/>
+                            <i class="fa fa-angle-left" t-if="state.lang.startsWith('ar')"/>
+                            <i class="fa fa-angle-right" t-else=""/>
+                        </button>
                     </div>
-                    <div class="one_attention_list">
-                        <button t-on-click="() => this.open('one_ui.action_one_accounting')">
-                            <span>Overdue receivables</span><strong t-esc="state.overdueInvoices"/>
-                        </button>
-                        <button t-on-click="() => this.open('one_ui.action_one_accounting')">
-                            <span>Unpaid customer invoices</span><strong t-esc="state.unpaidInvoices"/>
-                        </button>
-                        <button t-on-click="() => this.open('one_ui.action_one_sales')">
-                            <span>Open quotations</span><strong t-esc="state.draftQuotations"/>
-                        </button>
-                        <button t-on-click="() => this.open('one_ui.action_one_purchase')">
-                            <span>Purchases pending</span><strong t-esc="state.pendingPurchases"/>
-                        </button>
-                        <button t-on-click="() => this.open('one_ui.action_one_inventory')">
-                            <span>Receipts pending</span><strong t-esc="state.pendingReceipts"/>
-                        </button>
-                        <button t-on-click="() => this.open('one_ui.action_one_approvals')">
-                            <span>Approvals pending</span><strong t-esc="state.pendingApprovals"/>
-                        </button>
+                    <div class="one_v3_app_grid">
+                        <t t-foreach="homeApps" t-as="app" t-key="app.id">
+                            <button type="button" class="one_v3_app" t-on-click="() => this.open(app.action)">
+                                <span class="one_v3_app_icon"><i t-att-class="app.icon"/></span>
+                                <span class="one_v3_app_label" t-esc="state.lang.startsWith('ar') ? app.ar : app.en"/>
+                                <small t-esc="state.lang.startsWith('ar') ? app.descriptionAr : app.descriptionEn"/>
+                            </button>
+                        </t>
                     </div>
                 </section>
 
-                <section class="one_panel one_panel_compliance">
-                    <div class="one_panel_head">
-                        <span class="one_panel_icon"><i class="fa fa-shield"/></span>
-                        <div><small>SAUDI COMPLIANCE</small><h3>ZATCA &amp; National Address</h3></div>
-                    </div>
-                    <div class="one_panel_metrics">
-                        <div><span>Profiles</span><strong t-esc="state.saudiProfiles"/></div>
-                        <div><span>Ready for onboarding</span><strong t-esc="state.zatcaReady"/></div>
-                        <div><span>ZATCA connected</span><strong t-esc="state.zatcaConnected"/></div>
-                    </div>
-                    <button class="one_primary_btn" t-on-click="() => this.open('one_ui.action_one_saudi_profile')">
-                        Open compliance center
-                    </button>
-                </section>
+                <div class="one_v3_panels">
+                    <section t-if="state.access.account" class="one_v3_panel">
+                        <div class="one_v3_panel_heading">
+                            <span class="one_v3_panel_icon"><i class="fa fa-pie-chart"/></span>
+                            <div>
+                                <small t-esc="state.lang.startsWith('ar') ? 'نظرة مالية' : 'FINANCIAL PULSE'"/>
+                                <h3 t-esc="state.lang.startsWith('ar') ? 'المؤشرات المالية' : 'Financial snapshot'"/>
+                            </div>
+                        </div>
+                        <div class="one_v3_pulse">
+                            <div><small t-esc="state.lang.startsWith('ar') ? 'الذمم المدينة' : 'Receivables'"/><strong t-esc="state.pulseReceivables"/></div>
+                            <div><small t-esc="state.lang.startsWith('ar') ? 'الذمم الدائنة' : 'Payables'"/><strong t-esc="state.pulsePayables"/></div>
+                            <div><small t-esc="state.lang.startsWith('ar') ? 'إيرادات الشهر' : 'Monthly revenue'"/><strong t-esc="state.pulseMonthRevenue"/></div>
+                            <div><small t-esc="state.lang.startsWith('ar') ? 'ربح / خسارة الشهر' : 'Month profit / loss'"/><strong t-esc="state.pulseMonthProfit"/></div>
+                        </div>
+                        <button class="one_v3_panel_action" type="button" t-on-click="() => this.open('one_ui.action_one_financial_reports')">
+                            <span t-esc="state.lang.startsWith('ar') ? 'عرض التقارير المالية' : 'View financial reports'"/>
+                        </button>
+                    </section>
 
-                <section class="one_panel">
-                    <div class="one_panel_head">
-                        <span class="one_panel_icon"><i class="fa fa-key"/></span>
-                        <div><small>SUBSCRIPTIONS</small><h3>Plans &amp; customer access</h3></div>
-                    </div>
-                    <div class="one_panel_metrics">
-                        <div><span>Total</span><strong t-esc="state.subscriptions"/></div>
-                        <div><span>Active</span><strong t-esc="state.activeSubscriptions"/></div>
-                    </div>
-                    <button class="one_secondary_btn" t-on-click="() => this.open('one_ui.action_one_subscriptions')">
-                        Manage subscriptions
-                    </button>
-                </section>
+                    <section class="one_v3_panel">
+                        <div class="one_v3_panel_heading">
+                            <span class="one_v3_panel_icon"><i class="fa fa-bell-o"/></span>
+                            <div>
+                                <small t-esc="state.lang.startsWith('ar') ? 'المتابعة اليومية' : 'TODAY'"/>
+                                <h3 t-esc="state.lang.startsWith('ar') ? 'تحتاج متابعتك' : 'Needs attention'"/>
+                            </div>
+                        </div>
+                        <div class="one_v3_attention">
+                            <button type="button" t-on-click="() => this.open('one_ui.action_one_sales')">
+                                <span t-esc="state.lang.startsWith('ar') ? 'عروض الأسعار المفتوحة' : 'Open quotations'"/>
+                                <strong t-esc="state.draftQuotations"/>
+                            </button>
+                            <button type="button" t-on-click="() => this.open('one_ui.action_one_purchase')">
+                                <span t-esc="state.lang.startsWith('ar') ? 'طلبات الشراء المعلقة' : 'Pending purchases'"/>
+                                <strong t-esc="state.pendingPurchases"/>
+                            </button>
+                            <button type="button" t-on-click="() => this.open('one_ui.action_one_inventory')">
+                                <span t-esc="state.lang.startsWith('ar') ? 'الاستلامات المعلقة' : 'Pending receipts'"/>
+                                <strong t-esc="state.pendingReceipts"/>
+                            </button>
+                            <button type="button" t-on-click="() => this.open('one_ui.action_one_approvals')">
+                                <span t-esc="state.lang.startsWith('ar') ? 'الموافقات المعلقة' : 'Pending approvals'"/>
+                                <strong t-esc="state.pendingApprovals"/>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </t>
 
-                <section class="one_quick">
-                    <button t-on-click="() => this.open('one_ui.action_one_settings')">
-                        <i class="fa fa-cog"/><span><b>System Settings</b><small>Permissions and preferences</small></span>
-                    </button>
-                    <button t-on-click="() => this.open('one_ui.action_one_contacts')">
-                        <i class="fa fa-plus-circle"/><span><b>Contacts Center</b><small>Customers and suppliers</small></span>
-                    </button>
+            <t t-else="">
+                <section class="one_v3_library">
+                    <div class="one_v3_section_header one_v3_library_head">
+                        <div>
+                            <span class="one_v3_section_kicker" t-esc="state.lang.startsWith('ar') ? 'ONE ERP' : 'ONE ERP'"/>
+                            <h1 t-esc="state.lang.startsWith('ar') ? 'كل التطبيقات' : 'All applications'"/>
+                            <p t-esc="state.lang.startsWith('ar') ? 'ابحث عن التطبيق المناسب وافتحه مباشرة.' : 'Find a module and get to work.'"/>
+                        </div>
+                        <button class="one_v3_more" type="button" t-on-click="() => this.showHome()">
+                            <i class="fa fa-home"/>
+                            <span t-esc="state.lang.startsWith('ar') ? 'الرئيسية' : 'Home'"/>
+                        </button>
+                    </div>
+                    <div class="one_v3_search">
+                        <i class="fa fa-search"/>
+                        <input type="search" autocomplete="off" t-att-placeholder="state.lang.startsWith('ar') ? 'ابحث باسم التطبيق...' : 'Search applications...'" t-att-value="state.appQuery" t-on-input="(ev) => state.appQuery = ev.target.value"/>
+                    </div>
+                    <div class="one_v3_filters" role="group" aria-label="App categories">
+                        <button type="button" t-att-class="state.category === 'all' ? 'active' : ''" t-on-click="() => this.setCategory('all')" t-esc="state.lang.startsWith('ar') ? 'الكل' : 'All'"/>
+                        <button type="button" t-att-class="state.category === 'finance' ? 'active' : ''" t-on-click="() => this.setCategory('finance')" t-esc="state.lang.startsWith('ar') ? 'المالية' : 'Finance'"/>
+                        <button type="button" t-att-class="state.category === 'operations' ? 'active' : ''" t-on-click="() => this.setCategory('operations')" t-esc="state.lang.startsWith('ar') ? 'العمليات' : 'Operations'"/>
+                        <button type="button" t-att-class="state.category === 'people' ? 'active' : ''" t-on-click="() => this.setCategory('people')" t-esc="state.lang.startsWith('ar') ? 'الموظفون' : 'People'"/>
+                        <button type="button" t-att-class="state.category === 'system' ? 'active' : ''" t-on-click="() => this.setCategory('system')" t-esc="state.lang.startsWith('ar') ? 'النظام' : 'System'"/>
+                    </div>
+                    <div class="one_v3_app_grid one_v3_library_grid">
+                        <t t-foreach="filteredApps" t-as="app" t-key="app.id">
+                            <button type="button" class="one_v3_app" t-on-click="() => this.open(app.action)">
+                                <span class="one_v3_app_icon"><i t-att-class="app.icon"/></span>
+                                <span class="one_v3_app_label" t-esc="state.lang.startsWith('ar') ? app.ar : app.en"/>
+                                <small t-esc="state.lang.startsWith('ar') ? app.descriptionAr : app.descriptionEn"/>
+                            </button>
+                        </t>
+                    </div>
+                    <div t-if="!filteredApps.length" class="one_v3_empty">
+                        <i class="fa fa-search"/>
+                        <span t-esc="state.lang.startsWith('ar') ? 'لا توجد تطبيقات تطابق البحث' : 'No matching applications'"/>
+                    </div>
                 </section>
-            </aside>
+            </t>
         </div>
-    </div>
-</t>
+    </t>
 </templates>
