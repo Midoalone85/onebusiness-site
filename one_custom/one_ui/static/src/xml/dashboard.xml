@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="one_ui.OneDashboard">
-        <div class="one_dashboard one_v3" t-att-dir="state.lang.startsWith('ar') ? 'rtl' : 'ltr'">
+        <div class="one_dashboard one_v3" t-att-dir="state.lang.startsWith('ar') ? 'rtl' : 'ltr'" t-on-keydown="(ev) => this.onNavigationKeydown(ev)">
             <header class="one_v3_header">
+                <div class="one_v3_header_top">
                 <div class="one_v3_identity">
                     <span class="one_v3_logo" aria-hidden="true">ONE</span>
                     <div class="one_v3_identity_copy">
@@ -19,8 +20,52 @@
                         <i t-att-class="state.showAllApps ? 'fa fa-home' : 'fa fa-th-large'"/>
                         <span t-esc="state.lang.startsWith('ar') ? (state.showAllApps ? 'الرئيسية' : 'التطبيقات') : (state.showAllApps ? 'Home' : 'Apps')"/>
                     </button>
+
                 </div>
+                <nav class="one_v3_topnav" t-att-aria-label="isArabic ? 'قوائم التطبيق الرئيسية' : 'Main application menus'">
+                    <button type="button" class="one_v3_navbutton one_v3_navhome"
+                            t-att-class="!state.showAllApps ? 'active' : ''"
+                            t-on-click="() => this.showHome()">
+                        <i class="fa fa-home" aria-hidden="true"/>
+                        <span t-esc="isArabic ? 'الرئيسية' : 'Home'"/>
+                    </button>
+                    <t t-foreach="navGroups" t-as="group" t-key="group.id">
+                        <div class="one_v3_navitem">
+                            <button type="button" class="one_v3_navbutton"
+                                    t-att-class="state.openMenu === group.id ? 'active' : ''"
+                                    t-att-aria-expanded="state.openMenu === group.id ? 'true' : 'false'"
+                                    t-att-aria-controls="'one_v3_menu_' + group.id"
+                                    aria-haspopup="true"
+                                    t-on-click="() => this.toggleMenu(group.id)">
+                                <i t-att-class="group.icon" aria-hidden="true"/>
+                                <span t-esc="isArabic ? group.ar : group.en"/>
+                                <i class="fa fa-angle-down one_v3_caret" aria-hidden="true"/>
+                            </button>
+                            <div t-if="state.openMenu === group.id" class="one_v3_navdropdown"
+                                 t-att-id="'one_v3_menu_' + group.id" role="group"
+                                 t-att-aria-label="isArabic ? group.ar : group.en">
+                                <div class="one_v3_dropdown_title">
+                                    <i t-att-class="group.icon" aria-hidden="true"/>
+                                    <strong t-esc="isArabic ? group.ar : group.en"/>
+                                </div>
+                                <button t-foreach="group.apps" t-as="app" t-key="app.id"
+                                        type="button" class="one_v3_dropdown_action"
+                                        t-on-click="() => this.openFromMenu(app.action)">
+                                    <span class="one_v3_dropdown_icon"><i t-att-class="app.icon" aria-hidden="true"/></span>
+                                    <span class="one_v3_dropdown_copy">
+                                        <strong t-esc="isArabic ? app.ar : app.en"/>
+                                        <small t-esc="isArabic ? app.descriptionAr : app.descriptionEn"/>
+                                    </span>
+                                    <i t-att-class="isArabic ? 'fa fa-angle-left' : 'fa fa-angle-right'"
+                                       class="one_v3_dropdown_arrow" aria-hidden="true"/>
+                                </button>
+                            </div>
+                        </div>
+                    </t>
+                </nav>
             </header>
+            <div t-if="state.openMenu" class="one_v3_nav_backdrop"
+                 aria-hidden="true" t-on-click="() => this.closeMenu()"/>
 
             <t t-if="!state.showAllApps">
                 <section class="one_v3_welcome">
