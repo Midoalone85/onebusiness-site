@@ -170,6 +170,72 @@
                         </div>
                     </section>
                 </div>
+
+                <div class="one_v3_insights">
+                    <section class="one_v3_panel one_v3_activity_panel" aria-label="Operational record counts">
+                        <div class="one_v3_panel_heading">
+                            <span class="one_v3_panel_icon"><i class="fa fa-bar-chart" aria-hidden="true"/></span>
+                            <div>
+                                <small t-esc="isArabic ? 'مؤشرات حقيقية' : 'LIVE RECORD COUNTS'"/>
+                                <h3 t-esc="isArabic ? 'نظرة على العمليات' : 'Operations overview'"/>
+                            </div>
+                        </div>
+                        <p class="one_v3_panel_caption"
+                           t-esc="isArabic ? 'مقارنة عدد السجلات المتاحة لحسابك، وليست قيمًا مالية.' : 'Record counts visible to your account, not monetary totals.'"/>
+                        <div class="one_v3_activity_graph">
+                            <t t-foreach="activityBars" t-as="bar" t-key="bar.id">
+                                <div class="one_v3_activity_column">
+                                    <strong class="one_v3_activity_value" t-esc="bar.countLabel"/>
+                                    <div class="one_v3_activity_track">
+                                        <div class="one_v3_activity_fill"
+                                             t-att-style="'height: ' + bar.height + '%'"
+                                             t-att-title="(isArabic ? bar.ar : bar.en) + ': ' + bar.countLabel"/>
+                                    </div>
+                                    <small t-esc="isArabic ? bar.ar : bar.en"/>
+                                </div>
+                            </t>
+                        </div>
+                    </section>
+
+                    <section t-if="state.access.account" class="one_v3_panel one_v3_invoices_panel" aria-label="Recent customer invoices">
+                        <div class="one_v3_panel_heading one_v3_invoice_heading">
+                            <span class="one_v3_panel_icon"><i class="fa fa-file-text-o" aria-hidden="true"/></span>
+                            <div>
+                                <small t-esc="isArabic ? 'من سجلات شركتك' : 'FROM YOUR COMPANY RECORDS'"/>
+                                <h3 t-esc="isArabic ? 'آخر الفواتير الصادرة' : 'Recent customer invoices'"/>
+                            </div>
+                            <button class="one_v3_more" type="button" t-on-click="() => this.open('one_ui.action_one_customer_invoices')"
+                                    t-esc="isArabic ? 'عرض الكل' : 'View all'"/>
+                        </div>
+                        <div t-if="state.recentInvoicesLoading" class="one_v3_table_status"
+                             t-esc="isArabic ? 'جارٍ تحميل الفواتير...' : 'Loading invoices...'"/>
+                        <div t-elif="state.recentInvoicesError" class="one_v3_table_status"
+                             t-esc="isArabic ? 'تعذر جلب الفواتير بهذه الصلاحيات.' : 'Invoices are unavailable with your current access.'"/>
+                        <div t-elif="!state.recentInvoices.length" class="one_v3_table_status"
+                             t-esc="isArabic ? 'لا توجد فواتير صادرة حتى الآن.' : 'No posted customer invoices found.'"/>
+                        <div t-else="" class="one_v3_table_scroll">
+                            <table class="one_v3_invoices_table">
+                                <thead><tr>
+                                    <th t-esc="isArabic ? 'الفاتورة' : 'Invoice'"/>
+                                    <th t-esc="isArabic ? 'العميل' : 'Customer'"/>
+                                    <th t-esc="isArabic ? 'التاريخ' : 'Date'"/>
+                                    <th t-esc="isArabic ? 'المبلغ' : 'Amount'"/>
+                                    <th t-esc="isArabic ? 'الحالة' : 'Status'"/>
+                                </tr></thead>
+                                <tbody>
+                                    <tr t-foreach="state.recentInvoices" t-as="invoice" t-key="invoice.id">
+                                        <td class="one_v3_invoice_ref" t-esc="invoice.name"/>
+                                        <td t-esc="invoice.partner_id ? invoice.partner_id[1] : '—'"/>
+                                        <td t-esc="invoice.invoice_date || '—'"/>
+                                        <td class="one_v3_invoice_amount" t-esc="this.invoiceAmount(invoice)"/>
+                                        <td><span t-att-class="'one_v3_payment_tag one_v3_payment_' + invoice.payment_state"
+                                                  t-esc="this.paymentStatusLabel(invoice.payment_state)"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
             </t>
 
             <t t-else="">
