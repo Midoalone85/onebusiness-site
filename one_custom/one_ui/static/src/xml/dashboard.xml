@@ -56,8 +56,7 @@
                                         <strong t-esc="isArabic ? app.ar : app.en"/>
                                         <small t-esc="isArabic ? app.descriptionAr : app.descriptionEn"/>
                                     </span>
-                                    <i t-att-class="isArabic ? 'fa fa-angle-left' : 'fa fa-angle-right'"
-                                       class="one_v3_dropdown_arrow" aria-hidden="true"/>
+                                    <i t-att-class="(isArabic ? 'fa fa-angle-left' : 'fa fa-angle-right') + ' one_v3_dropdown_arrow'" aria-hidden="true"/>
                                 </button>
                             </div>
                         </div>
