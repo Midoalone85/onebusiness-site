@@ -1,0 +1,113 @@
+/* ONE ERP3 visual system: readable, focused, and restrained.
+   Isolated to the branded dashboard and unified partner form. */
+.one_dashboard.one_v3,
+.o_form_view:has(.one_partner_profile) {
+    --one-navy: #102f50;
+    --one-blue: #166ab9;
+    --one-ink: #172f46;
+    --one-muted: #405b74;
+    --one-line: #c5d6e5;
+    --one-canvas: #f3f7fb;
+    font-family: "IBM Plex Sans Arabic", "Cairo", "Tajawal", "Segoe UI", Tahoma, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--one-ink);
+    -webkit-font-smoothing: antialiased;
+}
+
+.one_dashboard.one_v3 {
+    background: var(--one-canvas);
+}
+
+.one_dashboard.one_v3 .one_v3_app_label {
+    font-size: 17px;
+    font-weight: 800;
+    color: #173a5b;
+}
+.one_dashboard.one_v3 .one_v3_stat_copy small,
+.one_dashboard.one_v3 .one_v3_app small,
+.one_dashboard.one_v3 .one_v3_section_header p,
+.one_dashboard.one_v3 .one_v3_panel_heading small,
+.one_dashboard.one_v3 .one_v3_pulse small {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--one-muted);
+}
+.one_dashboard.one_v3 .one_v3_eyebrow,
+.one_dashboard.one_v3 .one_v3_section_kicker {
+    font-size: 12px;
+    font-weight: 800;
+}
+.one_dashboard.one_v3 .one_v3_stat_copy strong {
+    font-size: clamp(24px, 2vw, 30px);
+    color: var(--one-navy);
+}
+.one_dashboard.one_v3 .one_v3_app,
+.one_dashboard.one_v3 .one_v3_stat,
+.one_dashboard.one_v3 .one_v3_main_section,
+.one_dashboard.one_v3 .one_v3_panel,
+.one_dashboard.one_v3 .one_v3_library {
+    border-color: var(--one-line);
+    background-color: #fff;
+}
+.one_dashboard.one_v3 button:focus-visible,
+.o_form_view:has(.one_partner_profile) button:focus-visible,
+.o_form_view:has(.one_partner_profile) :is(input, select, textarea, a):focus-visible {
+    outline: 3px solid #167bc1;
+    outline-offset: 3px;
+}
+
+/* Unified contact form. Controls remain native Odoo widgets, retaining
+   relational search, company-dependent account properties, and ACLs. */
+.o_form_view:has(.one_partner_profile) .one_partner_profile,
+.o_form_view:has(.one_partner_profile) .one_partner_address_panel,
+.o_form_view:has(.one_partner_profile) .one_partner_accounting_panel {
+    padding: 18px 19px;
+    background: #fff;
+    border: 1px solid var(--one-line);
+    border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(16, 47, 80, .045);
+}
+.o_form_view:has(.one_partner_profile) .o_form_label,
+.o_form_view:has(.one_partner_profile) label {
+    color: #27445f;
+    font-weight: 700;
+    font-size: 15px;
+}
+.o_form_view:has(.one_partner_profile) .o_input {
+    color: #172f46;
+    font-size: 16px;
+    min-height: 40px;
+    border-color: #aabed1;
+}
+.o_form_view:has(.one_partner_profile) .o_notebook_headers {
+    font-size: 15px;
+    font-weight: 700;
+}
+.o_form_view:has(.one_partner_profile) .alert-info {
+    border-color: #a7c5df;
+    color: #204763;
+    background: #ecf6ff;
+    font-size: 14px;
+    line-height: 1.7;
+}
+@media (max-width: 720px) {
+    .one_dashboard.one_v3 { font-size: 15px; }
+    .one_dashboard.one_v3 .one_v3_app_label { font-size: 15px; }
+    .one_dashboard.one_v3 .one_v3_app small,
+    .one_dashboard.one_v3 .one_v3_stat_copy small { font-size: 13px; }
+    .o_form_view:has(.one_partner_profile) .one_partner_profile,
+    .o_form_view:has(.one_partner_profile) .one_partner_address_panel,
+    .o_form_view:has(.one_partner_profile) .one_partner_accounting_panel {
+        padding: 12px;
+        border-radius: 12px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .one_dashboard.one_v3 *,
+    .o_form_view:has(.one_partner_profile) * {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+    }
+}
