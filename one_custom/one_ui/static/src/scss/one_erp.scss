@@ -804,3 +804,73 @@ a[href*="odoo.com"],
     .one_v3_app { transition: none; }
     .one_v3_app:hover { transform: none; }
 }
+
+/* ONE ERP3 usability hotfix: viewport scrolling and readable dashboard */
+/*
+ * Odoo's action area can be flex-constrained and clip a child using only
+ * height: 100%. Give this one dashboard its own bounded, scrollable viewport.
+ * This deliberately leaves other Odoo actions and the login screen untouched.
+ */
+.one_dashboard.one_v3 {
+    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
+    min-height: 320px;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #8ba8c5 #edf3f9;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+}
+.one_dashboard.one_v3::-webkit-scrollbar { width: 10px; }
+.one_dashboard.one_v3::-webkit-scrollbar-track { background: #edf3f9; }
+.one_dashboard.one_v3::-webkit-scrollbar-thumb {
+    border: 2px solid #edf3f9;
+    background: #8ba8c5;
+    border-radius: 12px;
+}
+.one_v3_header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    border: 1px solid rgba(255,255,255,.16);
+}
+.one_v3_stat,
+.one_v3_app {
+    box-shadow: 0 2px 5px rgba(14, 51, 87, .025);
+}
+.one_v3_stat_copy small,
+.one_v3_app small,
+.one_v3_section_header p,
+.one_v3_panel_heading small,
+.one_v3_pulse small,
+.one_v3_attention button {
+    font-size: 12px;
+}
+.one_v3_eyebrow,
+.one_v3_section_kicker {
+    font-size: 11px;
+}
+.one_v3_app_label { font-size: 15px; }
+.one_v3_stat_copy strong { font-size: 24px; }
+.one_v3_app_icon {
+    box-shadow: inset 0 0 0 1px rgba(20, 100, 165, .05);
+}
+.one_v3_main_section,
+.one_v3_library,
+.one_v3_panel {
+    box-shadow: 0 2px 11px rgba(14, 51, 87, .025);
+}
+@media (max-width: 720px) {
+    .one_dashboard.one_v3 {
+        height: calc(100vh - 56px);
+        height: calc(100dvh - 56px);
+        padding: 12px;
+    }
+    .one_v3_header { top: 0; }
+    .one_v3_app_label { font-size: 14px; }
+    .one_v3_stat_copy small,
+    .one_v3_app small { font-size: 11.5px; }
+}
