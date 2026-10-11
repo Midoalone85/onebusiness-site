@@ -169,3 +169,36 @@
   .one_dashboard.one_v3 .one_ai_header_button,
   .one_dashboard.one_v3 .one_ai_question { transition: none; }
 }
+
+/* Optional administrator-only Gemini demo. No external CSS or icon downloads. */
+.one_dashboard.one_v3 .one_ai_gemini {
+  margin: 4px 20px 15px; padding: 15px 16px;
+  border: 1px solid #c9dce9; border-radius: 13px;
+  background: #f6fafd; color: #23435d;
+}
+.one_dashboard.one_v3 .one_ai_gemini_title {
+  display: flex; align-items: center; gap: 8px; font-size: 14px; color: #15679a;
+}
+.one_dashboard.one_v3 .one_ai_gemini p {
+  margin: 7px 0 11px; font-size: 12px; line-height: 1.7; color: #425e70;
+}
+.one_dashboard.one_v3 .one_ai_gemini_consent {
+  display: flex; gap: 9px; align-items: flex-start;
+  font-size: 12px; font-weight: 650; line-height: 1.55; cursor: pointer;
+}
+.one_dashboard.one_v3 .one_ai_gemini_consent input {
+  flex: none; width: 17px; height: 17px; accent-color: #1778af; margin-top: 1px;
+}
+.one_dashboard.one_v3 .one_ai_gemini_button {
+  border: 0; border-radius: 10px; color: #fff;
+  background: linear-gradient(125deg,#176ba6,#088a9e);
+  margin-top: 12px; min-height: 40px; padding: 9px 13px;
+  font-size: 13px; font-weight: 800; display: inline-flex; gap: 9px;
+  align-items: center; cursor: pointer;
+}
+.one_dashboard.one_v3 .one_ai_gemini_button:focus-visible { outline: 3px solid #52b8df; outline-offset: 2px; }
+.one_dashboard.one_v3 .one_ai_gemini_button:disabled { opacity: .5; cursor: not-allowed; }
+@media(max-width:720px) {
+  .one_dashboard.one_v3 .one_ai_gemini { margin: 5px 12px 12px; padding: 12px; }
+  .one_dashboard.one_v3 .one_ai_gemini_button { width: 100%; justify-content: center; }
+}
