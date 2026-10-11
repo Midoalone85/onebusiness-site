@@ -154,6 +154,137 @@ class OneAskWizard(models.TransientModel):
         )
         return (rows[0][0] if rows else 0.0) or 0.0
 
+
+    def _aged_receivables(self):
+        """Positive outstanding customer balances by days past due, company currency.
+
+        Credit balances are excluded deliberately. These buckets are not a
+        net accounts-receivable balance or a prediction of collection.
+        """
+        today = fields.Date.context_today(self)
+        base = [
+            ("company_id", "=", self.env.company.id),
+            ("move_id.state", "=", "posted"),
+            ("account_id.account_type", "=", "asset_receivable"),
+            ("date_maturity", "<", today),
+            ("amount_residual", ">", 0),
+        ]
+        boundaries = (
+            ("1_30", [("date_maturity", ">=", today - timedelta(days=30))]),
+            (
+                "31_60",
+                [
+                    ("date_maturity", ">=", today - timedelta(days=60)),
+                    ("date_maturity", "<", today - timedelta(days=30)),
+                ],
+            ),
+            (
+                "61_90",
+                [
+                    ("date_maturity", ">=", today - timedelta(days=90)),
+                    ("date_maturity", "<", today - timedelta(days=60)),
+                ],
+            ),
+            ("over_90", [("date_maturity", "<", today - timedelta(days=90))]),
+        )
+        result = {}
+        lines = self.env["account.move.line"]
+        for key, extra_domain in boundaries:
+            grouped = lines._read_group(
+                base + extra_domain, aggregates=["amount_residual:sum"]
+            )
+            result[key] = (grouped[0][0] if grouped else 0.0) or 0.0
+        return result
+
+    def _aging_answer(self, is_ar):
+        buckets = self._aged_receivables()
+        total = sum(buckets.values())
+        if is_ar:
+            return (
+                f"أعمار أرصدة العملاء المتأخرة حتى {fields.Date.context_today(self)}: "
+                f"1-30 يوم: {self._money(buckets['1_30'])}، "
+                f"31-60 يوم: {self._money(buckets['31_60'])}، "
+                f"61-90 يوم: {self._money(buckets['61_90'])}، "
+                f"أكثر من 90 يوم: {self._money(buckets['over_90'])}. "
+                f"الإجمالي: {self._money(total)}. "
+                "المصدر: أرصدة العملاء المدينة الموجبة للقيود المرحلة في الشركة الحالية. "
+                "الأرصدة الدائنة مستبعدة، لذلك قد يختلف عن صافي الذمم."
+            )
+        return (
+            f"Overdue customer receivables as of {fields.Date.context_today(self)}: "
+            f"1-30 days: {self._money(buckets['1_30'])}; "
+            f"31-60 days: {self._money(buckets['31_60'])}; "
+            f"61-90 days: {self._money(buckets['61_90'])}; "
+            f"over 90 days: {self._money(buckets['over_90'])}. "
+            f"Total: {self._money(total)}. "
+            "Source: positive open receivable items on posted entries in the current company. "
+            "Customer credit balances are excluded; this may differ from net receivables."
+        )
+
+    def _advice_answer(self, is_ar):
+        today = fields.Date.context_today(self)
+        beginning = today.replace(day=1)
+        metrics = self._period_metrics(beginning, today)
+        buckets = self._aged_receivables()
+        overdue = sum(buckets.values())
+
+        if is_ar:
+            observations = [
+                f"ملخص حتى {today}: صافي ربح/خسارة الفترة {self._money(metrics['profit'])}، "
+                f"والمبالغ المتأخرة لدى العملاء {self._money(overdue)}."
+            ]
+            if buckets["over_90"] > 0:
+                observations.append(
+                    f"أولوية التحصيل: راجع مع فريق الائتمان أرصدة أكثر من 90 يوم "
+                    f"({self._money(buckets['over_90'])}) قبل منح تسهيلات إضافية."
+                )
+            elif overdue > 0:
+                observations.append(
+                    "أولوية التحصيل: تابع المستحقات الأقدم أولاً وحدد مواعيد تواصل مع العملاء."
+                )
+            if metrics["profit"] < 0:
+                observations.append(
+                    "مراجعة الأداء: هناك خسارة دفترية في الفترة. افحص حسابات التكاليف "
+                    "والمصروفات والقيود قبل أي قرار تخفيض إنفاق."
+                )
+            if overdue <= 0 and metrics["profit"] >= 0:
+                observations.append(
+                    "لا تظهر من هذين المؤشرين وحدهما إشارة تحذير واضحة؛ "
+                    "لا يمكن الحكم على صحة الشركة دون مراجعة السيولة والمخزون والتدفقات النقدية."
+                )
+            observations.append(
+                "هذه ملاحظات مبنية على القيود المرحلة للشركة الحالية وليست تنبؤات."
+            )
+            return "\n".join(observations)
+
+        observations = [
+            f"Snapshot through {today}: posted net profit/loss "
+            f"{self._money(metrics['profit'])}; overdue customer balances {self._money(overdue)}."
+        ]
+        if buckets["over_90"] > 0:
+            observations.append(
+                f"Collection priority: review receivables aged over 90 days "
+                f"({self._money(buckets['over_90'])}) with your credit team before extending terms."
+            )
+        elif overdue > 0:
+            observations.append(
+                "Collection priority: follow up on the oldest unpaid balances and set contact dates."
+            )
+        if metrics["profit"] < 0:
+            observations.append(
+                "Performance review: the current period shows a book loss. "
+                "Inspect posted costs, expenses and adjustments before changing budgets."
+            )
+        if overdue <= 0 and metrics["profit"] >= 0:
+            observations.append(
+                "These two signals alone show no obvious alert, but do not establish "
+                "overall financial health without cash flow and inventory review."
+            )
+        observations.append(
+            "These observations use posted entries for the current company, not forecasts."
+        )
+        return "\n".join(observations)
+
     def _pending_stock(self, picking_type_code):
         return self.env["stock.picking"].search_count([
             ("company_id", "=", self.env.company.id),
@@ -164,6 +295,18 @@ class OneAskWizard(models.TransientModel):
     def _answer_question(self, question):
         q = (question or "").strip().lower()
         is_ar = self._is_arabic(q)
+
+        if self._contains_any(
+            q, ("نصيحة", "تنصحني", "تنصح", "توصيات", "اقترح", "recommend", "advise", "financial insights")
+        ):
+            self._require_finance_access()
+            return self._advice_answer(is_ar)
+
+        if self._contains_any(
+            q, ("أعمار الديون", "اعمار الديون", "عمر الديون", "أعمار الذمم", "aging", "ageing", "overdue breakdown")
+        ):
+            self._require_finance_access()
+            return self._aging_answer(is_ar)
 
         if self._contains_any(q, ("زاتكا", "zatca", "فاتورة إلكتر", "فاتوره الكتر", "e-invoice", "einvoice")):
             summary = self.env["one.saudi.profile"].one_get_readiness_summary()
@@ -302,12 +445,12 @@ class OneAskWizard(models.TransientModel):
             )
 
         return (
-            "أقدر حاليًا أجاوب عن: إيرادات وربح الشهر، الفواتير غير المحصلة، السيولة، ذمم العملاء والمتأخرين، "
+            "أقدر حاليًا أجاوب عن: إيرادات وربح الشهر والمقارنة بالشهر السابق، أعمار الذمم، توصيات التحصيل، الفواتير غير المحصلة، السيولة، ذمم العملاء والمتأخرين، "
             "الموردين، الاستلامات والتسليمات، الموظفين، فرص CRM، الموافقات، المشتريات، عروض الأسعار، "
             "وحالة ZATCA. مثال: «كام الفواتير غير المحصلة؟»"
             if is_ar
             else
-            "I can currently answer about monthly revenue/profit, unpaid invoices, cash/bank balance, receivables, "
+            "I can currently answer about monthly revenue/profit, period comparisons, ageing, collection insights, unpaid invoices, cash/bank balance, receivables, "
             "overdue customers, payables, receipts, deliveries, employees, CRM opportunities, approvals, "
             "purchases, quotations, and ZATCA status. Example: “How much is still unpaid?”"
         )
