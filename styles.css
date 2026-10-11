@@ -96,3 +96,7 @@ body.menu-open{overflow:hidden}.mobile-toggle[aria-expanded="true"]{background:r
 .brandmark{font-size:11px;letter-spacing:-.7px;background:linear-gradient(130deg,#1766ef,#0db9c7)}
 .hero .btn.primary,.cta-top{background:linear-gradient(120deg,#1963e9,#0a9dbf)}
 .hero .btn.primary:hover,.cta-top:hover{box-shadow:0 15px 36px rgba(14,116,222,.3)}
+
+/* Comfortable bilingual language button on small screens */
+.header-actions [data-lang-switch]{display:inline-flex!important;align-items:center;justify-content:center;min-width:44px;min-height:40px;padding:0 11px;margin-inline:4px!important;border-radius:10px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);color:#fff!important;font-size:13px!important;position:relative;z-index:8;white-space:nowrap}
+@media(max-width:620px){.header-actions{gap:4px!important}.header-actions .cta-top{display:none!important}.header-actions [data-lang-switch]{min-width:46px;min-height:42px}}
