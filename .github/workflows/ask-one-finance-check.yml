@@ -1,0 +1,28 @@
+name: Ask ONE Finance Checks
+
+on:
+  push:
+    paths:
+      - "one_custom/one_ui/models/ask_one.py"
+      - "tools/verify_ask_one_finance.py"
+      - ".github/workflows/ask-one-finance-check.yml"
+  pull_request:
+    paths:
+      - "one_custom/one_ui/models/ask_one.py"
+      - "tools/verify_ask_one_finance.py"
+      - ".github/workflows/ask-one-finance-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  offline-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate Ask ONE financial logic
+        run: python tools/verify_ask_one_finance.py
