@@ -11,15 +11,15 @@
                     </div>
 
                     <div class="alert alert-info" role="alert">
-                        Ask about revenue, profit, unpaid invoices, liquidity, receivables, payables, inventory movements, employees, CRM, approvals, purchases, quotations or ZATCA.
+                        اسأل عن إيرادات وأرباح الشهر، وقارنها بالشهر السابق، أو استعلم عن الفواتير غير المحصلة والمخزون والعملاء. النتائج المالية من القيود المرحلة وحسب صلاحياتك فقط. Ask about posted revenue, profit, comparisons, unpaid invoices, stock and customers.
                     </div>
 
                     <group>
                         <field name="question"
-                               placeholder="Example: How much is unpaid, or who are the top overdue customers?"/>
+                               placeholder="مثال: قارن إيرادات الشهر بالشهر السابق | Example: compare monthly revenue"/>
                     </group>
 
-                    <group string="Answer" invisible="not answer">
+                    <group string="الإجابة | Answer" invisible="not answer">
                         <field name="answer" readonly="1" nolabel="1"/>
                     </group>
                 </sheet>
