@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError
@@ -27,6 +28,93 @@ class OneAskWizard(models.TransientModel):
 
     def _money(self, amount):
         return format_amount(self.env, amount, self.env.company.currency_id)
+
+    def _require_finance_access(self):
+        # Prevent company-wide financial summaries leaking to non-accounting users.
+        # Both the UI and underlying ORM access rules must authorize the request.
+        if not (
+            self.env.user.has_group("account.group_account_user")
+            or self.env.user.has_group("base.group_system")
+        ):
+            raise AccessError(_("Accounting access is required for this answer."))
+
+    def _ledger_total(self, account_types, date_from, date_to):
+        rows = self.env["account.move.line"]._read_group(
+            [
+                ("company_id", "=", self.env.company.id),
+                ("move_id.state", "=", "posted"),
+                ("date", ">=", date_from),
+                ("date", "<=", date_to),
+                ("account_id.account_type", "in", account_types),
+            ],
+            aggregates=["balance:sum"],
+        )
+        return (rows[0][0] if rows else 0.0) or 0.0
+
+    def _period_metrics(self, date_from, date_to):
+        income_types = ("income", "income_other")
+        expense_types = (
+            "expense", "expense_other", "expense_direct_cost",
+            "expense_depreciation",
+        )
+        revenue = -self._ledger_total(income_types, date_from, date_to)
+        net_profit = -self._ledger_total(
+            income_types + expense_types, date_from, date_to
+        )
+        return {"revenue": revenue, "profit": net_profit}
+
+    def _financial_period_answer(self, question, metric, is_ar):
+        today = fields.Date.context_today(self)
+        this_start = today.replace(day=1)
+        prior_end = this_start - timedelta(days=1)
+        prior_start = prior_end.replace(day=1)
+        compare = self._contains_any(
+            question, ("قارن", "مقارن", "مقارنة", "مقارنه", "الفرق", "compare", "comparison", "versus", " vs ")
+        )
+        previous = self._contains_any(
+            question,
+            ("الشهر اللي فات", "الشهر الماضي", "الشهر السابق", "last month", "previous month"),
+        )
+        title_ar = "صافي الربح/الخسارة" if metric == "profit" else "الإيرادات المحاسبية"
+        title_en = "Net profit/loss" if metric == "profit" else "Posted accounting revenue"
+        label = title_ar if is_ar else title_en
+
+        if compare:
+            # A month-to-date comparison against the same numbered days last month,
+            # rather than comparing a partial month against a full month.
+            prior_comparable_end = prior_end.replace(day=min(today.day, prior_end.day))
+            current = self._period_metrics(this_start, today)[metric]
+            earlier = self._period_metrics(prior_start, prior_comparable_end)[metric]
+            delta = current - earlier
+            change = (
+                f"{delta / abs(earlier) * 100:+.1f}%"
+                if earlier else ("غير متاحة" if is_ar else "n/a")
+            )
+            if is_ar:
+                return (
+                    f"{label} من {this_start} إلى {today}: {self._money(current)}. "
+                    f"الفترة المقارنة من {prior_start} إلى {prior_comparable_end}: "
+                    f"{self._money(earlier)}. الفرق: {self._money(delta)} ({change}). "
+                    "المصدر: القيود المحاسبية المرحلة للشركة الحالية فقط."
+                )
+            return (
+                f"{label} from {this_start} to {today}: {self._money(current)}. "
+                f"Comparable prior period {prior_start} to {prior_comparable_end}: "
+                f"{self._money(earlier)}. Difference: {self._money(delta)} ({change}). "
+                "Source: posted journal entries in the current company."
+            )
+
+        date_from, date_to = (prior_start, prior_end) if previous else (this_start, today)
+        value = self._period_metrics(date_from, date_to)[metric]
+        if is_ar:
+            return (
+                f"{label} من {date_from} إلى {date_to}: {self._money(value)}. "
+                "المصدر: القيود المحاسبية المرحلة للشركة الحالية فقط."
+            )
+        return (
+            f"{label} from {date_from} to {date_to}: {self._money(value)}. "
+            "Source: posted journal entries in the current company."
+        )
 
     def _overdue_customers(self):
         today = fields.Date.context_today(self)
@@ -76,7 +164,6 @@ class OneAskWizard(models.TransientModel):
     def _answer_question(self, question):
         q = (question or "").strip().lower()
         is_ar = self._is_arabic(q)
-        pulse = self.env.company.one_get_pulse()
 
         if self._contains_any(q, ("زاتكا", "zatca", "فاتورة إلكتر", "فاتوره الكتر", "e-invoice", "einvoice")):
             summary = self.env["one.saudi.profile"].one_get_readiness_summary()
@@ -93,6 +180,7 @@ class OneAskWizard(models.TransientModel):
         invoice_terms = ("فاتور", "invoice")
         unpaid_terms = ("غير محصل", "غير مدفوع", "متبقي", "متبقى", "unpaid", "outstanding")
         if self._contains_any(q, invoice_terms) and self._contains_any(q, unpaid_terms):
+            self._require_finance_access()
             count, amount = self._unpaid_customer_invoices()
             return (
                 f"الفواتير غير المحصلة: {count} فاتورة، بإجمالي متبقٍ {self._money(amount)}."
@@ -101,6 +189,7 @@ class OneAskWizard(models.TransientModel):
             )
 
         if self._contains_any(q, ("سيول", "نقد", "بنك", "بنوك", "cash", "bank balance", "liquidity")):
+            self._require_finance_access()
             amount = self._cash_bank_balance()
             return (
                 f"رصيد حسابات النقد والبنوك المسجل محاسبيًا: {self._money(amount)}."
@@ -148,20 +237,15 @@ class OneAskWizard(models.TransientModel):
             )
 
         if self._contains_any(q, ("ربح", "خسار", "profit", "loss")):
-            return (
-                f"ربح / خسارة الشهر الحالي: {pulse['month_profit']}."
-                if is_ar
-                else f"Current month profit / loss: {pulse['month_profit']}."
-            )
+            self._require_finance_access()
+            return self._financial_period_answer(q, "profit", is_ar)
 
-        if self._contains_any(q, ("إيراد", "ايراد", "مبيعات الشهر", "revenue", "month sales", "sales this month")):
-            return (
-                f"إيرادات الشهر الحالي: {pulse['month_revenue']}."
-                if is_ar
-                else f"Current month revenue: {pulse['month_revenue']}."
-            )
+        if self._contains_any(q, ("إيراد", "ايراد", "مبيعات", "المبيعات", "revenue", "sales", "income")):
+            self._require_finance_access()
+            return self._financial_period_answer(q, "revenue", is_ar)
 
         if self._contains_any(q, ("عملا", "تحصيل", "متأخر", "receivable", "customer", "collection", "overdue")):
+            self._require_finance_access()
             if self._contains_any(q, ("مين", "من ", "who", "top", "أكبر", "اكبر")):
                 rows = self._overdue_customers()
                 if not rows:
@@ -171,6 +255,7 @@ class OneAskWizard(models.TransientModel):
                     return f"أعلى العملاء المتأخرين: {details}."
                 details = "; ".join(f"{partner.name}: {self._money(amount)}" for partner, amount in rows)
                 return f"Top overdue customers: {details}."
+            pulse = self.env.company.one_get_pulse()
             return (
                 f"إجمالي ذمم العملاء: {pulse['receivables']}، والمتأخر منها: {pulse['overdue']}."
                 if is_ar
@@ -178,6 +263,8 @@ class OneAskWizard(models.TransientModel):
             )
 
         if self._contains_any(q, ("مورد", "دائن", "payable", "supplier", "vendor")):
+            self._require_finance_access()
+            pulse = self.env.company.one_get_pulse()
             return (
                 f"إجمالي ذمم الموردين الحالية: {pulse['payables']}."
                 if is_ar
