@@ -21,3 +21,7 @@
 /* Bilingual English layouts */
 html[dir="ltr"] body{direction:ltr;font-family:Segoe UI,Inter,Arial,sans-serif}
 .language-option{display:inline-flex;border:1px solid #c7dcf3;background:#fff;color:#145fe9!important;border-radius:9px;padding:7px 12px;font-weight:900}
+
+/* One-tap language change on English mobile headers */
+.mobile-lang-button{display:none}
+@media(max-width:950px){.mobile-lang-button{display:inline-flex;justify-content:center;align-items:center;min-height:42px;min-width:44px;border-radius:10px;border:1px solid #c7dcf3;background:#fff;color:#1463d8;font-weight:900;margin-inline-start:auto}}
