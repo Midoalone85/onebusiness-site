@@ -509,6 +509,32 @@ class OneAskWizard(models.TransientModel):
             "purchases, quotations, and ZATCA status. Example: “How much is still unpaid?”"
         )
 
+    @api.model
+    def one_answer(self, question):
+        """Read-only assistant RPC used by the ONE Intelligence dashboard.
+
+        The method intentionally shares the existing deterministic financial
+        questions and their server-side security checks. No API, model calls,
+        elevated privileges, or accounting writes occur here.
+        """
+        if not self.env.user.has_group("base.group_user"):
+            raise AccessError(_("An internal user account is required."))
+        if not isinstance(question, str):
+            return _("Enter a question to continue.")
+        prompt = question.strip()
+        if not prompt:
+            return _("Enter a question to continue.")
+        if len(prompt) > 250:
+            return _("Please limit the question to 250 characters.")
+        try:
+            return self._answer_question(prompt)
+        except AccessError:
+            return (
+                "ليس لديك صلاحية لعرض البيانات المطلوبة."
+                if self._is_arabic(prompt)
+                else "You do not have permission to view the requested data."
+            )
+
     def action_ask(self):
         self.ensure_one()
         try:
