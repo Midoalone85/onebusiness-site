@@ -286,5 +286,60 @@ require("ليس إثباتًا" in bridge, "Accounting bridge presented as causa
 
 print("PASS: Dashboard RPC ACL, aged receivable buckets and grounded advice")
 
+
+# ONE Intelligence must stay local and non-destructive, with a working action.
+import xml.etree.ElementTree as ET
+
+workspace = SOURCE.parent.parent / "static/src/xml/intelligence_workspace.xml"
+root = ET.parse(workspace).getroot()
+require(any(node.get("t-name") == "one_ui.OneIntelligence" for node in root.iter()), "Intelligence QWeb template missing")
+manifest_text = (SOURCE.parent.parent / "__manifest__.py").read_text(encoding="utf-8")
+require("one_ui/static/src/xml/intelligence_workspace.xml" in manifest_text, "Missing assistant template asset")
+require("one_ui/static/src/scss/one_intelligence.scss" in manifest_text, "Missing assistant stylesheet")
+dash_xml = (workspace.parent / "dashboard.xml").read_text(encoding="utf-8")
+dash_js = (workspace.parent.parent / "js/dashboard.js").read_text(encoding="utf-8")
+require('t-call="one_ui.OneIntelligence"' in dash_xml, "Dashboard is not linked to assistant")
+require("async askOne(" in dash_js and "this.orm.call(" in dash_js, "Assistant lacks live ORM wiring")
+require("showIntelligence()" in dash_js, "Assistant navigation action missing")
+require("fetch(" not in dash_js, "Assistant must not use third-party browser fetch")
+require("one_answer" in source and "has_group(\"base.group_user\")" in source, "Backend read-only assistant access check missing")
+
+rpc = isolated_method(
+    "one_answer",
+    {"api": SimpleNamespace(model=lambda fn: fn), "AccessError": NoAccess, "_": lambda msg: msg},
+)
+
+
+class RpcFake:
+    def __init__(self, internal, error=False):
+        self.env = SimpleNamespace(user=TestUser(internal))
+        self.seen = []
+        self.error = error
+
+    def _answer_question(self, prompt):
+        self.seen.append(prompt)
+        if self.error:
+            raise NoAccess()
+        return "Posted ledger response"
+
+    def _is_arabic(self, value):
+        return "ربح" in value
+
+
+public = RpcFake(False)
+try:
+    rpc(public, "مبيعات الشهر")
+    raise AssertionError("Public user reached assistant endpoint")
+except NoAccess:
+    pass
+require(not public.seen, "Public user triggered a business data query")
+member = RpcFake(True)
+require(rpc(member, "مبيعات الشهر") == "Posted ledger response", "Authenticated RPC broken")
+require(member.seen == ["مبيعات الشهر"], "RPC failed to use original question")
+require("250" in rpc(member, "x" * 251), "RPC length bound missing")
+require(rpc(RpcFake(True, True), "ربح الشهر") == "ليس لديك صلاحية لعرض البيانات المطلوبة.", "Denied ledger query leaked an error")
+
+print("PASS: ONE Intelligence QWeb, zero-API routing and read-only RPC")
+
 print("PASS: Ask ONE finance authorization and MTD comparison unit checks")
 print("NOTE: Live Odoo ORM, access rules and Oracle deployment still require integration tests.")
