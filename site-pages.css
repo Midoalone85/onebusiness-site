@@ -11,3 +11,6 @@
 @media(max-width:950px){.nav{display:none}.mobile-nav{display:block}.hero-grid{grid-template-columns:1fr}.hero-aside{max-width:700px}.card-grid,.cards-four{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:620px){.head-inner{min-height:69px}.wordmark{font-size:18px}.mark{width:39px;height:39px;font-size:14px}.hero{padding:38px 0}.hero h1{font-size:36px}.lead{font-size:15px}.action-row .btn{width:100%}.section{padding:43px 0}.card-grid,.cards-four,.timeline,.simple,.project-form{grid-template-columns:1fr}.cta{display:block;padding:27px}.cta h2{font-size:27px}.cta .btn{width:100%;margin-top:20px}.card,.list-card{padding:21px}.project-form{padding:16px}.foot-in{display:grid}.mobile-links{max-height:70vh;overflow:auto}.span2{grid-column:auto}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+
+/* ONE Business mobile navigation legibility */
+@media(max-width:620px){.mobile-nav summary{white-space:nowrap;font-size:12px;padding:10px 11px}.wordmark{font-size:15px;gap:8px}.wordmark small{white-space:nowrap;letter-spacing:.3px;font-size:8px}.head-inner{gap:6px}}
