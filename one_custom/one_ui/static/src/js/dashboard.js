@@ -126,6 +126,7 @@ export class OneDashboard extends Component {
         ];
         if (this.state.access.account) {
             prompts.unshift(
+                {ar: "أخبار الشركة", en: "Business snapshot", questionAr: "إيه أخبار الشركة؟", questionEn: "How is my business?"},
                 {ar: "مقارنة الإيرادات", en: "Compare revenue", questionAr: "قارن إيرادات الشهر بالشهر السابق", questionEn: "Compare revenue this month versus last month"},
                 {ar: "أعمار الديون", en: "Receivables aging", questionAr: "أعمار الديون", questionEn: "Receivables aging"},
                 {ar: "توصيات مالية", en: "Finance recommendations", questionAr: "تنصحني بإيه؟", questionEn: "Recommend financial actions"},
