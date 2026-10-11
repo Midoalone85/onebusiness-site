@@ -4,11 +4,19 @@ on:
   push:
     paths:
       - "one_custom/one_ui/models/ask_one.py"
+      - "one_custom/one_ui/models/one_gemini_demo.py"
+      - "one_custom/one_ui/static/src/js/dashboard.js"
+      - "one_custom/one_ui/static/src/xml/intelligence_workspace.xml"
+      - "tools/verify_one_gemini_demo.py"
       - "tools/verify_ask_one_finance.py"
       - ".github/workflows/ask-one-finance-check.yml"
   pull_request:
     paths:
       - "one_custom/one_ui/models/ask_one.py"
+      - "one_custom/one_ui/models/one_gemini_demo.py"
+      - "one_custom/one_ui/static/src/js/dashboard.js"
+      - "one_custom/one_ui/static/src/xml/intelligence_workspace.xml"
+      - "tools/verify_one_gemini_demo.py"
       - "tools/verify_ask_one_finance.py"
       - ".github/workflows/ask-one-finance-check.yml"
 
@@ -26,3 +34,5 @@ jobs:
           python-version: "3.11"
       - name: Validate Ask ONE financial logic
         run: python tools/verify_ask_one_finance.py
+      - name: Validate optional Gemini demo security and mocked API
+        run: python tools/verify_one_gemini_demo.py
