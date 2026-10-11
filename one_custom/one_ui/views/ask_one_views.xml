@@ -11,12 +11,12 @@
                     </div>
 
                     <div class="alert alert-info" role="alert">
-                        اسأل عن إيرادات وأرباح الشهر، وقارنها بالشهر السابق، أو استعلم عن الفواتير غير المحصلة والمخزون والعملاء. النتائج المالية من القيود المرحلة وحسب صلاحياتك فقط. Ask about posted revenue, profit, comparisons, unpaid invoices, stock and customers.
+                        اسأل ONE عن الإيرادات والأرباح، أعمار ديون العملاء، أولويات التحصيل، أو طلب توصيات مالية. النتائج من قيود الشركة الحالية وبحسب صلاحيات المستخدم فقط. Ask ONE about revenue, profit, receivables aging, collection priorities and financial insights. Results are based on accessible company records.
                     </div>
 
                     <group>
                         <field name="question"
-                               placeholder="مثال: قارن إيرادات الشهر بالشهر السابق | Example: compare monthly revenue"/>
+                               placeholder="مثال: أعمار الديون | تنصحني بإيه؟ | قارن أرباح الشهر | Compare revenue"/>
                     </group>
 
                     <group string="الإجابة | Answer" invisible="not answer">
