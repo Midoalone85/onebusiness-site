@@ -339,6 +339,41 @@ require(member.seen == ["مبيعات الشهر"], "RPC failed to use original 
 require("250" in rpc(member, "x" * 251), "RPC length bound missing")
 require(rpc(RpcFake(True, True), "ربح الشهر") == "ليس لديك صلاحية لعرض البيانات المطلوبة.", "Denied ledger query leaked an error")
 
+
+# Natural-language matching: spelling and dialect variants cost no AI API.
+from types import FunctionType
+
+normalizer = next(
+    n for n in tree.body
+    if isinstance(n, ast.FunctionDef) and n.name == "normalize_one_question"
+)
+ns = {
+    "re": __import__("re"),
+    "unicodedata": __import__("unicodedata"),
+}
+ns["ARABIC_MARKS_RE"] = ns["re"].compile(r"[\u064b-\u065f\u0670\u0640]")
+ns["ARABIC_LETTERS"] = str.maketrans({
+    "أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ى": "ي", "ؤ": "و", "ئ": "ي",
+})
+exec(
+    compile(ast.fix_missing_locations(ast.Module(body=[normalizer], type_ignores=[])), str(SOURCE), "exec"),
+    ns,
+)
+normalize = ns["normalize_one_question"]
+require(normalize("قَارِن إِيرَادَات الشهر") == "قارن ايرادات الشهر", "Arabic diacritics/hamza normalizing broken")
+require(normalize("الشهر اللى فات") == "الشهر اللي فات", "Egyptian alef maqsura variant broken")
+matcher = isolated_method("_contains_any", {"normalize_one_question": normalize})
+class FakeMatching:
+    pass
+require(matcher(FakeMatching(), "إيه أَخْبَار الشركة؟", ("اخبار الشركه", "أخبار الشركة")), "Business-snapshot question normalization broken")
+require(matcher(FakeMatching(), "أَعْمَار الديون", ("اعمار الديون",)), "Aging Arabic variant normalizing broken")
+require(matcher(FakeMatching(), "COMPARE MONTH SALES", ("compare",)), "English matching broken")
+
+# Company summaries stay behind server-side finance authorization.
+source_dispatch = ast.unparse(next(node for node in klass.body if isinstance(node, ast.FunctionDef) and node.name == "_answer_question"))
+require("self._require_finance_access()" in source_dispatch and "self._advice_answer(is_ar)" in source_dispatch, "Finance snapshot must be access-gated")
+print("PASS: Arabic normalization and no-API business question matching")
+
 print("PASS: ONE Intelligence QWeb, zero-API routing and read-only RPC")
 
 print("PASS: Ask ONE finance authorization and MTD comparison unit checks")
