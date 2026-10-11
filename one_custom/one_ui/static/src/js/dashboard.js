@@ -26,6 +26,8 @@ export class OneDashboard extends Component {
             askDraft: "",
             askLoading: false,
             askError: "",
+            geminiConsent: false,
+            geminiLoading: false,
             askMessages: [],
             openMenu: null,
             appQuery: "",
@@ -271,6 +273,46 @@ export class OneDashboard extends Component {
                 this.state.askMessages.splice(0, this.state.askMessages.length - 20);
             }
             this.state.askLoading = false;
+        }
+    }
+
+    async askGeminiDemo() {
+        // This is not an ERP financial-data route. Only the administrator's
+        // explicitly submitted text goes to the external Gemini demo API.
+        const question = this.state.askDraft.trim();
+        if (!this.state.access.admin || !this.state.geminiConsent ||
+            !question || this.state.askLoading || this.state.geminiLoading) return;
+        if (question.length > 500) {
+            this.state.askError = this.isArabic
+                ? "اختصر السؤال إلى 500 حرف للتجربة." : "Keep the demo prompt within 500 characters.";
+            return;
+        }
+        this.state.geminiLoading = true;
+        this.state.askError = "";
+        this.state.askMessages.push({id: ++this.askSequence, role: "user", text: question});
+        this.state.askDraft = "";
+        try {
+            const result = await this.orm.call(
+                "one.ask.wizard", "one_gemini_demo", [question, true]
+            );
+            this.state.askMessages.push({
+                id: ++this.askSequence,
+                role: "assistant",
+                source: "gemini",
+                text: String(result?.answer || (
+                    this.isArabic ? "لم تصل إجابة من Gemini." : "No Gemini answer received."
+                )),
+            });
+        } catch {
+            this.state.askError = this.isArabic
+                ? "التجربة غير متاحة حاليًا. تقدر تستخدم المساعد الداخلي."
+                : "Demo unavailable. You can still use the internal assistant.";
+        } finally {
+            this.state.geminiConsent = false;
+            if (this.state.askMessages.length > 20) {
+                this.state.askMessages.splice(0, this.state.askMessages.length - 20);
+            }
+            this.state.geminiLoading = false;
         }
     }
 
