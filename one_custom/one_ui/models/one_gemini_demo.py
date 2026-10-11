@@ -63,7 +63,7 @@ class OneAskGeminiDemo(models.TransientModel):
             }
 
         # No user-configured URLs and no model slashes; fixed HTTPS host only.
-        model = os.environ.get("ONE_GEMINI_MODEL", "gemini-3.1-flash-lite")
+        model = os.environ.get("ONE_GEMINI_MODEL", "gemini-3.5-flash-lite")
         if not _GEMINI_MODEL_ID.fullmatch(model):
             return {"ok": False, "answer": _("Invalid Gemini model configuration.")}
 
