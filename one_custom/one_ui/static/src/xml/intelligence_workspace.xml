@@ -39,7 +39,7 @@
           </div>
           <div class="one_ai_notice">
             <i class="fa fa-info-circle" aria-hidden="true"/>
-            <span t-esc="isArabic ? 'النسخة الحالية تعمل بقواعد تحليل محاسبية، وليست نموذج محادثة توليديًا. لا ترسل بياناتك إلى خدمة ذكاء خارجية.' : 'This version uses accounting rules, not a generative AI model. Company data is not sent to an external AI provider.'"/>
+            <span t-esc="isArabic ? 'المساعد الداخلي يحسب من بيانات ONE ERP ولا يرسلها للخارج. تجربة Gemini منفصلة وتُرسل فقط السؤال المكتوب بعد موافقة المدير.' : 'The internal assistant uses ERP data locally. Optional Gemini is separate and sends only the typed prompt after administrator consent.'"/>
           </div>
         </section>
         <section class="one_ai_chat" t-att-aria-label="isArabic ? 'محادثة ONE Intelligence' : 'ONE Intelligence conversation'">
