@@ -234,8 +234,12 @@ class FakeDispatch:
         self.called.append("advice")
         return "advised"
 
+    def _explain_profit_change(self, is_ar):
+        self.called.append("bridge")
+        return "explained"
 
-for question, expected in (("أعمار الديون", "aging"), ("تنصحني بإيه", "advice")):
+
+for question, expected in (("أعمار الديون", "aging"), ("تنصحني بإيه", "advice"), ("ليه الأرباح قلت؟", "bridge")):
     denied = FakeDispatch(False)
     try:
         dispatch(denied, question)
@@ -246,8 +250,39 @@ for question, expected in (("أعمار الديون", "aging"), ("تنصحني 
 
     permitted = FakeDispatch(True)
     result = dispatch(permitted, question)
-    require(result in ("aged", "advised"), "Approved question did not route")
+    require(result in ("aged", "advised", "explained"), "Approved question did not route")
     require(permitted.called == ["permission", expected], "Wrong secure intent routing")
+
+
+profit_bridge = isolated_method(
+    "_explain_profit_change",
+    {
+        "fields": SimpleNamespace(Date=SimpleNamespace(
+            context_today=lambda _self: date(2026, 10, 12)
+        )),
+        "timedelta": timedelta,
+    },
+)
+
+
+class FakeBridge:
+    def _period_metrics(self, start, end):
+        if start.month == 10:
+            return {"revenue": 900, "profit": 70}
+        require(
+            start == date(2026, 9, 1) and end == date(2026, 9, 12),
+            "Profit comparison must use the same elapsed days",
+        )
+        return {"revenue": 1100, "profit": 200}
+
+    def _money(self, value):
+        return f"{value:.2f} SAR"
+
+
+bridge = profit_bridge(FakeBridge(), True)
+require("-130.00 SAR" in bridge, "Incorrect profit change")
+require("-200.00 SAR" in bridge and "70.00 SAR" in bridge, "Revenue/expense decomposition does not reconcile")
+require("ليس إثباتًا" in bridge, "Accounting bridge presented as causal fact")
 
 print("PASS: Dashboard RPC ACL, aged receivable buckets and grounded advice")
 
