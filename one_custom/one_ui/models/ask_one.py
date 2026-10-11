@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import timedelta
 
 from odoo import _, api, fields, models
@@ -7,6 +8,23 @@ from odoo.tools.misc import format_amount
 
 
 ARABIC_RE = re.compile(r"[\u0600-\u06FF]")
+ARABIC_MARKS_RE = re.compile(r"[\u064b-\u065f\u0670\u0640]")
+ARABIC_LETTERS = str.maketrans({
+    "أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا",
+    "ى": "ي", "ؤ": "و", "ئ": "ي",
+})
+
+
+def normalize_one_question(value):
+    """Normalize common Arabic spelling/diacritics without changing the user's data.
+
+    Used for read-only intent matching only; never rewrite stored records,
+    account names, SQL/ORM domains or customer-entered messages.
+    """
+    text = unicodedata.normalize("NFKC", value or "").casefold()
+    text = ARABIC_MARKS_RE.sub("", text)
+    return " ".join(text.translate(ARABIC_LETTERS).split())
+
 
 
 class OneAskWizard(models.TransientModel):
@@ -24,7 +42,8 @@ class OneAskWizard(models.TransientModel):
         return bool(ARABIC_RE.search(text or ""))
 
     def _contains_any(self, text, terms):
-        return any(term in text for term in terms)
+        q = normalize_one_question(text)
+        return any(normalize_one_question(term) in q for term in terms)
 
     def _money(self, amount):
         return format_amount(self.env, amount, self.env.company.currency_id)
@@ -342,13 +361,23 @@ class OneAskWizard(models.TransientModel):
         is_ar = self._is_arabic(q)
 
         if self._contains_any(
-            q, ("نصيحة", "تنصحني", "تنصح", "توصيات", "اقترح", "recommend", "advise", "financial insights")
+            q, (
+                "نصيحة", "تنصحني", "تنصح", "توصيات", "اقترح",
+                "أخبار الشركة", "اخبار الشركه", "وضع الشركة", "حال الشركة",
+                "الموقف المالي", "المخاطر المالية", "مخاطر الشركة",
+                "business health", "business snapshot", "how is my business",
+                "recommend", "advise", "financial insights",
+            )
         ):
             self._require_finance_access()
             return self._advice_answer(is_ar)
 
         if self._contains_any(
-            q, ("أعمار الديون", "اعمار الديون", "عمر الديون", "أعمار الذمم", "aging", "ageing", "overdue breakdown")
+            q, (
+                "أعمار الديون", "اعمار الديون", "عمر الديون",
+                "أعمار الذمم", "تقادم الديون", "الديون حسب العمر",
+                "aging", "ageing", "overdue breakdown",
+            )
         ):
             self._require_finance_access()
             return self._aging_answer(is_ar)
