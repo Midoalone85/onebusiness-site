@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+  <t t-name="one_ui.OneIntelligence">
+    <section class="one_ai_workspace" t-att-dir="isArabic ? 'rtl' : 'ltr'">
+      <div class="one_ai_banner">
+        <div class="one_ai_intro">
+          <span class="one_ai_eyebrow"><i class="fa fa-magic" aria-hidden="true"/> ONE INTELLIGENCE</span>
+          <h1 t-esc="isArabic ? 'اسأل شركتك. وافهم أرقامك.' : 'Ask your business. Understand your numbers.'"/>
+          <p t-esc="isArabic ? 'مساعد تحليلي من بيانات شركتك، بدون اشتراك ذكاء اصطناعي مدفوع.' : 'Business insights from your company records, with no paid AI subscription.'"/>
+          <div class="one_ai_tags">
+            <span><i class="fa fa-shield" aria-hidden="true"/> <t t-esc="isArabic ? 'حسب صلاحياتك' : 'Role-aware'"/></span>
+            <span><i class="fa fa-database" aria-hidden="true"/> <t t-esc="isArabic ? 'من السجلات' : 'From records'"/></span>
+            <span><i class="fa fa-bolt" aria-hidden="true"/> <t t-esc="isArabic ? 'بدون API مدفوع' : 'No paid API'"/></span>
+          </div>
+        </div>
+        <div class="one_ai_orbit" aria-hidden="true">
+          <span class="one_ai_orbit_ring"/>
+          <span class="one_ai_orbit_core"><i class="fa fa-signal"/></span>
+        </div>
+      </div>
+      <div class="one_ai_columns">
+        <section class="one_ai_suggestions" t-att-aria-label="isArabic ? 'الأسئلة المقترحة' : 'Suggested questions'">
+          <div class="one_ai_section_title">
+            <i class="fa fa-lightbulb-o" aria-hidden="true"/>
+            <div>
+              <h2 t-esc="isArabic ? 'ابدأ من هنا' : 'Explore insights'"/>
+              <p t-esc="isArabic ? 'اختار سؤال جاهز أو اكتب سؤالك.' : 'Choose a suggestion or type your question.'"/>
+            </div>
+          </div>
+          <div class="one_ai_question_grid">
+            <button t-foreach="assistantPrompts" t-as="suggestion" t-key="suggestion.en"
+                    type="button" class="one_ai_question"
+                    t-att-disabled="state.askLoading ? 'disabled' : undefined"
+                    t-on-click="() => this.askOne(isArabic ? suggestion.questionAr : suggestion.questionEn)">
+              <i class="fa fa-angle-left" aria-hidden="true" t-if="isArabic"/>
+              <i class="fa fa-angle-right" aria-hidden="true" t-else=""/>
+              <span t-esc="isArabic ? suggestion.ar : suggestion.en"/>
+            </button>
+          </div>
+          <div class="one_ai_notice">
+            <i class="fa fa-info-circle" aria-hidden="true"/>
+            <span t-esc="isArabic ? 'النسخة الحالية تعمل بقواعد تحليل محاسبية، وليست نموذج محادثة توليديًا. لا ترسل بياناتك إلى خدمة ذكاء خارجية.' : 'This version uses accounting rules, not a generative AI model. Company data is not sent to an external AI provider.'"/>
+          </div>
+        </section>
+        <section class="one_ai_chat" t-att-aria-label="isArabic ? 'محادثة ONE Intelligence' : 'ONE Intelligence conversation'">
+          <div class="one_ai_chat_head">
+            <span class="one_ai_avatar"><i class="fa fa-comments-o" aria-hidden="true"/></span>
+            <div>
+              <h2>Ask ONE</h2>
+              <small t-esc="isArabic ? 'مساعد التحليل والتقارير' : 'Business reporting assistant'"/>
+            </div>
+            <span class="one_ai_readonly"><i class="fa fa-lock" aria-hidden="true"/> <t t-esc="isArabic ? 'قراءة فقط' : 'Read only'"/></span>
+          </div>
+          <div class="one_ai_messages" role="log" aria-live="polite">
+            <div t-if="!state.askMessages.length" class="one_ai_empty">
+              <i class="fa fa-line-chart" aria-hidden="true"/>
+              <h3 t-esc="isArabic ? 'ابدأ بسؤال عن شركتك' : 'Start with a business question'"/>
+              <p t-esc="isArabic ? 'الإجابات من سجلات ERP المتاحة لحسابك، مش أرقام تجريبية.' : 'Responses use accessible ERP records, not demo figures.'"/>
+            </div>
+            <div t-foreach="state.askMessages" t-as="message" t-key="message.id"
+                 t-att-class="'one_ai_message one_ai_message_' + message.role">
+              <small t-esc="message.role === 'user' ? (isArabic ? 'سؤالك' : 'You') : 'ONE'"/>
+              <p t-esc="message.text"/>
+            </div>
+            <div t-if="state.askLoading" class="one_ai_pending" role="status">
+              <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"/>
+              <span t-esc="isArabic ? 'جاري قراءة البيانات المسموح بها...' : 'Checking available records...'"/>
+            </div>
+            <div t-if="state.askError" class="one_ai_error" role="alert" t-esc="state.askError"/>
+          </div>
+          <div class="one_ai_composer">
+            <label class="one_ai_input_label">
+              <span class="sr-only" t-esc="isArabic ? 'السؤال' : 'Your question'"/>
+              <input type="text" maxlength="250" class="one_ai_input"
+                     t-att-placeholder="isArabic ? 'مثال: ليه الأرباح قلت؟' : 'Example: explain profit change'"
+                     t-att-value="state.askDraft"
+                     t-on-input="(ev) => state.askDraft = ev.target.value"
+                     t-on-keydown="(ev) => this.onAskKeydown(ev)"/>
+            </label>
+            <button type="button" class="one_ai_submit" t-on-click="() => this.askOne()"
+                    t-att-disabled="state.askLoading || !state.askDraft.trim() ? 'disabled' : undefined"
+                    t-att-aria-label="isArabic ? 'إرسال السؤال' : 'Send question'">
+              <i class="fa fa-paper-plane" aria-hidden="true"/>
+            </button>
+          </div>
+          <small class="one_ai_disclaimer" t-esc="isArabic ? 'راجع التقارير الأصلية قبل اتخاذ قرار مالي مهم.' : 'Verify source reports before material financial decisions.'"/>
+        </section>
+      </div>
+    </section>
+  </t>
+</templates>
