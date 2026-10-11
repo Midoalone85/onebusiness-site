@@ -102,5 +102,154 @@ require("one_get_pulse" not in answer_head, "Unconditional dashboard financial d
 require(source.count("self._require_finance_access()") >= 6, "Sensitive finance branches are not access-checked")
 require("sudo()" not in source, "Unexpected Odoo sudo() in Ask ONE")
 
+
+# Verify the dashboard's server-side JSON/RPC path is not readable just
+# because a user can call res.company from the browser.
+dashboard_source = (
+    SOURCE.parent / "dashboard_pulse.py"
+).read_text(encoding="utf-8")
+dashboard_tree = ast.parse(dashboard_source)
+dashboard_class = next(
+    node for node in dashboard_tree.body
+    if isinstance(node, ast.ClassDef) and node.name == "ResCompany"
+)
+dashboard_method = next(
+    node for node in dashboard_class.body
+    if isinstance(node, ast.FunctionDef) and node.name == "one_get_pulse"
+)
+require(
+    "has_group" in ast.unparse(dashboard_method)
+    and "raise AccessError" in ast.unparse(dashboard_method),
+    "Financial dashboard server RPC missing accounting permission validation",
+)
+
+aging = isolated_method(
+    "_aged_receivables",
+    {
+        "fields": SimpleNamespace(Date=SimpleNamespace(
+            context_today=lambda _self: date(2026, 10, 12)
+        )),
+        "timedelta": timedelta,
+    },
+)
+
+
+class Ledger:
+    def __init__(self):
+        self.domains = []
+        self.amounts = [100, 200, 300, 400]
+
+    def _read_group(self, domain, aggregates):
+        self.domains.append(domain)
+        assert aggregates == ["amount_residual:sum"]
+        return [(self.amounts[len(self.domains) - 1],)]
+
+
+ledger = Ledger()
+
+
+class TestEnv:
+    company = SimpleNamespace(id=123)
+
+    def __getitem__(self, model):
+        require(model == "account.move.line", "Aging must read journal entry lines")
+        return ledger
+
+
+dummy = SimpleNamespace(env=TestEnv())
+buckets = aging(dummy)
+require(buckets == {
+    "1_30": 100, "31_60": 200, "61_90": 300, "over_90": 400
+}, "Aging totals are incorrect")
+require(len(ledger.domains) == 4, "Expected four exclusive aging buckets")
+
+today = date(2026, 10, 12)
+for domain in ledger.domains:
+    require(("company_id", "=", 123) in domain, "Aging missing company filter")
+    require(("move_id.state", "=", "posted") in domain, "Aging includes unposted entries")
+    require(("amount_residual", ">", 0) in domain, "Aging includes customer credit balances")
+    require(("date_maturity", "<", today) in domain, "Aging includes amounts not overdue")
+
+require(
+    ("date_maturity", ">=", date(2026, 9, 12)) in ledger.domains[0]
+    and ("date_maturity", "<", date(2026, 9, 12)) in ledger.domains[1]
+    and ("date_maturity", ">=", date(2026, 8, 13)) in ledger.domains[1]
+    and ("date_maturity", "<", date(2026, 8, 13)) in ledger.domains[2]
+    and ("date_maturity", ">=", date(2026, 7, 14)) in ledger.domains[2]
+    and ("date_maturity", "<", date(2026, 7, 14)) in ledger.domains[3],
+    "Aging day boundaries overlap or have gaps",
+)
+require("sudo()" not in dashboard_source, "Dashboard finance RPC unexpectedly uses sudo")
+
+advice = isolated_method(
+    "_advice_answer",
+    {"fields": SimpleNamespace(Date=SimpleNamespace(
+        context_today=lambda _self: date(2026, 10, 12)
+    ))},
+)
+
+
+class FakeAdvice:
+    def _period_metrics(self, start, end):
+        assert start == date(2026, 10, 1) and end == date(2026, 10, 12)
+        return {"revenue": 1000, "profit": -120}
+
+    def _aged_receivables(self):
+        return {"1_30": 10, "31_60": 20, "61_90": 30, "over_90": 400}
+
+    def _money(self, value):
+        return f"{value:.2f} SAR"
+
+
+recommendation = advice(FakeAdvice(), True)
+require("أكثر من 90 يوم" in recommendation, "90-day collection alert missing")
+require("خسارة دفترية" in recommendation, "Ledger loss warning missing")
+require("القيود المرحلة" in recommendation, "Advice lacks accounting provenance")
+english = advice(FakeAdvice(), False)
+require("over 90 days" in english and "book loss" in english, "English insights missing")
+
+# Intent routing must gate access BEFORE calculating amounts.
+dispatch = isolated_method("_answer_question", {})
+class FakeDispatch:
+    def __init__(self, allowed):
+        self.allowed = allowed
+        self.called = []
+
+    def _is_arabic(self, query):
+        return True
+
+    def _contains_any(self, question, terms):
+        return any(term in question for term in terms)
+
+    def _require_finance_access(self):
+        self.called.append("permission")
+        if not self.allowed:
+            raise NoAccess()
+
+    def _aging_answer(self, is_ar):
+        self.called.append("aging")
+        return "aged"
+
+    def _advice_answer(self, is_ar):
+        self.called.append("advice")
+        return "advised"
+
+
+for question, expected in (("أعمار الديون", "aging"), ("تنصحني بإيه", "advice")):
+    denied = FakeDispatch(False)
+    try:
+        dispatch(denied, question)
+        raise AssertionError("Non-accountant saw finance output")
+    except NoAccess:
+        pass
+    require(denied.called == ["permission"], "Finance query read data before checking ACL")
+
+    permitted = FakeDispatch(True)
+    result = dispatch(permitted, question)
+    require(result in ("aged", "advised"), "Approved question did not route")
+    require(permitted.called == ["permission", expected], "Wrong secure intent routing")
+
+print("PASS: Dashboard RPC ACL, aged receivable buckets and grounded advice")
+
 print("PASS: Ask ONE finance authorization and MTD comparison unit checks")
 print("NOTE: Live Odoo ORM, access rules and Oracle deployment still require integration tests.")
