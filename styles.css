@@ -79,3 +79,6 @@ body.menu-open{overflow:hidden}.mobile-toggle[aria-expanded="true"]{background:r
 .service-contact-dock{box-shadow:0 22px 70px rgba(2,6,23,.28)}
 .not-found{position:relative;min-height:100svh;display:grid;place-items:center;overflow:hidden;background:linear-gradient(145deg,#050a18,#0a1535 70%,#102554);color:#fff}.not-found-orb{position:absolute;width:600px;height:600px;border-radius:50%;right:-180px;top:-210px;background:rgba(124,58,237,.34);filter:blur(130px)}.not-found-inner{position:relative;padding-block:80px}.nf-code{display:block;margin-top:80px;color:#67e8f9;font-size:14px;font-weight:900;letter-spacing:.24em}.not-found h1{max-width:900px;font-size:clamp(52px,7vw,96px);line-height:1.02;letter-spacing:-.055em;margin:20px 0}.not-found p{color:#bdc8dc;font-size:18px}.not-found .btn.ghost{background:rgba(255,255,255,.06)}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.mega.show{animation:none}.service-media img,.work-case img{transition:none}}
+
+/* Hide inactive form states reliably even when panels use display:grid. */
+[hidden]{display:none!important}

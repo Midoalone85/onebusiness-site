@@ -14,3 +14,6 @@
 
 /* ONE Business mobile navigation legibility */
 @media(max-width:620px){.mobile-nav summary{white-space:nowrap;font-size:12px;padding:10px 11px}.wordmark{font-size:15px;gap:8px}.wordmark small{white-space:nowrap;letter-spacing:.3px;font-size:8px}.head-inner{gap:6px}}
+
+/* Conceal review message until form is prepared. */
+[hidden]{display:none!important}
