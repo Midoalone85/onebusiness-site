@@ -17,3 +17,7 @@
 
 /* Conceal review message until form is prepared. */
 [hidden]{display:none!important}
+
+/* Bilingual English layouts */
+html[dir="ltr"] body{direction:ltr;font-family:Segoe UI,Inter,Arial,sans-serif}
+.language-option{display:inline-flex;border:1px solid #c7dcf3;background:#fff;color:#145fe9!important;border-radius:9px;padding:7px 12px;font-weight:900}

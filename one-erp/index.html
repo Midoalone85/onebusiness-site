@@ -32,7 +32,7 @@ h1{font-size:clamp(38px,4.8vw,65px);line-height:1.15;letter-spacing:-1.6px;margi
 <header class="top"><div class="wrap nav">
 <a class="brand" href="../index.html" aria-label="ONE Business"><span class="mark">ONE</span><span>ONE ERP<small>by ONE Business</small></span></a>
 <nav class="navlinks" aria-label="أقسام الصفحة"><a href="#features">المزايا</a><a href="#sectors">القطاعات</a><a href="#journey">طريقة العمل</a><a href="plans/">الباقات</a></nav>
-<a class="button primary" href="http://141.147.137.107/app" target="_blank" rel="noopener">دخول البرنامج ↗</a></div></header>
+<a class="button minor" data-lang-switch href="../en/one-erp/?lang=en">EN</a><a class="button primary" href="http://141.147.137.107/app" target="_blank" rel="noopener">دخول البرنامج ↗</a></div></header>
 <main>
 <section class="hero"><div class="wrap hero-grid">
 <div><span class="eyebrow"><span class="dot"></span> منصة تشغيل وإدارة الأعمال</span><h1>شركتك كلها،<br><em>في مساحة عمل واحدة.</em></h1>
@@ -85,4 +85,4 @@ document.getElementById('sector-bullets').replaceChildren(...d.bullets.map(v=>{c
 document.getElementById('sector-flow').replaceChildren(...d.flow.flatMap((v,i)=>{const s=document.createElement('span');s.textContent=v; if(!i)return [s];const arrow=document.createElement('span');arrow.textContent='←';return [arrow,s]}));
 }));
 </script>
-</body></html>
+<script src="../lang.js"></script></body></html>
