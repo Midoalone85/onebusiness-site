@@ -116,6 +116,51 @@ class OneAskWizard(models.TransientModel):
             "Source: posted journal entries in the current company."
         )
 
+
+    def _explain_profit_change(self, is_ar):
+        """Explain the GL-level revenue/expense bridge for comparable MTD periods.
+
+        This is an accounting reconciliation, not a causal explanation of
+        business operations or an AI guess about customers or products.
+        """
+        today = fields.Date.context_today(self)
+        this_start = today.replace(day=1)
+        previous_last = this_start - timedelta(days=1)
+        previous_start = previous_last.replace(day=1)
+        comparable_end = previous_last.replace(
+            day=min(today.day, previous_last.day)
+        )
+        current = self._period_metrics(this_start, today)
+        prior = self._period_metrics(previous_start, comparable_end)
+        revenue_impact = current["revenue"] - prior["revenue"]
+        current_expenses = current["revenue"] - current["profit"]
+        previous_expenses = prior["revenue"] - prior["profit"]
+        expense_impact = -(current_expenses - previous_expenses)
+        profit_change = current["profit"] - prior["profit"]
+
+        if is_ar:
+            return (
+                f"تحليل التغير في صافي الربح حتى {today} مقارنة بالفترة "
+                f"{previous_start} إلى {comparable_end}: "
+                f"صافي الربح الحالي {self._money(current['profit'])}، "
+                f"والسابق {self._money(prior['profit'])}. "
+                f"التغير {self._money(profit_change)} = "
+                f"أثر تغير الإيرادات {self._money(revenue_impact)} + "
+                f"أثر تغير المصروفات والتكاليف {self._money(expense_impact)}. "
+                "هذا تفسير محاسبي إجمالي من القيود المرحلة، وليس إثباتًا لأسباب "
+                "التغير التشغيلي؛ يلزم تحليل الحسابات والأصناف والعملاء لمعرفة الأسباب التفصيلية."
+            )
+        return (
+            f"Profit change through {today} vs {previous_start} to {comparable_end}: "
+            f"current posted net profit {self._money(current['profit'])}, "
+            f"prior {self._money(prior['profit'])}. "
+            f"Change {self._money(profit_change)} = "
+            f"revenue impact {self._money(revenue_impact)} + "
+            f"expense and cost impact {self._money(expense_impact)}. "
+            "This is a posted-ledger bridge, not proof of operational causes. "
+            "Investigate detailed accounts, products and customers for a root-cause analysis."
+        )
+
     def _overdue_customers(self):
         today = fields.Date.context_today(self)
         rows = self.env["account.move.line"]._read_group(
@@ -379,7 +424,16 @@ class OneAskWizard(models.TransientModel):
                 else f"Open CRM opportunities: {count}."
             )
 
-        if self._contains_any(q, ("ربح", "خسار", "profit", "loss")):
+        if (
+            self._contains_any(q, ("ليه", "لماذا", "سبب", "اسباب", "أسباب", "why", "explain"))
+            and self._contains_any(
+                q, ("ربح", "ارباح", "أرباح", "خسار", "profit", "loss")
+            )
+        ):
+            self._require_finance_access()
+            return self._explain_profit_change(is_ar)
+
+        if self._contains_any(q, ("ربح", "ارباح", "أرباح", "خسار", "profit", "loss")):
             self._require_finance_access()
             return self._financial_period_answer(q, "profit", is_ar)
 
