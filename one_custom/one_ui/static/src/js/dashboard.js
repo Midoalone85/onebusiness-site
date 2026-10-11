@@ -18,9 +18,15 @@ export class OneDashboard extends Component {
     setup() {
         this.action = useService("action");
         this.orm = useService("orm");
+        this.askSequence = 0;
         this.state = useState({
             lang: user.context.lang || "en_US",
             showAllApps: false,
+            showIntelligence: false,
+            askDraft: "",
+            askLoading: false,
+            askError: "",
+            askMessages: [],
             openMenu: null,
             appQuery: "",
             recentInvoices: [], recentInvoicesLoading: true, recentInvoicesError: false,
@@ -113,6 +119,22 @@ export class OneDashboard extends Component {
         return this.availableApps.filter(app => app.primary).slice(0, 8);
     }
 
+    get assistantPrompts() {
+        const prompts = [
+            {ar: "عروض الأسعار المفتوحة", en: "Open quotations", questionAr: "كم عروض الأسعار المفتوحة؟", questionEn: "How many open quotations?"},
+            {ar: "الشحنات المعلقة", en: "Pending deliveries", questionAr: "كم التسليمات المعلقة؟", questionEn: "How many pending deliveries?"},
+        ];
+        if (this.state.access.account) {
+            prompts.unshift(
+                {ar: "مقارنة الإيرادات", en: "Compare revenue", questionAr: "قارن إيرادات الشهر بالشهر السابق", questionEn: "Compare revenue this month versus last month"},
+                {ar: "أعمار الديون", en: "Receivables aging", questionAr: "أعمار الديون", questionEn: "Receivables aging"},
+                {ar: "توصيات مالية", en: "Finance recommendations", questionAr: "تنصحني بإيه؟", questionEn: "Recommend financial actions"},
+                {ar: "تغير الأرباح", en: "Profit drivers", questionAr: "ليه الأرباح قلت؟", questionEn: "Explain profit change"},
+            );
+        }
+        return prompts;
+    }
+
     get filteredApps() {
         const q = this.state.appQuery.trim().toLocaleLowerCase();
         return this.availableApps.filter(app =>
@@ -192,6 +214,7 @@ export class OneDashboard extends Component {
 
     showAllApps() {
         this.closeMenu();
+        this.state.showIntelligence = false;
         this.state.showAllApps = true;
         this.state.category = "all";
         this.state.appQuery = "";
@@ -200,6 +223,54 @@ export class OneDashboard extends Component {
     showHome() {
         this.closeMenu();
         this.state.showAllApps = false;
+        this.state.showIntelligence = false;
+    }
+
+    showIntelligence() {
+        this.closeMenu();
+        this.state.showAllApps = false;
+        this.state.showIntelligence = true;
+    }
+
+    onAskKeydown(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            void this.askOne();
+        }
+    }
+
+    async askOne(exampleQuestion = null) {
+        const question = (typeof exampleQuestion === "string" ? exampleQuestion : this.state.askDraft).trim();
+        if (!question || this.state.askLoading) return;
+        if (question.length > 250) {
+            this.state.askError = this.isArabic
+                ? "السؤال طويل جدًا؛ الحد الأقصى 250 حرفًا."
+                : "Please keep questions within 250 characters.";
+            return;
+        }
+
+        this.state.askLoading = true;
+        this.state.askError = "";
+        this.state.askDraft = "";
+        this.state.askMessages.push({id: ++this.askSequence, role: "user", text: question});
+        try {
+            // Odoo ORM routes through the authenticated session. The server
+            // checks company record rules and finance group membership.
+            const answer = await this.orm.call("one.ask.wizard", "one_answer", [question]);
+            this.state.askMessages.push({
+                id: ++this.askSequence, role: "assistant",
+                text: String(answer || (this.isArabic ? "لا توجد نتيجة لهذا السؤال." : "No answer available.")),
+            });
+        } catch {
+            this.state.askError = this.isArabic
+                ? "تعذر جلب الإجابة. تحقق من الاتصال وصلاحياتك ثم حاول مرة أخرى."
+                : "Unable to retrieve an answer. Check your connection and permissions, then retry.";
+        } finally {
+            if (this.state.askMessages.length > 20) {
+                this.state.askMessages.splice(0, this.state.askMessages.length - 20);
+            }
+            this.state.askLoading = false;
+        }
     }
 
     setCategory(category) {
