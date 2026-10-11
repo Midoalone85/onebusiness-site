@@ -59,8 +59,12 @@
             </div>
             <div t-foreach="state.askMessages" t-as="message" t-key="message.id"
                  t-att-class="'one_ai_message one_ai_message_' + message.role">
-              <small t-esc="message.role === 'user' ? (isArabic ? 'سؤالك' : 'You') : 'ONE'"/>
+              <small t-esc="message.role === 'user' ? (isArabic ? 'سؤالك' : 'You') : (message.source === 'gemini' ? 'Gemini Demo' : 'ONE')"/>
               <p t-esc="message.text"/>
+            </div>
+            <div t-if="state.geminiLoading" class="one_ai_pending" role="status">
+              <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"/>
+              <span t-esc="isArabic ? 'جارٍ انتظار إجابة Gemini التجريبية...' : 'Waiting for Gemini demo response...'"/>
             </div>
             <div t-if="state.askLoading" class="one_ai_pending" role="status">
               <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"/>
@@ -83,7 +87,25 @@
               <i class="fa fa-paper-plane" aria-hidden="true"/>
             </button>
           </div>
-          <small class="one_ai_disclaimer" t-esc="isArabic ? 'راجع التقارير الأصلية قبل اتخاذ قرار مالي مهم.' : 'Verify source reports before material financial decisions.'"/>
+          <div t-if="state.access.admin" class="one_ai_gemini">
+            <div class="one_ai_gemini_title">
+              <i class="fa fa-magic" aria-hidden="true"/>
+              <strong t-esc="isArabic ? 'تجربة Gemini المجانية (للمدير فقط)' : 'Gemini free-tier demo (admin only)'"/>
+            </div>
+            <p t-esc="isArabic ? 'لأسئلة التعليم والشرح العامة فقط. عند الضغط على زر Gemini سيُرسل نص السؤال المكتوب إلى Google. الخطة المجانية قد تستخدم المحتوى لتحسين منتجاتها. ممنوع إدخال معلومات عملاء أو فواتير أو بيانات مالية سرية.' : 'For general educational questions only. Clicking Gemini sends the typed prompt to Google. Free-tier content may be used to improve Google products. Never include customers, invoices, or confidential financial data.'"/>
+            <label class="one_ai_gemini_consent">
+              <input type="checkbox" t-att-checked="state.geminiConsent"
+                     t-on-change="(ev) => state.geminiConsent = ev.target.checked"/>
+              <span t-esc="isArabic ? 'أؤكد أن السؤال عام وغير سري وأوافق على إرساله إلى Gemini.' : 'I confirm this question is general and non-confidential, and agree to send it to Gemini.'"/>
+            </label>
+            <button type="button" class="one_ai_gemini_button"
+                    t-att-disabled="!state.geminiConsent || state.geminiLoading || state.askLoading || !state.askDraft.trim() ? 'disabled' : undefined"
+                    t-on-click="() => this.askGeminiDemo()">
+              <i class="fa fa-paper-plane-o" aria-hidden="true"/>
+              <span t-esc="isArabic ? 'جرّب Gemini بالسؤال المكتوب' : 'Try Gemini with typed question'"/>
+            </button>
+          </div>
+                    <small class="one_ai_disclaimer" t-esc="isArabic ? 'راجع التقارير الأصلية قبل اتخاذ قرار مالي مهم.' : 'Verify source reports before material financial decisions.'"/>
         </section>
       </div>
     </section>
