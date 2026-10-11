@@ -42,7 +42,7 @@ class TestUser:
         self.allowed = allowed
 
     def has_group(self, group):
-        return self.allowed and group == "account.group_account_user"
+        return self.allowed and group in ("account.group_account_user", "base.group_user")
 
 
 for allowed in (False, True):
