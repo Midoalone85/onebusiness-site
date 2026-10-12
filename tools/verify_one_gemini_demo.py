@@ -105,6 +105,8 @@ assert 't-if="state.access.admin"' in ui
 assert "state.geminiConsent" in ui and "state.geminiConsent = ev.target.checked" in ui
 assert "askGeminiDemo()" in ui and "async askGeminiDemo()" in js
 assert '"one_gemini_demo", [question, true]' in js
-assert 'message.source === \'gemini\'' in ui
+assert 'source: "gemini"' in js
+assert "ONE AI" in ui
+assert "Gemini Demo" not in ui and "Try Gemini" not in ui and "جرّب Gemini" not in ui
 
-print("PASS: Gemini demo authorization, explicit consent, disabled default, fixed endpoint, mock response, UI wiring")
+print("PASS: External AI bridge authorization, explicit consent, disabled default, fixed endpoint, mock response, ONE AI branding")
