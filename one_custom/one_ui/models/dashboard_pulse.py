@@ -1,4 +1,5 @@
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import AccessError
 from odoo.tools.misc import format_amount
 
 
@@ -7,6 +8,13 @@ class ResCompany(models.Model):
 
     @api.model
     def one_get_pulse(self):
+        # Called by an RPC from the dashboard: never trust client-side
+        # hiding of finance cards as a substitute for authorization.
+        if not (
+            self.env.user.has_group("account.group_account_user")
+            or self.env.user.has_group("base.group_system")
+        ):
+            raise AccessError(_("Accounting access is required for financial KPIs."))
         company = self.env.company
         currency = company.currency_id
         today = fields.Date.context_today(self)

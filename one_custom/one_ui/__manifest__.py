@@ -35,8 +35,10 @@
             "one_ui/static/src/scss/one_accessible_workspace.scss",
             "one_ui/static/src/js/menu_branding.js",
             "one_ui/static/src/js/dashboard.js",
+            "one_ui/static/src/scss/one_intelligence.scss",
             "one_ui/static/src/js/title.js",
-            "one_ui/static/src/xml/dashboard.xml"
+            "one_ui/static/src/xml/dashboard.xml",
+            "one_ui/static/src/xml/intelligence_workspace.xml"
         ],
         "web.assets_frontend": [
             "one_ui/static/src/scss/one_login.scss"

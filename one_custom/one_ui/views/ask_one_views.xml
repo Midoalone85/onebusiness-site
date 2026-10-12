@@ -11,15 +11,15 @@
                     </div>
 
                     <div class="alert alert-info" role="alert">
-                        Ask about revenue, profit, unpaid invoices, liquidity, receivables, payables, inventory movements, employees, CRM, approvals, purchases, quotations or ZATCA.
+                        اسأل ONE عن الإيرادات والأرباح، أعمار ديون العملاء، أولويات التحصيل، أو طلب توصيات مالية. النتائج من قيود الشركة الحالية وبحسب صلاحيات المستخدم فقط. Ask ONE about revenue, profit, receivables aging, collection priorities and financial insights. Results are based on accessible company records.
                     </div>
 
                     <group>
                         <field name="question"
-                               placeholder="Example: How much is unpaid, or who are the top overdue customers?"/>
+                               placeholder="مثال: أعمار الديون | تنصحني بإيه؟ | قارن أرباح الشهر | Compare revenue"/>
                     </group>
 
-                    <group string="Answer" invisible="not answer">
+                    <group string="الإجابة | Answer" invisible="not answer">
                         <field name="answer" readonly="1" nolabel="1"/>
                     </group>
                 </sheet>

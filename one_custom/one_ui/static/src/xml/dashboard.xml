@@ -12,6 +12,10 @@
                     </div>
                 </div>
                 <div class="one_v3_header_actions">
+                    <button type="button" class="one_ai_header_button" t-on-click="() => this.showIntelligence()" t-att-aria-label="isArabic ? 'فتح ONE AI' : 'Open ONE AI'">
+                        <i class="fa fa-magic" aria-hidden="true"/>
+                        <span>ONE AI</span>
+                    </button>
                     <div class="one_v3_language" role="group" aria-label="Language">
                         <button type="button" t-att-class="state.lang.startsWith('ar') ? 'active' : ''" t-on-click="() => this.switchLanguage('ar_001')">ع</button>
                         <button type="button" t-att-class="!state.lang.startsWith('ar') ? 'active' : ''" t-on-click="() => this.switchLanguage('en_US')">EN</button>
@@ -24,7 +28,7 @@
                 </div>
                 <nav class="one_v3_topnav" t-att-aria-label="isArabic ? 'قوائم التطبيق الرئيسية' : 'Main application menus'">
                     <button type="button" class="one_v3_navbutton one_v3_navhome"
-                            t-att-class="!state.showAllApps ? 'active' : ''"
+                            t-att-class="!state.showAllApps &amp;&amp; !state.showIntelligence ? 'active' : ''"
                             t-on-click="() => this.showHome()">
                         <i class="fa fa-home" aria-hidden="true"/>
                         <span t-esc="isArabic ? 'الرئيسية' : 'Home'"/>
@@ -276,6 +280,13 @@
                         <span t-esc="state.lang.startsWith('ar') ? 'لا توجد تطبيقات تطابق البحث' : 'No matching applications'"/>
                     </div>
                 </section>
+            </t>
+
+            <t t-if="state.showIntelligence">
+                <div class="one_ai_overlay_scrim" aria-hidden="true" t-on-click="() => this.showIntelligence()"/>
+                <aside class="one_ai_drawer" t-att-aria-label="isArabic ? 'مساعد ONE AI' : 'ONE AI assistant'">
+                    <t t-call="one_ui.OneIntelligence"/>
+                </aside>
             </t>
         </div>
     </t>
