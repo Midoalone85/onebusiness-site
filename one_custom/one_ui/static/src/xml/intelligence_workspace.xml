@@ -4,15 +4,16 @@
     <section class="one_ai_workspace" t-att-dir="isArabic ? 'rtl' : 'ltr'">
       <div class="one_ai_banner">
         <div class="one_ai_intro">
-          <span class="one_ai_eyebrow"><i class="fa fa-magic" aria-hidden="true"/> ONE INTELLIGENCE</span>
-          <h1 t-esc="isArabic ? 'اسأل شركتك. وافهم أرقامك.' : 'Ask your business. Understand your numbers.'"/>
-          <p t-esc="isArabic ? 'مساعد تحليلي من بيانات شركتك، بدون اشتراك ذكاء اصطناعي مدفوع.' : 'Business insights from your company records, with no paid AI subscription.'"/>
+          <span class="one_ai_eyebrow"><i class="fa fa-magic" aria-hidden="true"/> ONE AI</span>
+          <h1 t-esc="isArabic ? 'اسأل شركتك. خُد قرارك أسرع.' : 'Ask your business. Decide faster.'"/>
+          <p t-esc="isArabic ? 'مساعدك الذكي لإدارة الأعمال والتحليل من داخل ONE ERP.' : 'Your intelligent business copilot inside ONE ERP.'"/>
           <div class="one_ai_tags">
             <span><i class="fa fa-shield" aria-hidden="true"/> <t t-esc="isArabic ? 'حسب صلاحياتك' : 'Role-aware'"/></span>
             <span><i class="fa fa-database" aria-hidden="true"/> <t t-esc="isArabic ? 'من السجلات' : 'From records'"/></span>
-            <span><i class="fa fa-bolt" aria-hidden="true"/> <t t-esc="isArabic ? 'بدون API مدفوع' : 'No paid API'"/></span>
+            <span><i class="fa fa-bolt" aria-hidden="true"/> <t t-esc="isArabic ? 'ONE AI' : 'ONE AI'"/></span>
           </div>
         </div>
+        <button type="button" class="one_ai_close" t-on-click="() => this.showIntelligence()" t-att-aria-label="isArabic ? 'إغلاق ONE AI' : 'Close ONE AI'"><i class="fa fa-times" aria-hidden="true"/></button>
         <div class="one_ai_orbit" aria-hidden="true">
           <span class="one_ai_orbit_ring"/>
           <span class="one_ai_orbit_core"><i class="fa fa-signal"/></span>
@@ -39,15 +40,15 @@
           </div>
           <div class="one_ai_notice">
             <i class="fa fa-info-circle" aria-hidden="true"/>
-            <span t-esc="isArabic ? 'المساعد الداخلي يحسب من بيانات ONE ERP ولا يرسلها للخارج. تجربة Gemini منفصلة وتُرسل فقط السؤال المكتوب بعد موافقة المدير.' : 'The internal assistant uses ERP data locally. Optional Gemini is separate and sends only the typed prompt after administrator consent.'"/>
+            <span t-esc="isArabic ? 'أسئلة بيانات الشركة تُحل داخل ONE ERP حسب صلاحياتك. وضع المعرفة العامة منفصل ولا يرسل بيانات الشركة.' : 'Company-data questions stay inside ONE ERP and respect permissions. General knowledge mode is separate and never sends company records.'"/>
           </div>
         </section>
-        <section class="one_ai_chat" t-att-aria-label="isArabic ? 'محادثة ONE Intelligence' : 'ONE Intelligence conversation'">
+        <section class="one_ai_chat" t-att-aria-label="isArabic ? 'محادثة ONE AI' : 'ONE AI conversation'">
           <div class="one_ai_chat_head">
             <span class="one_ai_avatar"><i class="fa fa-comments-o" aria-hidden="true"/></span>
             <div>
-              <h2>Ask ONE</h2>
-              <small t-esc="isArabic ? 'مساعد التحليل والتقارير' : 'Business reporting assistant'"/>
+              <h2>ONE AI</h2>
+              <small t-esc="isArabic ? 'مساعدك الذكي لإدارة أعمالك' : 'Your intelligent business copilot'"/>
             </div>
             <span class="one_ai_readonly"><i class="fa fa-lock" aria-hidden="true"/> <t t-esc="isArabic ? 'قراءة فقط' : 'Read only'"/></span>
           </div>
@@ -59,12 +60,12 @@
             </div>
             <div t-foreach="state.askMessages" t-as="message" t-key="message.id"
                  t-att-class="'one_ai_message one_ai_message_' + message.role">
-              <small t-esc="message.role === 'user' ? (isArabic ? 'سؤالك' : 'You') : (message.source === 'gemini' ? 'Gemini Demo' : 'ONE')"/>
+              <small t-esc="message.role === 'user' ? (isArabic ? 'سؤالك' : 'You') : ('ONE AI')"/>
               <p t-esc="message.text"/>
             </div>
             <div t-if="state.geminiLoading" class="one_ai_pending" role="status">
               <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"/>
-              <span t-esc="isArabic ? 'جارٍ انتظار إجابة Gemini التجريبية...' : 'Waiting for Gemini demo response...'"/>
+              <span t-esc="isArabic ? 'ONE AI يفكر في السؤال العام...' : 'ONE AI is thinking about your general question...'"/>
             </div>
             <div t-if="state.askLoading" class="one_ai_pending" role="status">
               <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"/>
@@ -90,19 +91,19 @@
           <div t-if="state.access.admin" class="one_ai_gemini">
             <div class="one_ai_gemini_title">
               <i class="fa fa-magic" aria-hidden="true"/>
-              <strong t-esc="isArabic ? 'تجربة Gemini المجانية (للمدير فقط)' : 'Gemini free-tier demo (admin only)'"/>
+              <strong t-esc="isArabic ? 'ONE AI • المعرفة العامة (للمدير فقط)' : 'ONE AI • General knowledge (admin only)'"/>
             </div>
-            <p t-esc="isArabic ? 'لأسئلة التعليم والشرح العامة فقط. عند الضغط على زر Gemini سيُرسل نص السؤال المكتوب إلى Google. الخطة المجانية قد تستخدم المحتوى لتحسين منتجاتها. ممنوع إدخال معلومات عملاء أو فواتير أو بيانات مالية سرية.' : 'For general educational questions only. Clicking Gemini sends the typed prompt to Google. Free-tier content may be used to improve Google products. Never include customers, invoices, or confidential financial data.'"/>
+            <p t-esc="isArabic ? 'لأسئلة التعليم والشرح العامة فقط. هذا الوضع يستخدم مزود ذكاء اصطناعي خارجي، لذلك ممنوع إدخال معلومات عملاء أو فواتير أو بيانات مالية سرية.' : 'For general educational questions only. This mode uses an external AI provider, so never include customers, invoices, payroll, or confidential company data.'"/>
             <label class="one_ai_gemini_consent">
               <input type="checkbox" t-att-checked="state.geminiConsent"
                      t-on-change="(ev) => state.geminiConsent = ev.target.checked"/>
-              <span t-esc="isArabic ? 'أؤكد أن السؤال عام وغير سري وأوافق على إرساله إلى Gemini.' : 'I confirm this question is general and non-confidential, and agree to send it to Gemini.'"/>
+              <span t-esc="isArabic ? 'أؤكد أن السؤال عام وغير سري وأوافق على معالجته عبر مزود الذكاء الخارجي.' : 'I confirm this question is general and non-confidential and may be processed by an external AI provider.'"/>
             </label>
             <button type="button" class="one_ai_gemini_button"
                     t-att-disabled="!state.geminiConsent || state.geminiLoading || state.askLoading || !state.askDraft.trim() ? 'disabled' : undefined"
                     t-on-click="() => this.askGeminiDemo()">
               <i class="fa fa-paper-plane-o" aria-hidden="true"/>
-              <span t-esc="isArabic ? 'جرّب Gemini بالسؤال المكتوب' : 'Try Gemini with typed question'"/>
+              <span t-esc="isArabic ? 'اسأل ONE AI العام' : 'Ask ONE AI general'"/>
             </button>
           </div>
                     <small class="one_ai_disclaimer" t-esc="isArabic ? 'راجع التقارير الأصلية قبل اتخاذ قرار مالي مهم.' : 'Verify source reports before material financial decisions.'"/>
