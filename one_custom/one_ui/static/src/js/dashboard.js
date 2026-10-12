@@ -232,7 +232,7 @@ export class OneDashboard extends Component {
     showIntelligence() {
         this.closeMenu();
         this.state.showAllApps = false;
-        this.state.showIntelligence = true;
+        this.state.showIntelligence = !this.state.showIntelligence;
     }
 
     onAskKeydown(event) {
@@ -300,13 +300,13 @@ export class OneDashboard extends Component {
                 role: "assistant",
                 source: "gemini",
                 text: String(result?.answer || (
-                    this.isArabic ? "لم تصل إجابة من Gemini." : "No Gemini answer received."
+                    this.isArabic ? "لم تصل إجابة من ONE AI العام." : "No ONE AI general answer received."
                 )),
             });
         } catch {
             this.state.askError = this.isArabic
-                ? "التجربة غير متاحة حاليًا. تقدر تستخدم المساعد الداخلي."
-                : "Demo unavailable. You can still use the internal assistant.";
+                ? "وضع المعرفة العامة غير متاح حاليًا. تقدر تستخدم ONE AI مع بيانات النظام."
+                : "General knowledge mode is unavailable. You can still use ONE AI with ERP data.";
         } finally {
             this.state.geminiConsent = false;
             if (this.state.askMessages.length > 20) {
