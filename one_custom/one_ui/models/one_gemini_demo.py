@@ -34,7 +34,7 @@ class OneAskGeminiDemo(models.TransientModel):
     def one_gemini_demo(self, question, consent=False):
         """Explicit, admin-only general demo. Never query or send company data."""
         if not self.env.user.has_group("base.group_system"):
-            raise AccessError(_("Only system administrators can test Gemini."))
+            raise AccessError(_("Only system administrators can use ONE AI general knowledge mode."))
         if not consent:
             return {
                 "ok": False,
@@ -43,14 +43,14 @@ class OneAskGeminiDemo(models.TransientModel):
         if os.environ.get("ONE_GEMINI_DEMO_ENABLED") != "1":
             return {
                 "ok": False,
-                "answer": _("Gemini demo is not enabled on this server."),
+                "answer": _("ONE AI general knowledge mode is not enabled on this server."),
             }
 
         key = (os.environ.get("ONE_GEMINI_API_KEY") or "").strip()
         if not key:
             return {
                 "ok": False,
-                "answer": _("Gemini demo API key has not been configured on the server."),
+                "answer": _("ONE AI general knowledge service is not configured on this server."),
             }
 
         if not isinstance(question, str):
@@ -65,7 +65,7 @@ class OneAskGeminiDemo(models.TransientModel):
         # No user-configured URLs and no model slashes; fixed HTTPS host only.
         model = os.environ.get("ONE_GEMINI_MODEL", "gemini-3.5-flash-lite")
         if not _GEMINI_MODEL_ID.fullmatch(model):
-            return {"ok": False, "answer": _("Invalid Gemini model configuration.")}
+            return {"ok": False, "answer": _("Invalid ONE AI provider configuration.")}
 
         body = {
             "systemInstruction": {"parts": [{"text": _DEMO_SYSTEM}]},
@@ -97,18 +97,18 @@ class OneAskGeminiDemo(models.TransientModel):
             if not answer:
                 return {
                     "ok": False,
-                    "answer": _("Gemini returned no text. Try a different demo question."),
+                    "answer": _("ONE AI returned no text. Try a different general question."),
                 }
             return {"ok": True, "answer": answer, "model": model}
         except error.HTTPError as exc:
             # Never forward provider error bodies: they could contain sensitive info.
             if exc.code == 429:
-                message = _("Gemini free quota reached. Use the local ONE assistant.")
+                message = _("ONE AI general knowledge capacity is temporarily unavailable. Use ERP data mode.")
             else:
-                message = _("Gemini is unavailable. Use the local ONE assistant.")
+                message = _("ONE AI general knowledge mode is unavailable. Use ERP data mode.")
             return {"ok": False, "answer": message}
         except (error.URLError, TimeoutError, ValueError, OSError):
             return {
                 "ok": False,
-                "answer": _("Gemini connection failed. Use the local ONE assistant."),
+                "answer": _("ONE AI general knowledge connection failed. Use ERP data mode."),
             }
