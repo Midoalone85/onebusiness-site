@@ -27,7 +27,8 @@ if(p==='/agent/poll'||p==='/agent/report'){
  return reply(res,405,{error:'method'});
 }
 if(p==='/api/login'&&req.method==='POST'){
- const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0],a=attempts.get(ip)||{fails:0,blocked:0};
+ if(!allowOrigin(req))return reply(res,403,{error:'Origin not accepted'});
+ const ip='owner-login-global',a=attempts.get(ip)||{fails:0,blocked:0};
  if(a.blocked>Date.now())return reply(res,429,{error:'انتظر 15 دقيقة قبل المحاولة'});
  const b=await body(req);
  if(typeof b.password!=='string'||!eq(sha(b.password),PW)){a.fails++;if(a.fails>=5){a.blocked=Date.now()+900000;a.fails=0}attempts.set(ip,a);return reply(res,401,{error:'مفتاح الدخول غير صحيح'})}
