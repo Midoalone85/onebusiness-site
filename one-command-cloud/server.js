@@ -21,7 +21,7 @@ if(p==='/agent/poll'||p==='/agent/report'){
  lastPing=Date.now();
  if(p==='/agent/poll'&&req.method==='GET'){if(!live()){queue=[];return reply(res,200,{job:null})}return reply(res,200,{job:queue.shift()||null})}
  if(p==='/agent/report'&&req.method==='POST'){let d=await body(req),j=issued.get(d.id);
-   if(!live()||!j||j.kind!==d.kind||!['inventory','erp_ports'].includes(d.kind))return reply(res,409,{error:'job expired/invalid'});
+   if(!live()||!j||j.kind!==d.kind||!['inventory','erp_ports','oracle_network'].includes(d.kind))return reply(res,409,{error:'job expired/invalid'});
    if(JSON.stringify(d.data||{}).length>8000)return reply(res,400,{error:'too large'});
    issued.delete(d.id);results.unshift({at:new Date().toISOString(),kind:d.kind,data:d.data});results=results.slice(0,20);evt('تم استلام تقرير '+d.kind);return reply(res,200,{ok:true})}
  return reply(res,405,{error:'method'});
@@ -42,6 +42,7 @@ if(p==='/api/logout'&&req.method==='POST')return reply(res,200,{ok:true},{'Set-C
 if(p==='/api/state'&&req.method==='GET')return reply(res,200,{agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,events,results});
 if(p==='/api/control/start'&&req.method==='POST'){session={expires:Date.now()+900000,id:crypto.randomUUID()};queue=[];issued.clear();results=[];enqueue('inventory');enqueue('erp_ports');evt('بدء جلسة فحص لمدة 15 دقيقة');return reply(res,200,{ok:true})}
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});enqueue('inventory');enqueue('erp_ports');evt('طلب فحص جديد');return reply(res,200,{ok:true})}
+if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});enqueue('oracle_network');evt('طلب اختبار اتصال Oracle TCP فقط، دون SSH login');return reply(res,200,{ok:true,scope:'oracle_network'})}
 if(p==='/api/control/stop'&&req.method==='POST'){session=null;queue=[];issued.clear();evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
 return reply(res,404,{error:'not found'});
 }catch(e){console.error(e.message);return reply(res,500,{error:'request failed'})}
