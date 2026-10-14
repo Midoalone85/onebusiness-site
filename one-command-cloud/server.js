@@ -11,7 +11,7 @@ function live(){return session&&session.expires>Date.now()}
 function evt(s){events.unshift({at:new Date().toISOString(),message:s});events.splice(30)}
 function reply(res,c,o,more={}){res.writeHead(c,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...more});res.end(JSON.stringify(o))}
 async function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',v=>{s+=v;if(s.length>12000){reject(Error('body too big'));req.destroy()}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('invalid JSON'))}});req.on('error',reject)})}
-function allowOrigin(req){if(!req.headers.origin)return true;try{const u=new URL(req.headers.origin);return u.protocol==='https:'&&u.host===req.headers.host}catch{return false}}
+function allowOrigin(req){if(!req.headers.origin)return true;try{const u=new URL(req.headers.origin);const loopback=u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname)&&['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);return u.host===req.headers.host&&(u.protocol==='https:'||loopback)}catch{return false}}
 function enqueue(kind){const j={id:crypto.randomUUID(),kind,at:Date.now()};queue.push(j);issued.set(j.id,j);if(queue.length>12)queue.shift()}
 function summarizeDiagnostics(items){
  const problems=[],ok=[],suggestions=[];
