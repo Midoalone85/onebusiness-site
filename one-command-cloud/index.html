@@ -21,7 +21,7 @@
 <h2>✦ ONE ASSIST | مساعد الأوامر المحلي</h2>
 <p>اكتب طلبًا بالعربي. هعرض عليك الإجراء المسموح قبل التنفيذ، ومش هيتنفذ إلا بعد موافقتك. لا توجد أوامر عامة أو تعديل بيانات هنا، والمساعد ده مش ChatGPT API.</p>
 <form id="assistForm"><label for="assistText">اكتب أمر الجهاز</label>
-<input id="assistText" maxlength="200" required placeholder="مثال: افحص الكمبيوتر، افحص Oracle، افتح المفكرة">
+<input id="assistText" maxlength="200" required placeholder="مثال: افحص الكمبيوتر، افتح ONE ERP، افتح المفكرة">
 <div class="actions"><button class="primary" type="submit">افهم الأمر واعرضه</button></div></form>
 <div id="assistPreview" class="notice" hidden><strong id="assistLabel">الإجراء المقترح</strong><p>لن يتم أي إجراء قبل الضغط على الموافقة.</p>
 <div class="actions"><button id="approveAssist" class="primary" type="button">أوافق، نفّذ الإجراء المسموح</button><button id="cancelAssist" class="soft" type="button">إلغاء</button></div></div>
@@ -36,8 +36,8 @@
 <p class="muted">تعمل المراقبة فقط عندما الوكيل والسيرفر نشطين؛ استضافة Render المجانية قد تتوقف مؤقتًا أو تعيد التشغيل، لذا ليس هذا نظام مراقبة مستمرة مضمونًا.</p>
 </section>
 <section class="panel" style="margin-top:16px" id="windowsActions"><h2>💻 التحكم المباشر الآمن في الكمبيوتر</h2>
-<p>بعد بدء جلسة «الكمبيوتر»، تقدر تطلب فتح المفكرة أو الآلة الحاسبة على جهاز Windows المتصل. دي تطبيقات محددة فقط؛ مفيش صلاحية لكتابة أوامر عامة أو حذف بيانات.</p>
-<div class="actions"><button class="soft" id="openNotepad" disabled>افتح المفكرة في Windows</button><button class="soft" id="openCalculator" disabled>افتح الآلة الحاسبة</button></div>
+<p>بعد بدء جلسة «الكمبيوتر»، تقدر تطلب فتح المفكرة أو الآلة الحاسبة أو صفحات ONE ERP وONE COMMAND المعتمدة على جهاز Windows المتصل. دي تطبيقات محددة فقط؛ مفيش صلاحية لكتابة أوامر عامة أو حذف بيانات.</p>
+<div class="actions"><button class="soft" id="openNotepad" disabled>افتح المفكرة في Windows</button><button class="soft" id="openCalculator" disabled>افتح الآلة الحاسبة</button><button class="soft" id="openERP" disabled>افتح ONE ERP على الكمبيوتر</button><button class="soft" id="openConsole" disabled>افتح ONE COMMAND على الكمبيوتر</button></div>
 <p id="windowsActionStatus" role="status">ابدأ جلسة الكمبيوتر وتأكد إن Windows Agent متصل أولًا.</p></section>
 <section class="panel" style="margin-top:16px" id="phoneSection"><h2>📱 ربط الموبايل والتحكم المسموح</h2>
 <p>افتح نفس الموقع من متصفح هاتفك، وسجل الدخول ثم اضغط «ربط هذا الهاتف». بعد الربط تقدر تبدأ جلسة المتابعة من هاتفك أو تختار الهاتف من الكمبيوتر. هذه الميزة لا تتحكم في التطبيقات أو إعدادات Android وiPhone، بل في المتصفح الموافق فقط.</p>
