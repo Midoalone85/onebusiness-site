@@ -100,10 +100,13 @@ $('disconnectPhone').onclick=async()=>{if(!currentPhoneId)return;try{await reque
 async function phoneAction(kind){const id=$('phoneDevices').value;if(!id)return alert('اختر الهاتف أولًا');
  try{const r=await request('/api/mobile/action','POST',{id,kind});if(r){val('phoneStatus','تم إرسال '+(kind==='ping'?'اختبار اتصال':'تنبيه اهتزاز')+'، وجار انتظار رد المتصفح...');await refresh()}}catch(e){alert(e.message)}}
 async function allowedWindowsAction(app){
- if(!confirm('سيتم طلب فتح '+(app==='notepad'?'المفكرة':'الآلة الحاسبة')+' على الكمبيوتر المتصل فقط. هل تسمح؟'))return;
+ const text=app==='notepad'?'افتح المفكرة':'افتح الآلة الحاسبة';
  try{
-  const r=await request('/api/control/windows/app','POST',{app});
-  if(r){val('windowsActionStatus','تم إرسال طلب فتح '+(app==='notepad'?'المفكرة':'الآلة الحاسبة')+'. انتظر نتيجة الوكيل في سجل الفحوص.');await refresh()}
+  const preview=await request('/api/assist/preview','POST',{text});
+  if(!preview)return;
+  if(!confirm('طلب '+preview.label+' على الكمبيوتر المتصل. الموافقة لمرة واحدة فقط. هل توافق؟'))return;
+  const result=await request('/api/assist/execute','POST',{text,approved:true,requestId:preview.requestId});
+  if(result){val('windowsActionStatus','تم إرسال '+result.label+'. راجع نتيجة الوكيل في سجل العمليات.');await refresh()}
  }catch(e){val('windowsActionStatus','تعذر إرسال الطلب: '+e.message)}
 }
 $('openNotepad').onclick=()=>allowedWindowsAction('notepad');
