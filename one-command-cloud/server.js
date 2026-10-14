@@ -2,7 +2,7 @@
 const http=require('node:http'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
 const PORT=Number(process.env.PORT||3000),PW=process.env.OC_ADMIN_HASH||'',KEY=process.env.OC_COOKIE_SECRET||'',AGENT=process.env.OC_AGENT_TOKEN||'';
 if(!/^[a-f0-9]{64}$/.test(PW)||KEY.length<32||AGENT.length<32){console.error('Missing OC secrets');process.exit(1)}
-const events=[],attempts=new Map(),ownerSessions=new Map(),changes=[],phones=new Map();let session=null,queue=[],results=[],lastPing=0,issued=new Map();
+const events=[],attempts=new Map(),ownerSessions=new Map(),changes=[],phones=new Map();let session=null,queue=[],results=[],lastPing=0,issued=new Map();let monitor={interval:'off',nextAt:null,lastAt:null};
 const sha=s=>crypto.createHash('sha256').update(s).digest('hex'),mac=s=>crypto.createHmac('sha256',KEY).update(s).digest('hex');
 const eq=(a,b)=>{let x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y)};
 function sessionId(req){const raw=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('oc_session='))||'';const [id,sig]=raw.slice(11).split('.');return /^[a-f0-9]{48}$/.test(id||'')&&eq(mac('owner:'+id),sig||'')?id:null}
@@ -49,6 +49,27 @@ function enqueue(kind){
  const j={id:crypto.randomUUID(),kind,at:Date.now()};
  queue.push(j);issued.set(j.id,j);recordJob(j,'queued');return true;
 }
+const MONITOR_INTERVALS=Object.freeze({off:0,m15:15*60000,h1:3600000,h6:21600000,d1:86400000});
+function resetMonitor(){monitor={interval:'off',nextAt:null,lastAt:null}}
+function tickMonitor(){
+ if(!live()||session.target!=='computer'||monitor.interval==='off'||!monitor.nextAt)return;
+ const now=Date.now();
+ if(now<monitor.nextAt)return;
+ const interval=MONITOR_INTERVALS[monitor.interval];
+ monitor.nextAt=now+interval;monitor.lastAt=now;
+ for(const kind of ['inventory','erp_ports','oracle_network','oracle_health'])enqueue(kind);
+ evt('بدء فحص دوري آمن: '+monitor.interval);
+}
+function classifyAssistantRequest(text){
+ const q=String(text||'').trim().toLowerCase();
+ if(q.length<3||q.length>200)return {ok:false,error:'اكتب طلبًا واضحًا من 3 إلى 200 حرف'};
+ if(/مفكرة|notepad/.test(q))return {ok:true,label:'فتح المفكرة',target:'computer',endpoint:'/api/control/windows/app',payload:{app:'notepad'},type:'action'};
+ if(/حاسبة|حاسب[هة]|calculator|آلة حاسبة|اله حاسبه/.test(q))return {ok:true,label:'فتح الآلة الحاسبة',target:'computer',endpoint:'/api/control/windows/app',payload:{app:'calculator'},type:'action'};
+ if(/اوراكل|أوراكل|oracle|السيرفر|ssh/.test(q)&&/افحص|فحص|شيك|حالة|اختبر|راجع/.test(q))return {ok:true,label:'فحص اتصال Oracle فقط',target:'computer',endpoint:'/api/control/oracle',payload:{},type:'diagnostic'};
+ if(/ويندوز|windows|الكمبيوتر|الجهاز/.test(q)&&/افحص|فحص|شيك|حالة|اختبر|راجع/.test(q))return {ok:true,label:'فحص شامل للكمبيوتر وONE ERP وOracle',target:'computer',endpoint:'/api/control/scan',payload:{},type:'diagnostic'};
+ if(/افحص|فحص|شيك|حالة|اختبر|راجع/.test(q))return {ok:true,label:'فحص شامل آمن',target:'computer',endpoint:'/api/control/scan',payload:{},type:'diagnostic'};
+ return {ok:false,error:'لا أقدر أنفذ الطلب ده تلقائيًا. الأوامر المتاحة الآن: افحص الكمبيوتر، افحص Oracle، افتح المفكرة، افتح الآلة الحاسبة. ممكن تضيف طلبات أخرى لمركز التطوير.'};
+}
 function summarizeDiagnostics(items){
  const problems=[],ok=[],suggestions=[];
  if(!items.length)return {status:'waiting',title:'في انتظار نتائج الفحص',problems:[],ok:[],suggestions:['ابدأ التحكم والفحص بعد تشغيل Windows Agent.']};
@@ -81,7 +102,7 @@ if(p==='/healthz')return reply(res,200,{ok:true,service:'one-command',private:tr
 if(p==='/agent/poll'||p==='/agent/report'){
  if(!eq(req.headers.authorization||'','Bearer '+AGENT))return reply(res,401,{error:'agent unauthorized'});
  lastPing=Date.now();
- if(p==='/agent/poll'&&req.method==='GET'){sweepJobs();if(!live())return reply(res,200,{job:null});const job=queue.shift()||null;if(job){job.startedAt=Date.now();recordJob(job,'running')}return reply(res,200,{job})}
+ if(p==='/agent/poll'&&req.method==='GET'){sweepJobs();tickMonitor();if(!live())return reply(res,200,{job:null});const job=queue.shift()||null;if(job){job.startedAt=Date.now();recordJob(job,'running')}return reply(res,200,{job})}
  if(p==='/agent/report'&&req.method==='POST'){let d=await body(req),j=issued.get(d.id);
    if(!live()||!j||j.kind!==d.kind||!JOB_KINDS.has(d.kind))return reply(res,409,{error:'job expired/invalid'});
    if(JSON.stringify(d.data||{}).length>8000)return reply(res,400,{error:'too large'});
@@ -174,8 +195,8 @@ if(p==='/api/ai/analyze'&&req.method==='POST'){
   evt('تحليل تقرير الفحص بإذن المالك');return reply(res,200,{answer:String(answer).slice(0,5000)});
  }finally{clearTimeout(timer)}
 }
-if(p==='/api/logout'&&req.method==='POST'){for(const d of phones.values()){d.pending=null;d.commands=[]}for(const [k,v] of phones)if(v.ownerSid===sessionId(req))phones.delete(k);ownerSessions.delete(sessionId(req));session=null;clearJobs('تم تسجيل الخروج');evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
-if(p==='/api/state'&&req.method==='GET'){sweepJobs();return reply(res,200,{phones:onlinePhones().map(p=>({id:p.id,label:p.label,platform:p.platform,lastSeen:p.lastSeen,browserOnly:true,lastAction:p.lastAction||null})),controlTarget:live()?session.target||'computer':null,sessionDuration:live()?session.duration:null,sessionStartedAt:live()?session.startedAt:null,unlimited:!!(live()&&session.expires===null),availableDurations:Object.keys(SESSION_DURATIONS),jobs:jobHistory.slice(0,16),changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});}
+if(p==='/api/logout'&&req.method==='POST'){for(const d of phones.values()){d.pending=null;d.commands=[]}for(const [k,v] of phones)if(v.ownerSid===sessionId(req))phones.delete(k);ownerSessions.delete(sessionId(req));session=null;resetMonitor();clearJobs('تم تسجيل الخروج');evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
+if(p==='/api/state'&&req.method==='GET'){sweepJobs();return reply(res,200,{monitor:{...monitor,enabled:!!(live()&&session.target==='computer'&&monitor.interval!=='off')},phones:onlinePhones().map(p=>({id:p.id,label:p.label,platform:p.platform,lastSeen:p.lastSeen,browserOnly:true,lastAction:p.lastAction||null})),controlTarget:live()?session.target||'computer':null,sessionDuration:live()?session.duration:null,sessionStartedAt:live()?session.startedAt:null,unlimited:!!(live()&&session.expires===null),availableDurations:Object.keys(SESSION_DURATIONS),jobs:jobHistory.slice(0,16),changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});}
 // Planning-only requests: no agent commands, no cloud or ERP changes.
 if(p==='/api/changes'&&req.method==='POST'){
  const d=await body(req);const title=typeof d.title==='string'?d.title.trim():'',details=typeof d.details==='string'?d.details.trim():'';
@@ -237,7 +258,7 @@ if(p==='/api/control/start'&&req.method==='POST'){
  const target=d.target||'computer';
  if(!['computer','mobile'].includes(target))return reply(res,400,{error:'نوع الجهاز غير مدعوم'});
  if(target==='mobile'&&!onlinePhones().length)return reply(res,409,{error:'الهاتف غير مرتبط. افتح الموقع على الهاتف واضغط «ربط هذا الهاتف» أولًا'});
- session={...newDuration(d.duration),id:crypto.randomUUID(),target};
+ session={...newDuration(d.duration),id:crypto.randomUUID(),target};resetMonitor();
  clearJobs('جلسة جديدة');results=[];
  if(target==='computer'){enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health')}
  evt('بدء جلسة '+(target==='computer'?'فحص الكمبيوتر':'متابعة متصفح الهاتف')+' لمدة '+SESSION_LABELS[d.duration]);
@@ -252,6 +273,34 @@ if(p==='/api/control/duration'&&req.method==='POST'){
  evt('تغيير مدة جلسة الفحص إلى: '+SESSION_LABELS[d.duration]);
  return reply(res,200,{ok:true,duration:session.duration,expires:session.expires,unlimited:session.expires===null});
 }
+if(p==='/api/control/monitor'&&req.method==='POST'){
+ if(!live()||session.target!=='computer')return reply(res,409,{error:'ابدأ جلسة الكمبيوتر أولًا'});
+ const d=await body(req),interval=d.interval;
+ if(typeof interval!=='string'||!Object.hasOwn(MONITOR_INTERVALS,interval))return reply(res,400,{error:'فترة المراقبة غير صالحة'});
+ monitor={interval,nextAt:interval==='off'?null:Date.now()+MONITOR_INTERVALS[interval],lastAt:monitor.lastAt};
+ evt(interval==='off'?'إيقاف الفحص الدوري':'تفعيل الفحص الدوري كل '+interval);
+ return reply(res,200,{ok:true,monitor:{...monitor},scope:'read_only'});
+}
+if(p==='/api/assist/preview'&&req.method==='POST'){
+ const d=await body(req);
+ const plan=classifyAssistantRequest(d.text);
+ if(!plan.ok)return reply(res,422,{error:plan.error,availableCommands:['افحص الكمبيوتر','افحص Oracle','افتح المفكرة','افتح الآلة الحاسبة']});
+ return reply(res,200,{ok:true,label:plan.label,target:plan.target,action:plan.type,requiresApproval:true,requiresActiveSession:true,scope:'fixed_allowlist',requestId:crypto.randomUUID(),plan:{endpoint:plan.endpoint,payload:plan.payload}});
+}
+// No freeform or LLM-supplied commands execute here. The server re-classifies and checks approvals.
+if(p==='/api/assist/execute'&&req.method==='POST'){
+ if(!live()||session.target!=='computer')return reply(res,409,{error:'ابدأ جلسة الكمبيوتر أولًا'});
+ const d=await body(req);
+ if(d.approved!==true)return reply(res,403,{error:'موافقة المستخدم مطلوبة'});
+ const plan=classifyAssistantRequest(d.text);
+ if(!plan.ok)return reply(res,422,{error:plan.error});
+ if(plan.type==='action'&&Date.now()-lastPing>30000)return reply(res,409,{error:'Windows Agent غير متصل'});
+ const kinds=plan.endpoint==='/api/control/oracle'?['oracle_network','oracle_health']:plan.endpoint==='/api/control/scan'?['inventory','erp_ports','oracle_network','oracle_health']:plan.payload.app==='notepad'?['windows_notepad']:['windows_calculator'];
+ let added=0;for(const kind of kinds)if(enqueue(kind))added++;
+ if(!added)return reply(res,409,{error:'المهام موجودة بالفعل في الطابور أو لا توجد سعة'});
+ evt('مساعد الأوامر المحلي: '+plan.label+' • موافقة صريحة');
+ return reply(res,200,{ok:true,label:plan.label,queued:added,scope:'allowlisted_only'});
+}
 if(p==='/api/control/windows/app'&&req.method==='POST'){
  if(!live()||session.target!=='computer')return reply(res,409,{error:'ابدأ جلسة الكمبيوتر أولًا'});
  if(Date.now()-lastPing>30000)return reply(res,409,{error:'Windows Agent غير متصل'});
@@ -264,7 +313,7 @@ if(p==='/api/control/windows/app'&&req.method==='POST'){
 }
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});if(session.target==='mobile')return reply(res,409,{error:'اختر الكمبيوتر لفحوص Windows وOracle'});enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص شامل جديد');return reply(res,200,{ok:true})}
 if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});if(session.target==='mobile')return reply(res,409,{error:'هذه الجلسة مخصصة لمتصفح الهاتف'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
-if(p==='/api/control/stop'&&req.method==='POST'){session=null;for(const d of phones.values()){d.pending=null;d.commands=[]}clearJobs('إيقاف المستخدم');evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
+if(p==='/api/control/stop'&&req.method==='POST'){resetMonitor();session=null;for(const d of phones.values()){d.pending=null;d.commands=[]}clearJobs('إيقاف المستخدم');evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
 return reply(res,404,{error:'not found'});
 }catch(e){console.error(e.message);return reply(res,500,{error:'request failed'})}
 });
