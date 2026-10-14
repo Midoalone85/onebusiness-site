@@ -1,4 +1,27 @@
 const $=id=>document.getElementById(id);let current=null;
+const BACKUP_KEY='onecommand:planning:local:v1',BACKUP_DISABLED_KEY='onecommand:planning:disabled:v1';
+function readBrowserBackup(){
+ try{const raw=localStorage.getItem(BACKUP_KEY);if(!raw||raw.length>80000)return null;
+  const data=JSON.parse(raw);return data&&Array.isArray(data.changes)&&data.changes.length<=40?data:null;
+ }catch{return null}
+}
+function updateBrowserBackup(changes){
+ try{
+  const disabled=localStorage.getItem(BACKUP_DISABLED_KEY)==='1';
+  $('forgetBrowser').textContent=disabled?'تفعيل الحفظ في المتصفح':'مسح نسخة المتصفح';
+  if(!disabled&&Array.isArray(changes)&&changes.length){
+   const data={type:'planning_backup',version:1,product:'ONE COMMAND',savedAt:new Date().toISOString(),changes};
+   const previous=readBrowserBackup(),same=previous&&JSON.stringify(previous.changes)===JSON.stringify(changes);
+   if(!same)localStorage.setItem(BACKUP_KEY,JSON.stringify(data));
+  }
+  const cached=readBrowserBackup();
+  val('browserBackupHint',disabled?'الحفظ المحلي متوقف حتى تعيد تفعيله':cached?'نسخة هذا المتصفح تحتوي '+cached.changes.length+' طلب. متاحة للاستعادة بعد إعادة تشغيل الاستضافة.':'لا توجد نسخة محلية للطلبات بعد.');
+ }catch{val('browserBackupHint','تعذر حفظ نسخة المتصفح. استخدم تنزيل ملف JSON.')}
+}
+function showJobTimeline(items){
+ const status={queued:'⏳ في الانتظار',running:'◉ جارٍ الفحص',completed:'✓ اكتمل',expired:'⚠ انتهت المهلة',cancelled:'◌ أُلغي'};
+ val('jobTimeline',(items||[]).slice(0,10).map(j=>(status[j.status]||j.status)+' • '+j.kind+' • '+new Date(j.updated).toLocaleTimeString('ar-SA')).join('\n')||'لم تبدأ أي فحوص بعد.');
+}
 async function request(url,method='GET',obj){const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:obj?JSON.stringify(obj):undefined,credentials:'same-origin'});let v=await r.json();if(r.status===401&&url!=='/api/login'){$('app').hidden=true;$('login').hidden=false;return null}if(!r.ok)throw Error(v.error||'تعذر الاتصال');return v}
 function val(id,text){$(id).textContent=text}
 function renderChanges(list){
@@ -29,7 +52,7 @@ function renderChanges(list){
   }out.appendChild(el);
  }
 }
-async function refresh(){try{const d=await request('/api/state');if(!d)return;current=d;$('login').hidden=true;$('app').hidden=false;val('agentState',d.agentOnline?'متصل الآن ●':'غير متصل ○');$('agentState').className='metric '+(d.agentOnline?'good':'bad');val('agentHint',d.agentOnline?'الوكيل يستجيب ويستطيع استقبال طلبات الفحص':'يجب تشغيل Windows Agent على جهازك أولًا');$('agentBar').style.width=d.agentOnline?'100%':'9%';val('sessionState',d.active?'نشطة ✓':'متوقفة');val('sessionHint',d.active?'تنتهي الساعة '+new Date(d.expires).toLocaleTimeString('ar-SA'):'جلسة فحص فقط لمدة 15 دقيقة');$('start').disabled=d.active;$('stop').disabled=!d.active;$('scan').disabled=!d.active;$('oracleCheck').disabled=!d.active;val('count',String(d.results.length));val('sessionHint',d.active?'متبقي '+(d.pendingJobs||0)+' فحوص في قائمة الانتظار':'جلسة فحص فقط لمدة 15 دقيقة');renderChanges(d.changes||[]);const g=d.diagnosis||{};val('diagnosis',[g.title||'في انتظار نتائج الفحص',...(g.problems||[]).map(x=>'⚠ '+x),...(g.ok||[]).map(x=>'✓ '+x),...(g.suggestions||[]).map(x=>'↳ '+x),g.disclaimer||''].filter(Boolean).join('\n'));$('analyze').disabled=!(d.active&&d.aiConfigured&&d.results.length);val('aiStatus',d.aiConfigured?'AI API متصل بالإعدادات. اضغط للتحليل بعد موافقتك على مشاركة التقرير.':'التحليل الآلي يحتاج إعداد OpenAI API key. الفحص بدون AI متاح دائمًا.');val('results',d.results.length?d.results.map(x=>new Date(x.at).toLocaleString('ar-SA')+' | '+x.kind+'\n'+JSON.stringify(x.data,null,2)).join('\n\n'):'لا توجد تقارير بعد.');val('events',d.events.map(x=>new Date(x.at).toLocaleTimeString('ar-SA')+' • '+x.message).join('\n')||'لا توجد عمليات بعد.')}catch(e){console.warn(e.message);val('agentHint','تعذر تحديث الحالة. تحقق من الاتصال وأعد المحاولة.')}}
+async function refresh(){try{const d=await request('/api/state');if(!d)return;current=d;$('login').hidden=true;$('app').hidden=false;val('agentState',d.agentOnline?'متصل الآن ●':'غير متصل ○');$('agentState').className='metric '+(d.agentOnline?'good':'bad');val('agentHint',d.agentOnline?'الوكيل يستجيب ويستطيع استقبال طلبات الفحص':'يجب تشغيل Windows Agent على جهازك أولًا');$('agentBar').style.width=d.agentOnline?'100%':'9%';val('sessionState',d.active?'نشطة ✓':'متوقفة');val('sessionHint',d.active?'تنتهي الساعة '+new Date(d.expires).toLocaleTimeString('ar-SA'):'جلسة فحص فقط لمدة 15 دقيقة');$('start').disabled=d.active;$('stop').disabled=!d.active;$('scan').disabled=!d.active;$('oracleCheck').disabled=!d.active;val('count',String(d.results.length));val('sessionHint',d.active?'متبقي '+(d.pendingJobs||0)+' فحوص في قائمة الانتظار':'جلسة فحص فقط لمدة 15 دقيقة');renderChanges(d.changes||[]);updateBrowserBackup(d.changes||[]);showJobTimeline(d.jobs||[]);const g=d.diagnosis||{};val('diagnosis',[g.title||'في انتظار نتائج الفحص',...(g.problems||[]).map(x=>'⚠ '+x),...(g.ok||[]).map(x=>'✓ '+x),...(g.suggestions||[]).map(x=>'↳ '+x),g.disclaimer||''].filter(Boolean).join('\n'));$('analyze').disabled=!(d.active&&d.aiConfigured&&d.results.length);val('aiStatus',d.aiConfigured?'AI API متصل بالإعدادات. اضغط للتحليل بعد موافقتك على مشاركة التقرير.':'التحليل الآلي يحتاج إعداد OpenAI API key. الفحص بدون AI متاح دائمًا.');val('results',d.results.length?d.results.map(x=>new Date(x.at).toLocaleString('ar-SA')+' | '+x.kind+'\n'+JSON.stringify(x.data,null,2)).join('\n\n'):'لا توجد تقارير بعد.');val('events',d.events.map(x=>new Date(x.at).toLocaleTimeString('ar-SA')+' • '+x.message).join('\n')||'لا توجد عمليات بعد.')}catch(e){console.warn(e.message);val('agentHint','تعذر تحديث الحالة. تحقق من الاتصال وأعد المحاولة.')}}
 $('loginForm').onsubmit=async e=>{e.preventDefault();try{await request('/api/login','POST',{password:$('password').value.trim()});$('password').value='';val('loginError','');await refresh()}catch(e){val('loginError',e.message)}};
 async function action(path){try{await request(path,'POST',{});await refresh()}catch(e){alert(e.message)}}
 $('start').onclick=()=>action('/api/control/start');$('stop').onclick=()=>action('/api/control/stop');$('scan').onclick=()=>action('/api/control/scan');$('refresh').onclick=refresh;$('oracleCheck').onclick=()=>action('/api/control/oracle');
@@ -50,6 +73,21 @@ $('importFile').onchange=async()=>{
  try{const data=JSON.parse(await file.text());const result=await request('/api/changes/import','POST',data);
     await refresh();alert('تمت استعادة '+result.imported+' طلب للمراجعة')}
  catch(e){alert('فشلت الاستعادة: '+e.message)}
+};
+$('restoreBrowser').onclick=async()=>{
+ const saved=readBrowserBackup();
+ if(!saved)return alert('لا توجد نسخة محفوظة داخل هذا المتصفح.');
+ if(!confirm('هل تريد استعادة '+saved.changes.length+' طلب من المتصفح؟ لن تتغير قواعد بيانات ONE ERP.'))return;
+ try{const r=await request('/api/changes/import','POST',saved);await refresh();alert('تمت استعادة '+r.imported+' طلب.')}catch(e){alert('فشل استعادة الطلبات: '+e.message)}
+};
+$('forgetBrowser').onclick=()=>{
+ try{
+  const disabled=localStorage.getItem(BACKUP_DISABLED_KEY)==='1';
+  if(disabled){localStorage.removeItem(BACKUP_DISABLED_KEY);updateBrowserBackup(current?.changes||[]);return}
+  if(!confirm('مسح نسخة الطلبات من هذا المتصفح وإيقاف حفظها التلقائي؟ بيانات الموقع نفسها لن تتغير.'))return;
+  localStorage.removeItem(BACKUP_KEY);localStorage.setItem(BACKUP_DISABLED_KEY,'1');
+  updateBrowserBackup(current?.changes||[]);
+ }catch(e){alert('تعذر تعديل نسخة المتصفح: '+e.message)}
 };
 $('changeForm').onsubmit=async e=>{e.preventDefault();const payload={title:$('changeTitle').value.trim(),target:$('changeTarget').value,details:$('changeDetails').value.trim()};try{await request('/api/changes','POST',payload);$('changeForm').reset();val('changeNotice',' تم تسجيل الطلب للمراجعة فقط.');await refresh()}catch(error){val('changeNotice',' '+error.message)}};
 $('logout').onclick=async()=>{await request('/api/logout','POST',{});location.reload()};
