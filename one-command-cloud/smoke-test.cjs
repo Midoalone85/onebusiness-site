@@ -15,6 +15,15 @@ async function main(){
   const cookie=login.cookie.split(';')[0];
   assert.equal((await req('/api/state',{headers:{cookie}})).code,200);
   assert.equal((await post('/api/control/start',{},cookie,'https://evil.example')).code,403);
+  assert.equal((await post('/api/changes',{title:'Secret change',target:'ONE ERP',details:'Do something sensitive'})).code,401);
+  assert.equal((await post('/api/changes',{title:'a',target:'Oracle',details:'too short'},cookie)).code,400);
+  const change=await post('/api/changes',{title:'Review accounting workflow',target:'ONE ERP',details:'Review invoice reporting and create a test plan only.'},cookie);
+  assert.equal(change.code,201);assert.equal(change.data.executable,false);
+  let changes=await req('/api/state',{headers:{cookie}});
+  assert.equal(changes.data.changes.length,1);assert.equal(changes.data.changes[0].status,'pending_review');
+  let review=await post('/api/changes/review',{id:change.data.id,status:'reviewed'},cookie);
+  assert.equal(review.code,200);assert.equal(review.data.executable,false);
+  assert.equal((await post('/api/changes/review',{id:change.data.id,status:'reviewed'},cookie)).code,409);
   assert.equal((await post('/api/control/start',{},cookie)).code,200);
   let jobs=[];
   for(let i=0;i<2;i++){const j=await req('/agent/poll',{headers:{authorization:'Bearer '+token}});assert.equal(j.code,200);jobs.push(j.data.job)}
@@ -28,7 +37,7 @@ async function main(){
   assert.equal((await req('/api/state',{headers:{cookie}})).code,401,'logout revoked');
   for(let i=0;i<7;i++)await post('/api/login',{password:'wrong'});
   assert.equal((await post('/api/login',{password})).code,200,'valid owner can recover from bad attempts');
-  console.log('PASS: boot, login, origin check, scan, agent, report, stop, logout revocation, lockout recovery');
+  console.log('PASS: boot, login, origin check, scan, agent, report, stop, logout revocation, lockout recovery, planning-only workflow');
  }finally{proc.kill()}
 }
 main().catch(e=>{console.error('FAIL:',e.stack||e);proc.kill();process.exitCode=1});
