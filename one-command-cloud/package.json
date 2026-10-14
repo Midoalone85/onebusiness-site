@@ -1,11 +1,7 @@
 {
   "name": "one-command-owner",
   "private": true,
-  "version": "1.7.0",
-  "engines": {
-    "node": "22.x"
-  },
-  "scripts": {
-    "start": "node server.js"
-  }
+  "version": "1.8.0",
+  "engines": {"node": "22.x"},
+  "scripts": {"start": "node server.js"}
 }
