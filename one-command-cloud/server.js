@@ -75,7 +75,7 @@ function tickMonitor(){
  evt('بدء فحص دوري آمن: '+monitor.interval);
 }
 function classifyAssistantRequest(text){
- const q=String(text||'').normalize('NFKC').trim().toLowerCase().replace(/[ًٌٍَُِّْـ]/g,'').replace(/[؟!?،,.;:]+/g,'').replace(/\\s+/g,' ');
+ const q=String(text||'').normalize('NFKC').trim().toLowerCase().replace(/[ًٌٍَُِّْـ]/g,'').replace(/[؟!?،,.;:]+/g,'').replace(/\s+/g,' ');
  if(q.length<3||q.length>200)return {ok:false,error:'اكتب طلبًا واضحًا من 3 إلى 200 حرف'};
  const commands=[
   {examples:['افتح المفكرة','شغل المفكرة','افتح notepad','open notepad'],label:'فتح المفكرة على الكمبيوتر',kind:'windows_notepad'},
@@ -146,7 +146,7 @@ if(p==='/agent/poll'||p==='/agent/report'||p==='/agent/authorize'){
   if(p==='/agent/report'&&req.method==='POST'){let d=await body(req),j=issued.get(d.id);
    if(!live()||!j||j.kind!==d.kind||!JOB_KINDS.has(d.kind)||(ACTION_KINDS.has(j.kind)&&!j.authorizedAt))return reply(res,409,{error:'job expired/invalid or action not authorized'});
    if(JSON.stringify(d.data||{}).length>8000)return reply(res,400,{error:'too large'});
-   issued.delete(d.id);recordJob(j,'completed');results.unshift({at:new Date().toISOString(),kind:d.kind,data:d.data});results=results.slice(0,20);evt('تم استلام تقرير '+d.kind);return reply(res,200,{ok:true})}
+   issued.delete(d.id);const failed=ACTION_KINDS.has(j.kind)&&d.data?.requested!==true;recordJob(j,failed?'failed':'completed',failed?String(d.data?.error||'Windows could not launch app').slice(0,120):'');results.unshift({at:new Date().toISOString(),kind:d.kind,data:d.data});results=results.slice(0,20);evt('تم استلام تقرير '+d.kind);return reply(res,200,{ok:true})}
  return reply(res,405,{error:'method'});
 }
 if(p==='/api/login'&&req.method==='POST'){
