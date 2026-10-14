@@ -9,12 +9,16 @@ function tcp(port){return new Promise(resolve=>{let s=net.connect({host:'127.0.0
 async function httpCheck(port,url){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3500);try{const r=await fetch('http://127.0.0.1:'+port+url,{method:'HEAD',signal:controller,redirect:'manual'});return {status:r.status,description:r.status<400?'HTTP response':'HTTP error'}}catch(e){return {status:null,description:e.name==='AbortError'?'HTTP timeout':'Connection failed'}}finally{clearTimeout(timer)}}
 function oracleTcp(){return new Promise(resolve=>{const socket=net.connect({host:'141.147.137.107',port:22});let finished=false;const complete=(ok,detail)=>{if(finished)return;finished=true;socket.destroy();resolve({sshTcpReachable:ok,detail,host:'141.147.137.107',port:22,checkedAt:new Date().toISOString(),note:'TCP only. Does not authenticate or execute commands.'})};socket.setTimeout(3500);socket.once('connect',()=>complete(true,'TCP 22 reachable'));socket.once('timeout',()=>complete(false,'Connection timeout'));socket.once('error',e=>complete(false,e.code||'Connection error'))})}
 function oracleHealth(){return new Promise(resolve=>{
- const command='hostname; uptime -p; df -P / | tail -n 1; free -m | grep Mem:; systemctl is-active nginx 2>/dev/null || true; systemctl is-active postgresql 2>/dev/null || true';
+ // Inspect the real ONE ERP Docker services. Host-level nginx may be absent by design.
+ const command="hostname; uptime -p; df -P / | tail -n 1; free -m | grep Mem:; sudo -n docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null || true";
  const args=['-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=5','oneerp',command];
- execFile('ssh',args,{timeout:12000,windowsHide:true,maxBuffer:4096},(err,stdout)=>{
-  if(err){return resolve({connected:false,reason:'SSH inaccessible or permissions/host verification failed',checkedAt:new Date().toISOString()})}
+ execFile('ssh',args,{timeout:15000,windowsHide:true,maxBuffer:12000},(err,stdout)=>{
+  if(err)return resolve({connected:false,reason:'SSH inaccessible or host verification failed',checkedAt:new Date().toISOString()});
   const lines=String(stdout).trim().split(/\r?\n/),disk=(lines[2]||'').trim().split(/\s+/),mem=(lines[3]||'').trim().split(/\s+/);
-  resolve({connected:true,host:'oneerp',hostname:(lines[0]||'').slice(0,100),uptime:(lines[1]||'').slice(0,160),diskUsePercent:Number((disk[4]||'').replace('%',''))||null,freeDiskKB:Number(disk[3])||null,memoryAvailableMB:Number(mem[6])||null,nginx:(lines[4]||'unknown').trim(),postgresql:(lines[5]||'unknown').trim(),checkedAt:new Date().toISOString(),readonly:true})
+  const names=['oneerp-v3','oneerp-db','oneerp-v3-https','oneerp-v3-public','oneerp-v3-acme','oneerp-v3-gzip'];
+  const found=new Map(lines.slice(4).map(line=>{const m=line.trim().match(/^(\S+)\s+(.+)$/);return m?[m[1],m[2]]:[]}).filter(x=>x.length===2));
+  const services=Object.fromEntries(names.map(name=>[name,{running:found.has(name)&&/^Up\b/.test(found.get(name)),status:found.get(name)||'not shown as running'}]));
+  resolve({connected:true,host:'oneerp',hostname:(lines[0]||'').slice(0,100),uptime:(lines[1]||'').slice(0,160),diskUsePercent:Number.parseInt((disk[4]||'').replace('%',''),10)||null,freeDiskKB:Number(disk[3])||null,memoryAvailableMB:Number(mem[6])||null,services,serviceSource:'docker ps (running containers only)',checkedAt:new Date().toISOString(),readonly:true});
  })
 })}
 function launchAllowedApp(kind){
