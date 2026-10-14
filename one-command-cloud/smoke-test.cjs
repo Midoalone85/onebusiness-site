@@ -86,7 +86,12 @@ async function main(){
 
   let rep=await req('/agent/report',{method:'POST',headers:{'authorization':'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({id:jobs[0].id,kind:jobs[0].kind,data:{platform:'test',totalMemoryGB:8,freeMemoryGB:5}})});
   assert.equal(rep.code,200);
-  let state=await req('/api/state',{headers:{cookie}});assert.equal(state.data.results.length,1);assert.ok(state.data.diagnosis.ok.length>0);
+  const serviceNames=['oneerp-v3','oneerp-db','oneerp-v3-https','oneerp-v3-public','oneerp-v3-acme','oneerp-v3-gzip'];
+  const dockerServices=Object.fromEntries(serviceNames.map(name=>[name,{running:true,status:'Up 1 day'}]));
+  const serviceReply=await req('/agent/report',{method:'POST',headers:{'authorization':'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({id:oracle.data.job.id,kind:'oracle_health',data:{connected:true,services:dockerServices,checkedAt:new Date().toISOString(),diskUsePercent:25}})});
+  assert.equal(serviceReply.code,200);
+  let state=await req('/api/state',{headers:{cookie}});assert.equal(state.data.results.length,2);assert.ok(state.data.diagnosis.ok.some(x=>x.includes('HTTPS')));
+  assert.equal(state.data.diagnosis.problems.length,0,'running Docker proxies and database are not false outages');
   assert.equal((await post('/api/control/stop',{},cookie)).code,200);
   assert.equal((await post('/api/control/scan',{},cookie)).code,409);
   assert.equal((await post('/api/control/duration',{duration:'week'},cookie)).code,409);
