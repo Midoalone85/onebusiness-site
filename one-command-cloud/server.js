@@ -12,7 +12,38 @@ function evt(s){events.unshift({at:new Date().toISOString(),message:s});events.s
 function reply(res,c,o,more={}){res.writeHead(c,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...more});res.end(JSON.stringify(o))}
 async function body(req,maxChars=12000){return new Promise((resolve,reject)=>{let s='';req.on('data',v=>{s+=v;if(s.length>maxChars){reject(Error('body too big'));req.destroy()}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('invalid JSON'))}});req.on('error',reject)})}
 function allowOrigin(req){if(!req.headers.origin)return true;try{const u=new URL(req.headers.origin);const loopback=u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname)&&['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);return u.host===req.headers.host&&(u.protocol==='https:'||loopback)}catch{return false}}
-function enqueue(kind){const j={id:crypto.randomUUID(),kind,at:Date.now()};queue.push(j);issued.set(j.id,j);if(queue.length>12)queue.shift()}
+const JOB_KINDS=new Set(['inventory','erp_ports','oracle_network','oracle_health']);
+const jobHistory=[];
+function recordJob(job,status,detail=''){
+ if(!job)return;
+ const entry=jobHistory.find(x=>x.id===job.id);
+ if(entry){entry.status=status;entry.updated=new Date().toISOString();if(detail)entry.detail=detail;}
+ else jobHistory.unshift({id:job.id,kind:job.kind,status,created:new Date(job.at).toISOString(),updated:new Date().toISOString(),detail});
+ if(jobHistory.length>30)jobHistory.length=30;
+}
+function clearJobs(reason){
+ for(const j of issued.values())recordJob(j,'cancelled',reason);
+ queue=[];issued.clear();
+}
+function sweepJobs(){
+ const now=Date.now();
+ for(const [id,j] of issued){
+   const started=Number(j.startedAt||0);
+   if(!live()||now-j.at>120000||(started&&now-started>45000)){
+    recordJob(j,'expired','انتهت مهلة الفحص دون نتيجة مؤكدة');
+    issued.delete(id);
+   }
+ }
+ queue=queue.filter(j=>issued.has(j.id));
+}
+function enqueue(kind){
+ sweepJobs();
+ if(!JOB_KINDS.has(kind)||!live())return false;
+ if([...issued.values()].some(j=>j.kind===kind))return false;
+ if(queue.length>=10)return false;
+ const j={id:crypto.randomUUID(),kind,at:Date.now()};
+ queue.push(j);issued.set(j.id,j);recordJob(j,'queued');return true;
+}
 function summarizeDiagnostics(items){
  const problems=[],ok=[],suggestions=[];
  if(!items.length)return {status:'waiting',title:'في انتظار نتائج الفحص',problems:[],ok:[],suggestions:['ابدأ التحكم والفحص بعد تشغيل Windows Agent.']};
@@ -45,11 +76,11 @@ if(p==='/healthz')return reply(res,200,{ok:true,service:'one-command',private:tr
 if(p==='/agent/poll'||p==='/agent/report'){
  if(!eq(req.headers.authorization||'','Bearer '+AGENT))return reply(res,401,{error:'agent unauthorized'});
  lastPing=Date.now();
- if(p==='/agent/poll'&&req.method==='GET'){if(!live()){queue=[];return reply(res,200,{job:null})}return reply(res,200,{job:queue.shift()||null})}
+ if(p==='/agent/poll'&&req.method==='GET'){sweepJobs();if(!live())return reply(res,200,{job:null});const job=queue.shift()||null;if(job){job.startedAt=Date.now();recordJob(job,'running')}return reply(res,200,{job})}
  if(p==='/agent/report'&&req.method==='POST'){let d=await body(req),j=issued.get(d.id);
    if(!live()||!j||j.kind!==d.kind||!['inventory','erp_ports','oracle_network','oracle_health'].includes(d.kind))return reply(res,409,{error:'job expired/invalid'});
    if(JSON.stringify(d.data||{}).length>8000)return reply(res,400,{error:'too large'});
-   issued.delete(d.id);results.unshift({at:new Date().toISOString(),kind:d.kind,data:d.data});results=results.slice(0,20);evt('تم استلام تقرير '+d.kind);return reply(res,200,{ok:true})}
+   issued.delete(d.id);recordJob(j,'completed');results.unshift({at:new Date().toISOString(),kind:d.kind,data:d.data});results=results.slice(0,20);evt('تم استلام تقرير '+d.kind);return reply(res,200,{ok:true})}
  return reply(res,405,{error:'method'});
 }
 if(p==='/api/login'&&req.method==='POST'){
@@ -92,8 +123,8 @@ if(p==='/api/ai/analyze'&&req.method==='POST'){
   evt('تحليل تقرير الفحص بإذن المالك');return reply(res,200,{answer:String(answer).slice(0,5000)});
  }finally{clearTimeout(timer)}
 }
-if(p==='/api/logout'&&req.method==='POST'){ownerSessions.delete(sessionId(req));session=null;queue=[];issued.clear();evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
-if(p==='/api/state'&&req.method==='GET')return reply(res,200,{changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});
+if(p==='/api/logout'&&req.method==='POST'){ownerSessions.delete(sessionId(req));session=null;clearJobs('تم تسجيل الخروج');evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
+if(p==='/api/state'&&req.method==='GET'){sweepJobs();return reply(res,200,{jobs:jobHistory.slice(0,16),changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});}
 // Planning-only requests: no agent commands, no cloud or ERP changes.
 if(p==='/api/changes'&&req.method==='POST'){
  const d=await body(req);const title=typeof d.title==='string'?d.title.trim():'',details=typeof d.details==='string'?d.details.trim():'';
@@ -147,10 +178,10 @@ if(p==='/api/changes/check'&&req.method==='POST'){
  evt('طلب فحص للقراءة فقط ضمن مهمة '+item.target);
  return reply(res,200,{ok:true,scope:'read_only_diagnostics',kinds,modifications:false});
 }
-if(p==='/api/control/start'&&req.method==='POST'){session={expires:Date.now()+900000,id:crypto.randomUUID()};queue=[];issued.clear();results=[];enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('بدء فحص Windows وONE ERP وOracle لمدة 15 دقيقة');return reply(res,200,{ok:true})}
+if(p==='/api/control/start'&&req.method==='POST'){session={expires:Date.now()+900000,id:crypto.randomUUID()};clearJobs('جلسة جديدة');results=[];enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('بدء فحص Windows وONE ERP وOracle لمدة 15 دقيقة');return reply(res,200,{ok:true})}
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص شامل جديد');return reply(res,200,{ok:true})}
 if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
-if(p==='/api/control/stop'&&req.method==='POST'){session=null;queue=[];issued.clear();evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
+if(p==='/api/control/stop'&&req.method==='POST'){session=null;clearJobs('إيقاف المستخدم');evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
 return reply(res,404,{error:'not found'});
 }catch(e){console.error(e.message);return reply(res,500,{error:'request failed'})}
 });
