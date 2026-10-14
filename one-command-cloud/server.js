@@ -29,6 +29,7 @@ function summarizeDiagnostics(items){
     else if(Number(c.http?.status)>=200&&Number(c.http?.status)<400){ok.push(name+' أعاد HTTP '+c.http.status)}
    }}
   }
+  if(r.kind==='oracle_health'){if(d.connected===true){ok.push('تم الاتصال بسيرفر Oracle عبر SSH بشكل آمن');if(d.postgresql&&d.postgresql!=='active'){problems.push('PostgreSQL غير نشط على Oracle');suggestions.push('تحقق من سجلات PostgreSQL والخدمة دون إعادة تشغيل تلقائي')}if(d.nginx==='inactive'){problems.push('Nginx متوقفة على هذا الخادم');suggestions.push('تأكد هل Nginx مطلوب في هذا السيرفر قبل تشغيلها')}if(Number.isFinite(d.diskUsePercent)&&d.diskUsePercent>85){problems.push('استهلاك القرص في Oracle مرتفع');suggestions.push('راجع استهلاك الملفات دون حذف تلقائي')}}else{problems.push('تعذر إكمال فحص Oracle عبر SSH');suggestions.push('تحقق من الاتصال والمفتاح وصلاحيات SSH وتطابق بصمة الخادم')}}
   if(r.kind==='oracle_network'){
    if(d.sshTcpReachable===true)ok.push('Oracle: المنفذ 22 قابل للوصول، دون التحقق من الدخول');
    else if(d.sshTcpReachable===false){problems.push('منفذ SSH في Oracle لا يستجيب من Windows');suggestions.push('راجع الشبكة وقواعد السماح من لوحة Oracle دون تغيير الجدار الناري تلقائيًا')}
@@ -45,7 +46,7 @@ if(p==='/agent/poll'||p==='/agent/report'){
  lastPing=Date.now();
  if(p==='/agent/poll'&&req.method==='GET'){if(!live()){queue=[];return reply(res,200,{job:null})}return reply(res,200,{job:queue.shift()||null})}
  if(p==='/agent/report'&&req.method==='POST'){let d=await body(req),j=issued.get(d.id);
-   if(!live()||!j||j.kind!==d.kind||!['inventory','erp_ports','oracle_network'].includes(d.kind))return reply(res,409,{error:'job expired/invalid'});
+   if(!live()||!j||j.kind!==d.kind||!['inventory','erp_ports','oracle_network','oracle_health'].includes(d.kind))return reply(res,409,{error:'job expired/invalid'});
    if(JSON.stringify(d.data||{}).length>8000)return reply(res,400,{error:'too large'});
    issued.delete(d.id);results.unshift({at:new Date().toISOString(),kind:d.kind,data:d.data});results=results.slice(0,20);evt('تم استلام تقرير '+d.kind);return reply(res,200,{ok:true})}
  return reply(res,405,{error:'method'});
@@ -92,7 +93,7 @@ if(p==='/api/logout'&&req.method==='POST'){session=null;queue=[];issued.clear();
 if(p==='/api/state'&&req.method==='GET')return reply(res,200,{diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});
 if(p==='/api/control/start'&&req.method==='POST'){session={expires:Date.now()+900000,id:crypto.randomUUID()};queue=[];issued.clear();results=[];enqueue('inventory');enqueue('erp_ports');evt('بدء جلسة فحص لمدة 15 دقيقة');return reply(res,200,{ok:true})}
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});enqueue('inventory');enqueue('erp_ports');evt('طلب فحص جديد');return reply(res,200,{ok:true})}
-if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});enqueue('oracle_network');evt('طلب اختبار اتصال Oracle TCP فقط، دون SSH login');return reply(res,200,{ok:true,scope:'oracle_network'})}
+if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
 if(p==='/api/control/stop'&&req.method==='POST'){session=null;queue=[];issued.clear();evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
 return reply(res,404,{error:'not found'});
 }catch(e){console.error(e.message);return reply(res,500,{error:'request failed'})}
