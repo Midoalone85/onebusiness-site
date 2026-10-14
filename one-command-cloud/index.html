@@ -17,6 +17,24 @@
 <p class="duration-help">اختيار الكمبيوتر يبدأ فحوص الوكيل فورًا. اختيار الهاتف يحتاج ربطًا أوليًا من الهاتف ولا يتيح التحكم بنظام تشغيله. «بدون حد زمني» تظل للقراءة فقط حتى تضغط إيقاف أو تُعاد استضافة الخدمة. تسجيل الدخول منفصل وينتهي بعد 30 دقيقة.</p>
 <div class="actions"><button class="primary" id="start">▶ ابدأ التحكم والفحص</button><button class="danger" id="stop" disabled>■ إيقاف فوري</button><button class="soft" id="applyDuration" disabled>تحديث مدة الجلسة</button></div></section><section class="panel"><div class="cardlabel">◌ نتائج التشخيص</div><div id="count" class="metric">0</div><p>آخر الفحوص المستلمة</p><button id="refresh" class="soft">تحديث</button></section></div>
 <section class="notice"><strong>تحكم آمن ومحدد</strong><p>الزر يطلب فحص Windows وONE ERP وOracle من وكيل جهازك المتصل. لا يسمح بتشغيل أوامر عشوائية أو حذف ملفات، ولا يفعّل سيطرة ChatGPT تلقائيًا. للمتابعة معي استخدم «متابعة مع ChatGPT» وأرسل الطلب من المحادثة.</p></section>
+<section class="panel" style="margin-top:16px" id="assistantPanel">
+<h2>✦ ONE ASSIST | مساعد الأوامر المحلي</h2>
+<p>اكتب طلبًا بالعربي. هعرض عليك الإجراء المسموح قبل التنفيذ، ومش هيتنفذ إلا بعد موافقتك. لا توجد أوامر عامة أو تعديل بيانات هنا، والمساعد ده مش ChatGPT API.</p>
+<form id="assistForm"><label for="assistText">اكتب أمر الجهاز</label>
+<input id="assistText" maxlength="200" required placeholder="مثال: افحص الكمبيوتر، افحص Oracle، افتح المفكرة">
+<div class="actions"><button class="primary" type="submit">افهم الأمر واعرضه</button></div></form>
+<div id="assistPreview" class="notice" hidden><strong id="assistLabel">الإجراء المقترح</strong><p>لن يتم أي إجراء قبل الضغط على الموافقة.</p>
+<div class="actions"><button id="approveAssist" class="primary" type="button">أوافق، نفّذ الإجراء المسموح</button><button id="cancelAssist" class="soft" type="button">إلغاء</button></div></div>
+<p id="assistStatus" role="status">بانتظار طلبك.</p>
+</section>
+<section class="panel" style="margin-top:16px" id="monitorPanel"><h2>⏱️ الفحص الدوري الاختياري</h2>
+<p>يفحص Windows وONE ERP وOracle تلقائيًا كل فترة محددة أثناء جلسة الكمبيوتر. إيقاف المراقبة لا يلغي جلسة الفحص نفسها.</p>
+<label for="monitorInterval">تكرار الفحص</label>
+<select id="monitorInterval"><option value="off">متوقف</option><option value="m15">كل 15 دقيقة</option><option value="h1">كل ساعة</option><option value="h6">كل 6 ساعات</option><option value="d1">كل يوم</option></select>
+<div class="actions"><button id="applyMonitor" class="soft" type="button" disabled>حفظ إعداد الفحص الدوري</button></div>
+<p id="monitorStatus" role="status">الفحص الدوري متوقف.</p>
+<p class="muted">تعمل المراقبة فقط عندما الوكيل والسيرفر نشطين؛ استضافة Render المجانية قد تتوقف مؤقتًا أو تعيد التشغيل، لذا ليس هذا نظام مراقبة مستمرة مضمونًا.</p>
+</section>
 <section class="panel" style="margin-top:16px" id="windowsActions"><h2>💻 التحكم المباشر الآمن في الكمبيوتر</h2>
 <p>بعد بدء جلسة «الكمبيوتر»، تقدر تطلب فتح المفكرة أو الآلة الحاسبة على جهاز Windows المتصل. دي تطبيقات محددة فقط؛ مفيش صلاحية لكتابة أوامر عامة أو حذف بيانات.</p>
 <div class="actions"><button class="soft" id="openNotepad" disabled>افتح المفكرة في Windows</button><button class="soft" id="openCalculator" disabled>افتح الآلة الحاسبة</button></div>
