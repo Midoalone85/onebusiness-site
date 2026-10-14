@@ -17,6 +17,10 @@
 <p class="duration-help">اختيار الكمبيوتر يبدأ فحوص الوكيل فورًا. اختيار الهاتف يحتاج ربطًا أوليًا من الهاتف ولا يتيح التحكم بنظام تشغيله. «بدون حد زمني» تظل للقراءة فقط حتى تضغط إيقاف أو تُعاد استضافة الخدمة. تسجيل الدخول منفصل وينتهي بعد 30 دقيقة.</p>
 <div class="actions"><button class="primary" id="start">▶ ابدأ التحكم والفحص</button><button class="danger" id="stop" disabled>■ إيقاف فوري</button><button class="soft" id="applyDuration" disabled>تحديث مدة الجلسة</button></div></section><section class="panel"><div class="cardlabel">◌ نتائج التشخيص</div><div id="count" class="metric">0</div><p>آخر الفحوص المستلمة</p><button id="refresh" class="soft">تحديث</button></section></div>
 <section class="notice"><strong>تحكم آمن ومحدد</strong><p>الزر يطلب فحص Windows وONE ERP وOracle من وكيل جهازك المتصل. لا يسمح بتشغيل أوامر عشوائية أو حذف ملفات، ولا يفعّل سيطرة ChatGPT تلقائيًا. للمتابعة معي استخدم «متابعة مع ChatGPT» وأرسل الطلب من المحادثة.</p></section>
+<section class="panel" style="margin-top:16px" id="windowsActions"><h2>💻 التحكم المباشر الآمن في الكمبيوتر</h2>
+<p>بعد بدء جلسة «الكمبيوتر»، تقدر تطلب فتح المفكرة أو الآلة الحاسبة على جهاز Windows المتصل. دي تطبيقات محددة فقط؛ مفيش صلاحية لكتابة أوامر عامة أو حذف بيانات.</p>
+<div class="actions"><button class="soft" id="openNotepad" disabled>افتح المفكرة في Windows</button><button class="soft" id="openCalculator" disabled>افتح الآلة الحاسبة</button></div>
+<p id="windowsActionStatus" role="status">ابدأ جلسة الكمبيوتر وتأكد إن Windows Agent متصل أولًا.</p></section>
 <section class="panel" style="margin-top:16px" id="phoneSection"><h2>📱 ربط الموبايل والتحكم المسموح</h2>
 <p>افتح نفس الموقع من متصفح هاتفك، وسجل الدخول ثم اضغط «ربط هذا الهاتف». بعد الربط تقدر تبدأ جلسة المتابعة من هاتفك أو تختار الهاتف من الكمبيوتر. هذه الميزة لا تتحكم في التطبيقات أو إعدادات Android وiPhone، بل في المتصفح الموافق فقط.</p>
 <div class="actions"><button class="primary" id="pairPhone">ربط هذا الهاتف</button><button class="soft" id="disconnectPhone" disabled>فصل هذا الهاتف</button></div>
