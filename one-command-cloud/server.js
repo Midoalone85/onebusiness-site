@@ -17,7 +17,8 @@ function evt(s){events.unshift({at:new Date().toISOString(),message:s});events.s
 function reply(res,c,o,more={}){res.writeHead(c,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...more});res.end(JSON.stringify(o))}
 async function body(req,maxChars=12000){return new Promise((resolve,reject)=>{let s='';req.on('data',v=>{s+=v;if(s.length>maxChars){reject(Error('body too big'));req.destroy()}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('invalid JSON'))}});req.on('error',reject)})}
 function allowOrigin(req){if(!req.headers.origin)return true;try{const u=new URL(req.headers.origin);const loopback=u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname)&&['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);return u.host===req.headers.host&&(u.protocol==='https:'||loopback)}catch{return false}}
-const JOB_KINDS=new Set(['inventory','erp_ports','oracle_network','oracle_health','windows_notepad','windows_calculator']);
+const ACTION_KINDS=new Set(['windows_notepad','windows_calculator','windows_open_erp','windows_open_console']);
+const JOB_KINDS=new Set(['inventory','erp_ports','oracle_network','oracle_health',...ACTION_KINDS]);
 const jobHistory=[];
 function recordJob(job,status,detail=''){
  if(!job)return;
@@ -74,14 +75,21 @@ function tickMonitor(){
  evt('بدء فحص دوري آمن: '+monitor.interval);
 }
 function classifyAssistantRequest(text){
- const q=String(text||'').trim().toLowerCase();
+ const q=String(text||'').normalize('NFKC').trim().toLowerCase().replace(/[ًٌٍَُِّْـ]/g,'').replace(/[؟!?،,.;:]+/g,'').replace(/\\s+/g,' ');
  if(q.length<3||q.length>200)return {ok:false,error:'اكتب طلبًا واضحًا من 3 إلى 200 حرف'};
- if(/مفكرة|notepad/.test(q))return {ok:true,label:'فتح المفكرة',target:'computer',endpoint:'/api/control/windows/app',payload:{app:'notepad'},type:'action'};
- if(/حاسبة|حاسب[هة]|calculator|آلة حاسبة|اله حاسبه/.test(q))return {ok:true,label:'فتح الآلة الحاسبة',target:'computer',endpoint:'/api/control/windows/app',payload:{app:'calculator'},type:'action'};
- if(/اوراكل|أوراكل|oracle|السيرفر|ssh/.test(q)&&/افحص|فحص|شيك|حالة|اختبر|راجع/.test(q))return {ok:true,label:'فحص اتصال Oracle فقط',target:'computer',endpoint:'/api/control/oracle',payload:{},type:'diagnostic'};
- if(/ويندوز|windows|الكمبيوتر|الجهاز/.test(q)&&/افحص|فحص|شيك|حالة|اختبر|راجع/.test(q))return {ok:true,label:'فحص شامل للكمبيوتر وONE ERP وOracle',target:'computer',endpoint:'/api/control/scan',payload:{},type:'diagnostic'};
- if(/افحص|فحص|شيك|حالة|اختبر|راجع/.test(q))return {ok:true,label:'فحص شامل آمن',target:'computer',endpoint:'/api/control/scan',payload:{},type:'diagnostic'};
- return {ok:false,error:'لا أقدر أنفذ الطلب ده تلقائيًا. الأوامر المتاحة الآن: افحص الكمبيوتر، افحص Oracle، افتح المفكرة، افتح الآلة الحاسبة. ممكن تضيف طلبات أخرى لمركز التطوير.'};
+ const commands=[
+  {examples:['افتح المفكرة','شغل المفكرة','افتح notepad','open notepad'],label:'فتح المفكرة على الكمبيوتر',kind:'windows_notepad'},
+  {examples:['افتح الحاسبة','افتح الالة الحاسبة','افتح الآلة الحاسبة','شغل الحاسبة','افتح calculator','open calculator'],label:'فتح الآلة الحاسبة على الكمبيوتر',kind:'windows_calculator'},
+  {examples:['افتح one erp','افتح oneerp','افتح ون اي ار بي','افتح نظام one erp','افتح نظام erp','افتح برنامج one erp','open one erp'],label:'فتح صفحة ONE ERP على الكمبيوتر',kind:'windows_open_erp'},
+  {examples:['افتح one command','افتح لوحة one command','افتح ون كوماند','افتح مركز التحكم','open one command'],label:'فتح لوحة ONE COMMAND على الكمبيوتر',kind:'windows_open_console'}
+ ];
+ for(const item of commands)if(item.examples.includes(q))return {ok:true,label:item.label,target:'computer',kind:item.kind,type:'action'};
+ const danger=/احذف|حذف|امسح|مسح|اغلق|اقفل|نزل|ثبت|تنصيب|فورمات|powershell|cmd|shell|سجل الدخول/;
+ if(danger.test(q))return {ok:false,error:'هذا الطلب ليس ضمن الأوامر المسموحة. لن يتم تنفيذ أي تغيير في النظام.'};
+ if(/اوراكل|أوراكل|oracle|السيرفر|ssh/.test(q)&&/افحص|فحص|شيك|حالة|اختبر|راجع/.test(q))return {ok:true,label:'فحص اتصال Oracle فقط',target:'computer',kind:'oracle_scan',type:'diagnostic'};
+ if(/ويندوز|windows|الكمبيوتر|الجهاز|one erp/.test(q)&&/افحص|فحص|شيك|حالة|اختبر|راجع/.test(q))return {ok:true,label:'فحص شامل للكمبيوتر وONE ERP وOracle',target:'computer',kind:'full_scan',type:'diagnostic'};
+ if(/افحص|فحص|شيك|حالة|اختبر|راجع/.test(q))return {ok:true,label:'فحص شامل آمن',target:'computer',kind:'full_scan',type:'diagnostic'};
+ return {ok:false,error:'الأوامر الحالية: افحص الكمبيوتر، افحص Oracle، افتح المفكرة، افتح الحاسبة، افتح ONE ERP، افتح ONE COMMAND. أضف أي طلب آخر لمركز التطوير.'};
 }
 function summarizeDiagnostics(items){
  const problems=[],ok=[],suggestions=[];
@@ -130,13 +138,13 @@ if(p==='/agent/poll'||p==='/agent/report'||p==='/agent/authorize'){
  if(p==='/agent/poll'&&req.method==='GET'){sweepJobs();tickMonitor();if(!live())return reply(res,200,{job:null});const job=queue.shift()||null;if(job){job.startedAt=Date.now();recordJob(job,'running')}return reply(res,200,{job})}
  if(p==='/agent/authorize'&&req.method==='POST'){
   const d=await body(req),j=issued.get(d.id);
-  if(!live()||session.target!=='computer'||!j||j.kind!==d.kind||!['windows_notepad','windows_calculator'].includes(j.kind)||!j.startedAt||j.authorizedAt||Date.now()-j.startedAt>20000)return reply(res,409,{error:'action not authorized or expired'});
+  if(!live()||session.target!=='computer'||!j||j.kind!==d.kind||!ACTION_KINDS.has(j.kind)||!j.startedAt||j.authorizedAt||Date.now()-j.startedAt>20000)return reply(res,409,{error:'action not authorized or expired'});
   j.authorizedAt=Date.now();
   recordJob(j,'authorized','التحقق الأخير من السماح بالتنفيذ');
   return reply(res,200,{ok:true,scope:'one_time_allowlist'});
  }
   if(p==='/agent/report'&&req.method==='POST'){let d=await body(req),j=issued.get(d.id);
-   if(!live()||!j||j.kind!==d.kind||!JOB_KINDS.has(d.kind)||(['windows_notepad','windows_calculator'].includes(j.kind)&&!j.authorizedAt))return reply(res,409,{error:'job expired/invalid or action not authorized'});
+   if(!live()||!j||j.kind!==d.kind||!JOB_KINDS.has(d.kind)||(ACTION_KINDS.has(j.kind)&&!j.authorizedAt))return reply(res,409,{error:'job expired/invalid or action not authorized'});
    if(JSON.stringify(d.data||{}).length>8000)return reply(res,400,{error:'too large'});
    issued.delete(d.id);recordJob(j,'completed');results.unshift({at:new Date().toISOString(),kind:d.kind,data:d.data});results=results.slice(0,20);evt('تم استلام تقرير '+d.kind);return reply(res,200,{ok:true})}
  return reply(res,405,{error:'method'});
@@ -316,7 +324,7 @@ if(p==='/api/control/monitor'&&req.method==='POST'){
 if(p==='/api/assist/preview'&&req.method==='POST'){
  const d=await body(req);
  const plan=classifyAssistantRequest(d.text);
- if(!plan.ok)return reply(res,422,{error:plan.error,availableCommands:['افحص الكمبيوتر','افحص Oracle','افتح المفكرة','افتح الآلة الحاسبة']});
+ if(!plan.ok)return reply(res,422,{error:plan.error,availableCommands:['افحص الكمبيوتر','افحص Oracle','افتح المفكرة','افتح الآلة الحاسبة','افتح ONE ERP','افتح ONE COMMAND']});
  const approval=storeApproval(req,d.text,plan);
  return reply(res,200,{ok:true,label:plan.label,target:plan.target,action:plan.type,requiresApproval:true,requiresActiveSession:true,scope:'fixed_allowlist',requestId:approval.id,expiresAt:approval.expiresAt});
 }
@@ -332,7 +340,7 @@ if(p==='/api/assist/execute'&&req.method==='POST'){
  if(!plan.ok)return reply(res,422,{error:plan.error});
  if(record.kind!==plan.type||record.target!==plan.target)return reply(res,403,{error:'الأمر تغير بعد معاينته'});
  if(plan.type==='action'&&Date.now()-lastPing>30000)return reply(res,409,{error:'Windows Agent غير متصل'});
- const kinds=plan.endpoint==='/api/control/oracle'?['oracle_network','oracle_health']:plan.endpoint==='/api/control/scan'?['inventory','erp_ports','oracle_network','oracle_health']:plan.payload.app==='notepad'?['windows_notepad']:['windows_calculator'];
+ const kinds=plan.kind==='oracle_scan'?['oracle_network','oracle_health']:plan.kind==='full_scan'?['inventory','erp_ports','oracle_network','oracle_health']:[plan.kind];
  let added=0;for(const kind of kinds)if(enqueue(kind))added++;
  if(!added)return reply(res,409,{error:'المهام موجودة بالفعل في الطابور أو لا توجد سعة'});
  pendingApprovals.delete(d.requestId);
