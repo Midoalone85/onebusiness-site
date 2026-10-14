@@ -37,8 +37,8 @@ function showOracleServices(results){
  '\nآخر فحص: '+new Date(data.checkedAt).toLocaleString('ar-SA');
 }
 function showJobTimeline(items){
- const status={queued:'⏳ في الانتظار',running:'◉ جارٍ الفحص',completed:'✓ اكتمل',expired:'⚠ انتهت المهلة',cancelled:'◌ أُلغي'};
- val('jobTimeline',(items||[]).slice(0,10).map(j=>(status[j.status]||j.status)+' • '+j.kind+' • '+new Date(j.updated).toLocaleTimeString('ar-SA')).join('\n')||'لم تبدأ أي فحوص بعد.');
+ const status={queued:'⏳ في الانتظار',running:'◉ جارٍ الفحص',completed:'✓ اكتمل',failed:'✕ فشل تشغيل التطبيق',expired:'⚠ انتهت المهلة',cancelled:'◌ أُلغي'};
+ val('jobTimeline',(items||[]).slice(0,10).map(j=>(status[j.status]||j.status)+' • '+j.kind+' • '+new Date(j.updated).toLocaleTimeString('ar-SA')+(j.detail?' • '+j.detail:'')).join('\n')||'لم تبدأ أي فحوص بعد.');
 }
 async function request(url,method='GET',obj){const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:obj?JSON.stringify(obj):undefined,credentials:'same-origin'});let v=await r.json();if(r.status===401&&url!=='/api/login'){$('app').hidden=true;$('login').hidden=false;return null}if(!r.ok)throw Error(v.error||'تعذر الاتصال');return v}
 function val(id,text){$(id).textContent=text}
