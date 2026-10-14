@@ -117,10 +117,10 @@ $('assistForm').onsubmit=async e=>{
  try{
   const plan=await request('/api/assist/preview','POST',{text:value});
   if(!plan)return;
-  pendingAssist={text:value,label:plan.label};
+  pendingAssist={text:value,label:plan.label,requestId:plan.requestId,expiresAt:plan.expiresAt};
   val('assistLabel','المقترح: '+plan.label+' (قائمة سماح محددة)');
   $('assistPreview').hidden=false;
-  val('assistStatus',current?.active&&current?.controlTarget==='computer'?'الإجراء جاهز للموافقة.':'اعرض الأمر ثم ابدأ جلسة الكمبيوتر قبل الموافقة.');
+  val('assistStatus',current?.active&&current?.controlTarget==='computer'?'الموافقة صالحة لدقيقتين ولمرة واحدة.':'ابدأ جلسة الكمبيوتر ثم اعرض الأمر من جديد للموافقة.');
  }catch(err){val('assistStatus',err.message)}
 };
 $('cancelAssist').onclick=()=>{resetAssistPreview();val('assistStatus','تم إلغاء الأمر المقترح.')};
@@ -128,7 +128,7 @@ $('approveAssist').onclick=async()=>{
  if(!pendingAssist)return;
  const proposed=pendingAssist;
  if(!confirm('توافق على: '+proposed.label+'؟ لن تنفذ أي أوامر خارج القائمة المسموحة.'))return;
- try{const r=await request('/api/assist/execute','POST',{text:proposed.text,approved:true});
+ try{const r=await request('/api/assist/execute','POST',{text:proposed.text,approved:true,requestId:proposed.requestId});
    if(r){resetAssistPreview();val('assistStatus','تم إرسال: '+r.label+' ('+r.queued+' مهمة). تابع حالة الفحوص.');await refresh()}
  }catch(err){val('assistStatus','لم يتم التنفيذ: '+err.message)}
 };
