@@ -25,18 +25,25 @@ function oracleHealth(){return new Promise(resolve=>{
 function launchAllowedApp(kind){
  return new Promise(resolve=>{
   if(process.platform!=='win32')return resolve({requested:false,error:'Windows required'});
-  const exe=kind==='windows_notepad'?'notepad.exe':'calc.exe';
+  const apps={
+   windows_notepad:{exe:'notepad.exe',args:[],label:'Notepad'},
+   windows_calculator:{exe:'calc.exe',args:[],label:'Calculator'},
+   windows_open_erp:{exe:'rundll32.exe',args:['url.dll,FileProtocolHandler','https://one-erp.141.147.137.107.sslip.io/'],label:'ONE ERP'},
+   windows_open_console:{exe:'rundll32.exe',args:['url.dll,FileProtocolHandler','https://one-command-private-console.onrender.com/'],label:'ONE COMMAND'}
+  };
+  const action=Object.hasOwn(apps,kind)?apps[kind]:null;
+  if(!action)return resolve({requested:false,error:'Action outside allowlist'});
   try{
-   const child=spawn(exe,[],{detached:true,stdio:'ignore',windowsHide:false});
-   child.once('error',()=>resolve({requested:false,app:exe,error:'Could not launch approved app'}));
-   child.once('spawn',()=>{child.unref();resolve({requested:true,app:exe,note:'Launch request accepted; visible window not independently verified'})});
-  }catch{resolve({requested:false,app:exe,error:'Process launch failed'})}
+   const child=spawn(action.exe,action.args,{detached:true,stdio:'ignore',windowsHide:false});
+   child.once('error',()=>resolve({requested:false,app:action.label,error:'Approved app failed to launch'}));
+   child.once('spawn',()=>{child.unref();resolve({requested:true,app:action.label,note:'Windows accepted launch request; visible window not independently verified'})});
+  }catch{resolve({requested:false,app:action.label,error:'Process launch failed'})}
  })
 }
-async function execute(j){if(j.kind==='windows_notepad'||j.kind==='windows_calculator')return await launchAllowedApp(j.kind);if(j.kind==='oracle_health')return await oracleHealth();if(j.kind==='oracle_network')return await oracleTcp();
+async function execute(j){if(['windows_notepad','windows_calculator','windows_open_erp','windows_open_console'].includes(j.kind))return await launchAllowedApp(j.kind);if(j.kind==='oracle_health')return await oracleHealth();if(j.kind==='oracle_network')return await oracleTcp();
 if(j.kind==='inventory'){const out={hostname:os.hostname(),platform:os.platform(),release:os.release(),arch:os.arch(),uptimeHours:Math.round(os.uptime()/360)/10,freeMemoryGB:Math.round(os.freemem()/1e8)/10,totalMemoryGB:Math.round(os.totalmem()/1e8)/10,cpus:os.cpus().length,at:new Date().toISOString()};try{const stat=fs.statfsSync(os.homedir());out.homeFreeGB=Math.round(stat.bfree*stat.bsize/1e8)/10}catch{}return out}
 if(j.kind==='erp_ports'){let out={at:new Date().toISOString(),checks:[]};for(const [port,page] of [[17881,'/odoo/action-716'],[8069,'/web/login']]){let open=await tcp(port);out.checks.push({port,tcp:open,http:open?await httpCheck(port,page):{status:null,description:'TCP closed'}})}return out}throw Error('Unknown job')}
-async function poll(){if(running)return;running=true;try{const {job}=await api('/agent/poll');if(!lastCloudOnline){console.log('ONE COMMAND cloud connection established '+new Date().toISOString());lastCloudOnline=true}if(job&&['inventory','erp_ports','oracle_network','oracle_health','windows_notepad','windows_calculator'].includes(job.kind)&&typeof job.id==='string'){if(job.kind==='windows_notepad'||job.kind==='windows_calculator'){const permit=await api('/agent/authorize',{id:job.id,kind:job.kind});if(permit.ok!==true)throw Error('Action authorization denied')}
+async function poll(){if(running)return;running=true;try{const {job}=await api('/agent/poll');if(!lastCloudOnline){console.log('ONE COMMAND cloud connection established '+new Date().toISOString());lastCloudOnline=true}if(job&&['inventory','erp_ports','oracle_network','oracle_health','windows_notepad','windows_calculator','windows_open_erp','windows_open_console'].includes(job.kind)&&typeof job.id==='string'){if(['windows_notepad','windows_calculator','windows_open_erp','windows_open_console'].includes(job.kind)){const permit=await api('/agent/authorize',{id:job.id,kind:job.kind});if(permit.ok!==true)throw Error('Action authorization denied')}
 const data=await execute(job);await api('/agent/report',{id:job.id,kind:job.kind,data});console.log('Completed '+job.kind+' at '+new Date().toISOString())}}catch(e){lastCloudOnline=false;if(Date.now()-lastErrorLoggedAt>60000){console.log('Cloud connection retry: '+e.message);lastErrorLoggedAt=Date.now()}}finally{running=false}}
 console.log('ONE COMMAND read-only agent running. No remote shell enabled.');
 poll();setInterval(poll,6000);
