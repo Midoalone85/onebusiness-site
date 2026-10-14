@@ -29,6 +29,7 @@ function showOracleServices(results){
  const data=(results||[]).find(r=>r.kind==='oracle_health')?.data;
  if(!data){host.textContent='لم يصل فحص جديد لـOracle بعد.';return}
  if(data.connected!==true){host.textContent='تعذر فحص Oracle عبر SSH. راجع اتصال Windows والمفتاح المعروف.';return}
+ if(data.dockerInspectionAvailable===false){host.textContent='تم الاتصال بـOracle لكن تعذر قراءة حالة Docker. افحص صلاحيات Docker والاتصال، دون إعادة تشغيل أي خدمة.';return}
  const services=data.services||{};
  const entries=[['oneerp-v3','ONE ERP'],['oneerp-db','PostgreSQL'],['oneerp-v3-https','HTTPS'],['oneerp-v3-public','HTTP'],['oneerp-v3-acme','SSL Certificates'],['oneerp-v3-gzip','Compression']];
  if(!Object.keys(services).length){host.textContent='النتيجة من وكيل قديم. أعد فحص Oracle للحصول على خدمات Docker.';return}
