@@ -120,7 +120,8 @@ if(p==='/api/mobile/heartbeat'&&req.method==='POST'){
  const d=await body(req),device=phones.get(d.id);
  if(!device||device.ownerSid!==sessionId(req))return reply(res,403,{error:'الهاتف غير مرتبط بجلسة تسجيل الدخول الحالية'});
  device.lastSeen=Date.now();
- const command=device.commands.shift()||null;
+ if(!live()||session.target!=='mobile'){device.pending=null;device.commands=[]}
+ const command=live()&&session.target==='mobile'?device.commands.shift()||null:null;
  return reply(res,200,{ok:true,command,active:!!(live()&&session.target==='mobile'),scope:'browser_only'});
 }
 if(p==='/api/mobile/ack'&&req.method==='POST'){
@@ -135,8 +136,9 @@ if(p==='/api/mobile/action'&&req.method==='POST'){
  const d=await body(req),device=phones.get(d.id);
  if(!device||!onlinePhones().some(item=>item.id===device.id))return reply(res,409,{error:'متصفح الهاتف غير متصل حاليًا'});
  if(!['ping','vibrate'].includes(d.kind))return reply(res,400,{error:'العملية غير مسموحة'});
+ if(device.pending&&Date.now()-device.pending.issuedAt>30000){device.pending=null;device.commands=[]}
  if(device.pending||device.commands.length)return reply(res,409,{error:'انتظر نتيجة الأمر السابق'});
- const command={id:crypto.randomUUID(),kind:d.kind};
+ const command={id:crypto.randomUUID(),kind:d.kind,issuedAt:Date.now()};
  device.pending=command;device.commands.push(command);
  evt('تم إرسال '+(d.kind==='vibrate'?'طلب اهتزاز':'اختبار اتصال')+' إلى متصفح الهاتف');
  return reply(res,200,{ok:true,scope:'browser_only',queued:true});
@@ -172,7 +174,7 @@ if(p==='/api/ai/analyze'&&req.method==='POST'){
   evt('تحليل تقرير الفحص بإذن المالك');return reply(res,200,{answer:String(answer).slice(0,5000)});
  }finally{clearTimeout(timer)}
 }
-if(p==='/api/logout'&&req.method==='POST'){for(const [k,v] of phones)if(v.ownerSid===sessionId(req))phones.delete(k);ownerSessions.delete(sessionId(req));session=null;clearJobs('تم تسجيل الخروج');evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
+if(p==='/api/logout'&&req.method==='POST'){for(const d of phones.values()){d.pending=null;d.commands=[]}for(const [k,v] of phones)if(v.ownerSid===sessionId(req))phones.delete(k);ownerSessions.delete(sessionId(req));session=null;clearJobs('تم تسجيل الخروج');evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
 if(p==='/api/state'&&req.method==='GET'){sweepJobs();return reply(res,200,{phones:onlinePhones().map(p=>({id:p.id,label:p.label,platform:p.platform,lastSeen:p.lastSeen,browserOnly:true,lastAction:p.lastAction||null})),controlTarget:live()?session.target||'computer':null,sessionDuration:live()?session.duration:null,sessionStartedAt:live()?session.startedAt:null,unlimited:!!(live()&&session.expires===null),availableDurations:Object.keys(SESSION_DURATIONS),jobs:jobHistory.slice(0,16),changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});}
 // Planning-only requests: no agent commands, no cloud or ERP changes.
 if(p==='/api/changes'&&req.method==='POST'){
@@ -252,7 +254,7 @@ if(p==='/api/control/duration'&&req.method==='POST'){
 }
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});if(session.target==='mobile')return reply(res,409,{error:'اختر الكمبيوتر لفحوص Windows وOracle'});enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص شامل جديد');return reply(res,200,{ok:true})}
 if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});if(session.target==='mobile')return reply(res,409,{error:'هذه الجلسة مخصصة لمتصفح الهاتف'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
-if(p==='/api/control/stop'&&req.method==='POST'){session=null;clearJobs('إيقاف المستخدم');evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
+if(p==='/api/control/stop'&&req.method==='POST'){session=null;for(const d of phones.values()){d.pending=null;d.commands=[]}clearJobs('إيقاف المستخدم');evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
 return reply(res,404,{error:'not found'});
 }catch(e){console.error(e.message);return reply(res,500,{error:'request failed'})}
 });
