@@ -56,7 +56,9 @@ async function main(){
   const pre=await post('/api/assist/preview',{text:'افحص اوراكل'},cookie);
   assert.equal(pre.code,200);assert.equal(pre.data.requiresApproval,true);
   assert.equal((await post('/api/assist/execute',{text:'افحص اوراكل'},cookie)).code,403,'approval required');
-  const requested=await post('/api/assist/execute',{text:'افحص اوراكل',approved:true},cookie);
+  assert.equal((await post('/api/assist/execute',{text:'افحص اوراكل',approved:true},cookie)).code,403,'no preview token');
+  assert.equal((await post('/api/assist/execute',{text:'افحص الكمبيوتر',approved:true,requestId:pre.data.requestId},cookie)).code,403,'cannot swap preview text');
+  const requested=await post('/api/assist/execute',{text:'افحص اوراكل',approved:true,requestId:pre.data.requestId},cookie);
   assert.equal(requested.code,409,'identical diagnostic jobs already queued');
   const mon=await post('/api/control/monitor',{interval:'h1'},cookie);
   assert.equal(mon.code,200);
