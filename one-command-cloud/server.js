@@ -17,7 +17,7 @@ function evt(s){events.unshift({at:new Date().toISOString(),message:s});events.s
 function reply(res,c,o,more={}){res.writeHead(c,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...more});res.end(JSON.stringify(o))}
 async function body(req,maxChars=12000){return new Promise((resolve,reject)=>{let s='';req.on('data',v=>{s+=v;if(s.length>maxChars){reject(Error('body too big'));req.destroy()}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('invalid JSON'))}});req.on('error',reject)})}
 function allowOrigin(req){if(!req.headers.origin)return true;try{const u=new URL(req.headers.origin);const loopback=u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname)&&['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);return u.host===req.headers.host&&(u.protocol==='https:'||loopback)}catch{return false}}
-const JOB_KINDS=new Set(['inventory','erp_ports','oracle_network','oracle_health']);
+const JOB_KINDS=new Set(['inventory','erp_ports','oracle_network','oracle_health','windows_notepad','windows_calculator']);
 const jobHistory=[];
 function recordJob(job,status,detail=''){
  if(!job)return;
@@ -83,7 +83,7 @@ if(p==='/agent/poll'||p==='/agent/report'){
  lastPing=Date.now();
  if(p==='/agent/poll'&&req.method==='GET'){sweepJobs();if(!live())return reply(res,200,{job:null});const job=queue.shift()||null;if(job){job.startedAt=Date.now();recordJob(job,'running')}return reply(res,200,{job})}
  if(p==='/agent/report'&&req.method==='POST'){let d=await body(req),j=issued.get(d.id);
-   if(!live()||!j||j.kind!==d.kind||!['inventory','erp_ports','oracle_network','oracle_health'].includes(d.kind))return reply(res,409,{error:'job expired/invalid'});
+   if(!live()||!j||j.kind!==d.kind||!JOB_KINDS.has(d.kind))return reply(res,409,{error:'job expired/invalid'});
    if(JSON.stringify(d.data||{}).length>8000)return reply(res,400,{error:'too large'});
    issued.delete(d.id);recordJob(j,'completed');results.unshift({at:new Date().toISOString(),kind:d.kind,data:d.data});results=results.slice(0,20);evt('تم استلام تقرير '+d.kind);return reply(res,200,{ok:true})}
  return reply(res,405,{error:'method'});
@@ -251,6 +251,16 @@ if(p==='/api/control/duration'&&req.method==='POST'){
  session.duration=next.duration;session.startedAt=next.startedAt;session.expires=next.expires;
  evt('تغيير مدة جلسة الفحص إلى: '+SESSION_LABELS[d.duration]);
  return reply(res,200,{ok:true,duration:session.duration,expires:session.expires,unlimited:session.expires===null});
+}
+if(p==='/api/control/windows/app'&&req.method==='POST'){
+ if(!live()||session.target!=='computer')return reply(res,409,{error:'ابدأ جلسة الكمبيوتر أولًا'});
+ if(Date.now()-lastPing>30000)return reply(res,409,{error:'Windows Agent غير متصل'});
+ const d=await body(req),apps={notepad:'windows_notepad',calculator:'windows_calculator'};
+ if(!Object.hasOwn(apps,d.app))return reply(res,400,{error:'التطبيق غير مسموح'});
+ const queued=enqueue(apps[d.app]);
+ if(!queued)return reply(res,409,{error:'التطبيق لديه طلب في الانتظار أو لا توجد سعة'});
+ evt('طلب تشغيل تطبيق Windows المسموح: '+d.app);
+ return reply(res,200,{ok:true,queued:true,app:d.app,scope:'allowlisted_windows_action'});
 }
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});if(session.target==='mobile')return reply(res,409,{error:'اختر الكمبيوتر لفحوص Windows وOracle'});enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص شامل جديد');return reply(res,200,{ok:true})}
 if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});if(session.target==='mobile')return reply(res,409,{error:'هذه الجلسة مخصصة لمتصفح الهاتف'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
