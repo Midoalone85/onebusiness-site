@@ -12,7 +12,16 @@ function renderChanges(list){
   const act=document.createElement('div');act.className='actions';el.appendChild(act);
   const share=document.createElement('button');share.type='button';share.className='soft';share.textContent='نسخ المهمة لـChatGPT';
   share.onclick=async()=>{const prompt='راجع طلب تطوير ONE COMMAND التالي، حلّل المخاطر واقترح خطة واختبارات. لا تنفذ أي تعديل إنتاجي بدون موافقتي. المشروع: '+item.target+'، المهمة: '+item.title+'، التفاصيل: '+item.details;try{await navigator.clipboard.writeText(prompt);alert('تم نسخ الطلب. الصقه في ChatGPT للمتابعة.')}catch{alert('تعذر نسخ النص')}};act.appendChild(share);
-  if(item.status==='pending_review'){
+  if(item.status==='reviewed'&&['Oracle','ONE ERP','Windows'].includes(item.target)){
+   const probe=document.createElement('button');probe.type='button';probe.className='soft';
+   probe.textContent='▶ طلب فحص آمن فقط';probe.disabled=!(current&&current.active&&current.agentOnline);
+   probe.title='يتطلب جلسة نشطة ووكيل Windows متصل';
+   probe.onclick=async()=>{if(!confirm('سيتم طلب فحوص قراءة فقط، دون تعديل السيرفر أو ERP. هل توافق؟'))return;
+    try{const d=await request('/api/changes/check','POST',{id:item.id});await refresh();alert('تم إرسال طلب فحص '+(d.kinds||[]).join(', '))}
+    catch(error){alert(error.message)}
+   };act.appendChild(probe);
+ }
+ if(item.status==='pending_review'){
    for(const [state,label] of [['reviewed','تمت المراجعة'],['rejected','رفض الطلب']]){
     const btn=document.createElement('button');btn.type='button';btn.className='soft';btn.textContent=label;
     btn.onclick=async()=>{try{await request('/api/changes/review','POST',{id:item.id,status:state});await refresh()}catch(e){alert(e.message)}};act.appendChild(btn);
@@ -20,7 +29,7 @@ function renderChanges(list){
   }out.appendChild(el);
  }
 }
-async function refresh(){try{const d=await request('/api/state');if(!d)return;current=d;$('login').hidden=true;$('app').hidden=false;val('agentState',d.agentOnline?'متصل الآن ●':'غير متصل ○');$('agentState').className='metric '+(d.agentOnline?'good':'bad');val('agentHint',d.agentOnline?'الوكيل يستجيب ويستطيع استقبال طلبات الفحص':'يجب تشغيل Windows Agent على جهازك أولًا');$('agentBar').style.width=d.agentOnline?'100%':'9%';val('sessionState',d.active?'نشطة ✓':'متوقفة');val('sessionHint',d.active?'تنتهي الساعة '+new Date(d.expires).toLocaleTimeString('ar-SA'):'جلسة فحص فقط لمدة 15 دقيقة');$('start').disabled=d.active;$('stop').disabled=!d.active;$('scan').disabled=!d.active;$('oracleCheck').disabled=!d.active;val('count',String(d.results.length));renderChanges(d.changes||[]);const g=d.diagnosis||{};val('diagnosis',[g.title||'في انتظار نتائج الفحص',...(g.problems||[]).map(x=>'⚠ '+x),...(g.ok||[]).map(x=>'✓ '+x),...(g.suggestions||[]).map(x=>'↳ '+x),g.disclaimer||''].filter(Boolean).join('\n'));$('analyze').disabled=!(d.active&&d.aiConfigured&&d.results.length);val('aiStatus',d.aiConfigured?'AI API متصل بالإعدادات. اضغط للتحليل بعد موافقتك على مشاركة التقرير.':'التحليل الآلي يحتاج إعداد OpenAI API key. الفحص بدون AI متاح دائمًا.');val('results',d.results.length?d.results.map(x=>new Date(x.at).toLocaleString('ar-SA')+' | '+x.kind+'\n'+JSON.stringify(x.data,null,2)).join('\n\n'):'لا توجد تقارير بعد.');val('events',d.events.map(x=>new Date(x.at).toLocaleTimeString('ar-SA')+' • '+x.message).join('\n')||'لا توجد عمليات بعد.')}catch(e){console.warn(e.message);val('agentHint','تعذر تحديث الحالة. تحقق من الاتصال وأعد المحاولة.')}}
+async function refresh(){try{const d=await request('/api/state');if(!d)return;current=d;$('login').hidden=true;$('app').hidden=false;val('agentState',d.agentOnline?'متصل الآن ●':'غير متصل ○');$('agentState').className='metric '+(d.agentOnline?'good':'bad');val('agentHint',d.agentOnline?'الوكيل يستجيب ويستطيع استقبال طلبات الفحص':'يجب تشغيل Windows Agent على جهازك أولًا');$('agentBar').style.width=d.agentOnline?'100%':'9%';val('sessionState',d.active?'نشطة ✓':'متوقفة');val('sessionHint',d.active?'تنتهي الساعة '+new Date(d.expires).toLocaleTimeString('ar-SA'):'جلسة فحص فقط لمدة 15 دقيقة');$('start').disabled=d.active;$('stop').disabled=!d.active;$('scan').disabled=!d.active;$('oracleCheck').disabled=!d.active;val('count',String(d.results.length));val('sessionHint',d.active?'متبقي '+(d.pendingJobs||0)+' فحوص في قائمة الانتظار':'جلسة فحص فقط لمدة 15 دقيقة');renderChanges(d.changes||[]);const g=d.diagnosis||{};val('diagnosis',[g.title||'في انتظار نتائج الفحص',...(g.problems||[]).map(x=>'⚠ '+x),...(g.ok||[]).map(x=>'✓ '+x),...(g.suggestions||[]).map(x=>'↳ '+x),g.disclaimer||''].filter(Boolean).join('\n'));$('analyze').disabled=!(d.active&&d.aiConfigured&&d.results.length);val('aiStatus',d.aiConfigured?'AI API متصل بالإعدادات. اضغط للتحليل بعد موافقتك على مشاركة التقرير.':'التحليل الآلي يحتاج إعداد OpenAI API key. الفحص بدون AI متاح دائمًا.');val('results',d.results.length?d.results.map(x=>new Date(x.at).toLocaleString('ar-SA')+' | '+x.kind+'\n'+JSON.stringify(x.data,null,2)).join('\n\n'):'لا توجد تقارير بعد.');val('events',d.events.map(x=>new Date(x.at).toLocaleTimeString('ar-SA')+' • '+x.message).join('\n')||'لا توجد عمليات بعد.')}catch(e){console.warn(e.message);val('agentHint','تعذر تحديث الحالة. تحقق من الاتصال وأعد المحاولة.')}}
 $('loginForm').onsubmit=async e=>{e.preventDefault();try{await request('/api/login','POST',{password:$('password').value.trim()});$('password').value='';val('loginError','');await refresh()}catch(e){val('loginError',e.message)}};
 async function action(path){try{await request(path,'POST',{});await refresh()}catch(e){alert(e.message)}}
 $('start').onclick=()=>action('/api/control/start');$('stop').onclick=()=>action('/api/control/stop');$('scan').onclick=()=>action('/api/control/scan');$('refresh').onclick=refresh;$('oracleCheck').onclick=()=>action('/api/control/oracle');
@@ -28,6 +37,20 @@ $('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('results')
 $('export').onclick=()=>{if(!current)return alert('لا توجد بيانات محفوظة في هذه الجلسة');const data={product:'ONE COMMAND',exportedAt:new Date().toISOString(),diagnosis:current.diagnosis,results:current.results,events:current.events,changes:current.changes};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='ONE_COMMAND_Report_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 $('chat').onclick=async()=>{const msg='استخدم Desktop Commander المتصل لفحص جهاز Windows وONE ERP قراءة فقط. طلب ONE COMMAND الحالي: '+$('results').textContent.slice(0,1700)+' . لا تعدل بيانات ولا تعيد تشغيل الخدمات قبل موافقتي.';try{await navigator.clipboard.writeText(msg);alert('تم نسخ طلب التحكم. ألصقه في ChatGPT وأرسله للبدء.')}catch{}window.open('https://chatgpt.com/','_blank','noopener')};
 $('analyze').onclick=async()=>{if(!confirm('هل توافق على إرسال بيانات أحدث فحوصك إلى خدمة OpenAI API لتحليلها؟ لن يتم تنفيذ أوامر على الجهاز.'))return;try{$('analyze').disabled=true;val('aiAnswer','جار التحليل...');const d=await request('/api/ai/analyze','POST',{consent:true});if(d)val('aiAnswer',d.answer||'لم يصل تحليل');}catch(e){val('aiAnswer',e.message)}finally{await refresh();}};
+function downloadJSON(data,filename){
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);
+ const link=document.createElement('a');link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+$('exportChanges').onclick=()=>{if(!current)return alert('انتظر تحميل البيانات');downloadJSON({product:'ONE COMMAND',type:'planning_backup',version:1,exportedAt:new Date().toISOString(),changes:current.changes||[]},'ONE_COMMAND_Tasks_'+new Date().toISOString().slice(0,10)+'.json')};
+$('importChanges').onclick=()=>{$('importFile').value='';$('importFile').click()};
+$('importFile').onchange=async()=>{
+ const file=$('importFile').files?.[0];if(!file)return;
+ if(file.size>80000)return alert('الملف كبير جدًا');
+ if(!confirm('سيتم دمج طلبات النسخة مع الطلبات الحالية، بدون تنفيذ أي تعديل. هل توافق؟'))return;
+ try{const data=JSON.parse(await file.text());const result=await request('/api/changes/import','POST',data);
+    await refresh();alert('تمت استعادة '+result.imported+' طلب للمراجعة')}
+ catch(e){alert('فشلت الاستعادة: '+e.message)}
+};
 $('changeForm').onsubmit=async e=>{e.preventDefault();const payload={title:$('changeTitle').value.trim(),target:$('changeTarget').value,details:$('changeDetails').value.trim()};try{await request('/api/changes','POST',payload);$('changeForm').reset();val('changeNotice',' تم تسجيل الطلب للمراجعة فقط.');await refresh()}catch(error){val('changeNotice',' '+error.message)}};
 $('logout').onclick=async()=>{await request('/api/logout','POST',{});location.reload()};
 refresh();setInterval(refresh,6000);
