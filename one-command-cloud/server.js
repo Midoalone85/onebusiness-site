@@ -100,7 +100,19 @@ function summarizeDiagnostics(items){
     else if(Number(c.http?.status)>=200&&Number(c.http?.status)<400){ok.push(name+' أعاد HTTP '+c.http.status)}
    }}
   }
-  if(r.kind==='oracle_health'){if(d.connected===true){ok.push('تم الاتصال بسيرفر Oracle عبر SSH بشكل آمن');if(d.postgresql&&d.postgresql!=='active'){problems.push('PostgreSQL غير نشط على Oracle');suggestions.push('تحقق من سجلات PostgreSQL والخدمة دون إعادة تشغيل تلقائي')}if(d.nginx==='inactive'){problems.push('Nginx متوقفة على هذا الخادم');suggestions.push('تأكد هل Nginx مطلوب في هذا السيرفر قبل تشغيلها')}if(Number.isFinite(d.diskUsePercent)&&d.diskUsePercent>85){problems.push('استهلاك القرص في Oracle مرتفع');suggestions.push('راجع استهلاك الملفات دون حذف تلقائي')}}else{problems.push('تعذر إكمال فحص Oracle عبر SSH');suggestions.push('تحقق من الاتصال والمفتاح وصلاحيات SSH وتطابق بصمة الخادم')}}
+  if(r.kind==='oracle_health'){
+   if(d.connected===true){
+    ok.push('Oracle: تم التحقق من اتصال SSH بنجاح');
+    if(d.services&&typeof d.services==='object'){
+     const labels={'oneerp-v3':'تطبيق ONE ERP','oneerp-db':'قاعدة بيانات ONE ERP','oneerp-v3-https':'بوابة HTTPS','oneerp-v3-public':'بوابة HTTP','oneerp-v3-acme':'خدمة الشهادات','oneerp-v3-gzip':'خدمة ضغط الصفحات'};
+     for(const [key,label] of Object.entries(labels)){
+      if(d.services[key]?.running===true)ok.push(label+' تعمل داخل Docker');
+      else {problems.push(label+' ليست ضمن الحاويات الجارية');suggestions.push('تحقق من حالة '+label+' وسجلات حاويتها قبل بدء أي خدمة')}
+     }
+    }else{suggestions.push('نتيجة قديمة: أعد فحص Oracle لتحديث حالة خدمات Docker بدل فحص Nginx على المضيف')}
+    if(Number.isFinite(d.diskUsePercent)&&d.diskUsePercent>85){problems.push('استهلاك القرص في Oracle مرتفع');suggestions.push('راجع استهلاك الملفات دون حذف تلقائي')}
+   }else{problems.push('تعذر إكمال فحص Oracle عبر SSH');suggestions.push('تحقق من الاتصال ومفتاح SSH وتطابق بصمة الخادم')}
+  }
   if(r.kind==='oracle_network'){
    if(d.sshTcpReachable===true)ok.push('Oracle: المنفذ 22 قابل للوصول، دون التحقق من الدخول');
    else if(d.sshTcpReachable===false){problems.push('منفذ SSH في Oracle لا يستجيب من Windows');suggestions.push('راجع الشبكة وقواعد السماح من لوحة Oracle دون تغيير الجدار الناري تلقائيًا')}
