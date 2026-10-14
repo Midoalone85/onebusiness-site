@@ -2,10 +2,11 @@
 const http=require('node:http'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
 const PORT=Number(process.env.PORT||3000),PW=process.env.OC_ADMIN_HASH||'',KEY=process.env.OC_COOKIE_SECRET||'',AGENT=process.env.OC_AGENT_TOKEN||'';
 if(!/^[a-f0-9]{64}$/.test(PW)||KEY.length<32||AGENT.length<32){console.error('Missing OC secrets');process.exit(1)}
-const events=[],attempts=new Map();let session=null,queue=[],results=[],lastPing=0,issued=new Map();
+const events=[],attempts=new Map(),ownerSessions=new Map();let session=null,queue=[],results=[],lastPing=0,issued=new Map();
 const sha=s=>crypto.createHash('sha256').update(s).digest('hex'),mac=s=>crypto.createHmac('sha256',KEY).update(s).digest('hex');
 const eq=(a,b)=>{let x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y)};
-function authed(req){let raw=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('oc_session='))||'';let [exp,sig]=raw.slice(11).split('.');return /^\d+$/.test(exp||'')&&Number(exp)>Date.now()&&eq(mac('owner:'+exp),sig||'')}
+function sessionId(req){const raw=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('oc_session='))||'';const [id,sig]=raw.slice(11).split('.');return /^[a-f0-9]{48}$/.test(id||'')&&eq(mac('owner:'+id),sig||'')?id:null}
+function authed(req){const id=sessionId(req);const item=id&&ownerSessions.get(id);if(!item)return false;if(item.expires<=Date.now()){ownerSessions.delete(id);return false}return true}
 function live(){return session&&session.expires>Date.now()}
 function evt(s){events.unshift({at:new Date().toISOString(),message:s});events.splice(30)}
 function reply(res,c,o,more={}){res.writeHead(c,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...more});res.end(JSON.stringify(o))}
@@ -54,11 +55,13 @@ if(p==='/agent/poll'||p==='/agent/report'){
 if(p==='/api/login'&&req.method==='POST'){
  if(!allowOrigin(req))return reply(res,403,{error:'Origin not accepted'});
  const ip=sha(String(req.socket.remoteAddress||'unknown')+'|'+String(req.headers['user-agent']||'').slice(0,180)),a=attempts.get(ip)||{fails:0,blocked:0};
- if(a.blocked>Date.now())return reply(res,429,{error:'انتظر 15 دقيقة قبل المحاولة'});
  const b=await body(req);
- if(typeof b.password!=='string'||!eq(sha(b.password),PW)){a.fails++;if(a.fails>=6){a.blocked=Date.now()+900000;a.fails=0}attempts.set(ip,a);return reply(res,401,{error:'مفتاح الدخول غير صحيح'})}
- attempts.delete(ip);const exp=Date.now()+30*60000;evt('تسجيل دخول المالك');
- return reply(res,200,{ok:true},{'Set-Cookie':'oc_session='+exp+'.'+mac('owner:'+exp)+'; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=1800'})
+ const good=typeof b.password==='string'&&eq(sha(b.password),PW);
+ if(!good){if(a.blocked>Date.now())return reply(res,429,{error:'محاولات كثيرة، حاول بعد 15 دقيقة'});a.fails++;if(a.fails>=6){a.blocked=Date.now()+900000;a.fails=0}attempts.set(ip,a);return reply(res,401,{error:'مفتاح الدخول غير صحيح'})}
+ attempts.delete(ip);const exp=Date.now()+30*60000;const sid=crypto.randomBytes(24).toString('hex');ownerSessions.set(sid,{expires:exp});
+ for(const [id,v] of ownerSessions){if(v.expires<=Date.now())ownerSessions.delete(id)}
+ evt('تسجيل دخول المالك');
+ return reply(res,200,{ok:true},{'Set-Cookie':'oc_session='+sid+'.'+mac('owner:'+sid)+'; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=1800'})
 }
 if(p==='/'||p==='/index.html'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});return fs.createReadStream(path.join(__dirname,'index.html')).pipe(res)}
 if(p==='/app.js'||p==='/style.css'){res.writeHead(200,{'Content-Type':p.endsWith('.js')?'text/javascript; charset=utf-8':'text/css; charset=utf-8','Cache-Control':'no-store'});return fs.createReadStream(path.join(__dirname,p.slice(1))).pipe(res)}
@@ -89,7 +92,7 @@ if(p==='/api/ai/analyze'&&req.method==='POST'){
   evt('تحليل تقرير الفحص بإذن المالك');return reply(res,200,{answer:String(answer).slice(0,5000)});
  }finally{clearTimeout(timer)}
 }
-if(p==='/api/logout'&&req.method==='POST'){session=null;queue=[];issued.clear();evt('تسجيل الخروج وإيقاف جلسة الفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
+if(p==='/api/logout'&&req.method==='POST'){ownerSessions.delete(sessionId(req));session=null;queue=[];issued.clear();evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
 if(p==='/api/state'&&req.method==='GET')return reply(res,200,{diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});
 if(p==='/api/control/start'&&req.method==='POST'){session={expires:Date.now()+900000,id:crypto.randomUUID()};queue=[];issued.clear();results=[];enqueue('inventory');enqueue('erp_ports');evt('بدء جلسة فحص لمدة 15 دقيقة');return reply(res,200,{ok:true})}
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});enqueue('inventory');enqueue('erp_ports');evt('طلب فحص جديد');return reply(res,200,{ok:true})}
