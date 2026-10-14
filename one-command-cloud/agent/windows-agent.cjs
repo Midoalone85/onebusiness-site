@@ -1,6 +1,6 @@
 // ONE COMMAND Windows Agent: outbound-only, allowlisted read-only checks.
 'use strict';
-const os=require('node:os'),fs=require('node:fs'),net=require('node:net'),path=require('node:path'),{execFile}=require('node:child_process');
+const os=require('node:os'),fs=require('node:fs'),net=require('node:net'),path=require('node:path'),{execFile,spawn}=require('node:child_process');
 const config=JSON.parse(fs.readFileSync(path.join(__dirname,'config.json'),'utf8'));
 const base=new URL(config.url);if(base.protocol!=='https:'||!config.token||config.token.length<32)throw Error('Secure configuration required');
 let running=false;
@@ -17,10 +17,21 @@ function oracleHealth(){return new Promise(resolve=>{
   resolve({connected:true,host:'oneerp',hostname:(lines[0]||'').slice(0,100),uptime:(lines[1]||'').slice(0,160),diskUsePercent:Number((disk[4]||'').replace('%',''))||null,freeDiskKB:Number(disk[3])||null,memoryAvailableMB:Number(mem[6])||null,nginx:(lines[4]||'unknown').trim(),postgresql:(lines[5]||'unknown').trim(),checkedAt:new Date().toISOString(),readonly:true})
  })
 })}
-async function execute(j){if(j.kind==='oracle_health')return await oracleHealth();if(j.kind==='oracle_network')return await oracleTcp();
+function launchAllowedApp(kind){
+ return new Promise(resolve=>{
+  if(process.platform!=='win32')return resolve({requested:false,error:'Windows required'});
+  const exe=kind==='windows_notepad'?'notepad.exe':'calc.exe';
+  try{
+   const child=spawn(exe,[],{detached:true,stdio:'ignore',windowsHide:false});
+   child.once('error',()=>resolve({requested:false,app:exe,error:'Could not launch approved app'}));
+   child.once('spawn',()=>{child.unref();resolve({requested:true,app:exe,note:'Launch request accepted; visible window not independently verified'})});
+  }catch{resolve({requested:false,app:exe,error:'Process launch failed'})}
+ })
+}
+async function execute(j){if(j.kind==='windows_notepad'||j.kind==='windows_calculator')return await launchAllowedApp(j.kind);if(j.kind==='oracle_health')return await oracleHealth();if(j.kind==='oracle_network')return await oracleTcp();
 if(j.kind==='inventory'){const out={hostname:os.hostname(),platform:os.platform(),release:os.release(),arch:os.arch(),uptimeHours:Math.round(os.uptime()/360)/10,freeMemoryGB:Math.round(os.freemem()/1e8)/10,totalMemoryGB:Math.round(os.totalmem()/1e8)/10,cpus:os.cpus().length,at:new Date().toISOString()};try{const stat=fs.statfsSync(os.homedir());out.homeFreeGB=Math.round(stat.bfree*stat.bsize/1e8)/10}catch{}return out}
 if(j.kind==='erp_ports'){let out={at:new Date().toISOString(),checks:[]};for(const [port,page] of [[17881,'/odoo/action-716'],[8069,'/web/login']]){let open=await tcp(port);out.checks.push({port,tcp:open,http:open?await httpCheck(port,page):{status:null,description:'TCP closed'}})}return out}throw Error('Unknown job')}
-async function poll(){if(running)return;running=true;try{const {job}=await api('/agent/poll');if(job&&['inventory','erp_ports','oracle_network','oracle_health'].includes(job.kind)&&typeof job.id==='string'){const data=await execute(job);await api('/agent/report',{id:job.id,kind:job.kind,data});console.log('Completed '+job.kind+' at '+new Date().toISOString())}}catch(e){console.log('Connection check: '+e.message)}finally{running=false}}
+async function poll(){if(running)return;running=true;try{const {job}=await api('/agent/poll');if(job&&['inventory','erp_ports','oracle_network','oracle_health','windows_notepad','windows_calculator'].includes(job.kind)&&typeof job.id==='string'){const data=await execute(job);await api('/agent/report',{id:job.id,kind:job.kind,data});console.log('Completed '+job.kind+' at '+new Date().toISOString())}}catch(e){console.log('Connection check: '+e.message)}finally{running=false}}
 console.log('ONE COMMAND read-only agent running. No remote shell enabled.');
 poll();setInterval(poll,6000);
 process.on('SIGINT',()=>process.exit(0));
