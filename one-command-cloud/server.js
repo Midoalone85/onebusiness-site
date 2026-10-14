@@ -2,7 +2,7 @@
 const http=require('node:http'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
 const PORT=Number(process.env.PORT||3000),PW=process.env.OC_ADMIN_HASH||'',KEY=process.env.OC_COOKIE_SECRET||'',AGENT=process.env.OC_AGENT_TOKEN||'';
 if(!/^[a-f0-9]{64}$/.test(PW)||KEY.length<32||AGENT.length<32){console.error('Missing OC secrets');process.exit(1)}
-const events=[],attempts=new Map(),ownerSessions=new Map(),changes=[];let session=null,queue=[],results=[],lastPing=0,issued=new Map();
+const events=[],attempts=new Map(),ownerSessions=new Map(),changes=[],phones=new Map();let session=null,queue=[],results=[],lastPing=0,issued=new Map();
 const sha=s=>crypto.createHash('sha256').update(s).digest('hex'),mac=s=>crypto.createHmac('sha256',KEY).update(s).digest('hex');
 const eq=(a,b)=>{let x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y)};
 function sessionId(req){const raw=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('oc_session='))||'';const [id,sig]=raw.slice(11).split('.');return /^[a-f0-9]{48}$/.test(id||'')&&eq(mac('owner:'+id),sig||'')?id:null}
@@ -11,6 +11,7 @@ const SESSION_DURATIONS=Object.freeze({hour:3600000,day:86400000,week:604800000,
 const SESSION_LABELS=Object.freeze({hour:'ساعة',day:'يوم',week:'أسبوع',month:'شهر (30 يومًا)',unlimited:'بدون حد زمني'});
 function validDuration(d){return typeof d==='string'&&Object.hasOwn(SESSION_DURATIONS,d)}
 function live(){return !!session&&(session.expires===null||session.expires>Date.now())}
+const onlinePhones=()=>[...phones.values()].filter(p=>Date.now()-p.lastSeen<24000&&ownerSessions.has(p.ownerSid));
 function newDuration(d){const now=Date.now();return {duration:d,startedAt:now,expires:SESSION_DURATIONS[d]===null?null:now+SESSION_DURATIONS[d]}}
 function evt(s){events.unshift({at:new Date().toISOString(),message:s});events.splice(30)}
 function reply(res,c,o,more={}){res.writeHead(c,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...more});res.end(JSON.stringify(o))}
@@ -102,6 +103,50 @@ if(p==='/'||p==='/index.html'){res.writeHead(200,{'Content-Type':'text/html; cha
 if(p==='/app.js'||p==='/style.css'){res.writeHead(200,{'Content-Type':p.endsWith('.js')?'text/javascript; charset=utf-8':'text/css; charset=utf-8','Cache-Control':'no-store'});return fs.createReadStream(path.join(__dirname,p.slice(1))).pipe(res)}
 if(!authed(req))return reply(res,401,{error:'الدخول مطلوب'});
 if(req.method==='POST'&&!allowOrigin(req))return reply(res,403,{error:'Origin not accepted'});
+// Explicit browser companion. This does not grant mobile OS or app control.
+if(p==='/api/mobile/register'&&req.method==='POST'){
+ const d=await body(req),id=typeof d.id==='string'?d.id:'';
+ if(!/^[a-f0-9-]{36}$/.test(id))return reply(res,400,{error:'معرف الجهاز غير صالح'});
+ const sid=sessionId(req),platform=typeof d.platform==='string'?d.platform.slice(0,80):'Mobile browser';
+ const label=typeof d.label==='string'?d.label.trim().slice(0,45):'My phone';
+ if(!sid)return reply(res,401,{error:'الدخول مطلوب'});
+ for(const [key,item] of phones)if(Date.now()-item.lastSeen>180000||!ownerSessions.has(item.ownerSid))phones.delete(key);
+ if(!phones.has(id)&&phones.size>=3)return reply(res,409,{error:'الحد الأقصى ثلاثة هواتف. افصل هاتفًا غير مستخدم أولًا'});
+ const device={id,ownerSid:sid,label:label||'My phone',platform,lastSeen:Date.now(),commands:[],lastAction:null};
+ phones.set(id,device);evt('ربط متصفح هاتف جديد بإذن المالك');
+ return reply(res,200,{ok:true,id,scope:'browser_only',noOSControl:true});
+}
+if(p==='/api/mobile/heartbeat'&&req.method==='POST'){
+ const d=await body(req),device=phones.get(d.id);
+ if(!device||device.ownerSid!==sessionId(req))return reply(res,403,{error:'الهاتف غير مرتبط بجلسة تسجيل الدخول الحالية'});
+ device.lastSeen=Date.now();
+ const command=device.commands.shift()||null;
+ return reply(res,200,{ok:true,command,active:!!(live()&&session.target==='mobile'),scope:'browser_only'});
+}
+if(p==='/api/mobile/ack'&&req.method==='POST'){
+ const d=await body(req),device=phones.get(d.id);
+ if(!device||device.ownerSid!==sessionId(req))return reply(res,403,{error:'الهاتف غير مرتبط'});
+ if(typeof d.commandId!=='string'||d.commandId!==device.pending?.id)return reply(res,409,{error:'التنبيه غير مطابق'});
+ device.lastSeen=Date.now();device.lastAction={type:device.pending.kind,at:new Date().toISOString(),supported:d.supported===true};
+ device.pending=null;evt('تم استلام رد متصفح الهاتف');return reply(res,200,{ok:true});
+}
+if(p==='/api/mobile/action'&&req.method==='POST'){
+ if(!live()||session.target!=='mobile')return reply(res,409,{error:'ابدأ جلسة اتصال الهاتف أولًا'});
+ const d=await body(req),device=phones.get(d.id);
+ if(!device||!onlinePhones().some(item=>item.id===device.id))return reply(res,409,{error:'متصفح الهاتف غير متصل حاليًا'});
+ if(!['ping','vibrate'].includes(d.kind))return reply(res,400,{error:'العملية غير مسموحة'});
+ if(device.pending||device.commands.length)return reply(res,409,{error:'انتظر نتيجة الأمر السابق'});
+ const command={id:crypto.randomUUID(),kind:d.kind};
+ device.pending=command;device.commands.push(command);
+ evt('تم إرسال '+(d.kind==='vibrate'?'طلب اهتزاز':'اختبار اتصال')+' إلى متصفح الهاتف');
+ return reply(res,200,{ok:true,scope:'browser_only',queued:true});
+}
+if(p==='/api/mobile/disconnect'&&req.method==='POST'){
+ const d=await body(req),device=phones.get(d.id);
+ if(!device)return reply(res,404,{error:'الهاتف غير معروف'});
+ if(device.ownerSid!==sessionId(req))return reply(res,403,{error:'الدخول مطلوب من الهاتف نفسه'});
+ phones.delete(d.id);evt('فصل متصفح الهاتف');return reply(res,200,{ok:true});
+}
 if(p==='/api/ai/analyze'&&req.method==='POST'){
  const apiKey=process.env.OPENAI_API_KEY||'';
  if(!apiKey)return reply(res,503,{error:'التحليل الآلي يحتاج ربط مفتاح API خاص بك أولًا'});
@@ -127,8 +172,8 @@ if(p==='/api/ai/analyze'&&req.method==='POST'){
   evt('تحليل تقرير الفحص بإذن المالك');return reply(res,200,{answer:String(answer).slice(0,5000)});
  }finally{clearTimeout(timer)}
 }
-if(p==='/api/logout'&&req.method==='POST'){ownerSessions.delete(sessionId(req));session=null;clearJobs('تم تسجيل الخروج');evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
-if(p==='/api/state'&&req.method==='GET'){sweepJobs();return reply(res,200,{sessionDuration:live()?session.duration:null,sessionStartedAt:live()?session.startedAt:null,unlimited:!!(live()&&session.expires===null),availableDurations:Object.keys(SESSION_DURATIONS),jobs:jobHistory.slice(0,16),changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});}
+if(p==='/api/logout'&&req.method==='POST'){for(const [k,v] of phones)if(v.ownerSid===sessionId(req))phones.delete(k);ownerSessions.delete(sessionId(req));session=null;clearJobs('تم تسجيل الخروج');evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
+if(p==='/api/state'&&req.method==='GET'){sweepJobs();return reply(res,200,{phones:onlinePhones().map(p=>({id:p.id,label:p.label,platform:p.platform,lastSeen:p.lastSeen,browserOnly:true,lastAction:p.lastAction||null})),controlTarget:live()?session.target||'computer':null,sessionDuration:live()?session.duration:null,sessionStartedAt:live()?session.startedAt:null,unlimited:!!(live()&&session.expires===null),availableDurations:Object.keys(SESSION_DURATIONS),jobs:jobHistory.slice(0,16),changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});}
 // Planning-only requests: no agent commands, no cloud or ERP changes.
 if(p==='/api/changes'&&req.method==='POST'){
  const d=await body(req);const title=typeof d.title==='string'?d.title.trim():'',details=typeof d.details==='string'?d.details.trim():'';
@@ -171,6 +216,7 @@ if(p==='/api/changes/import'&&req.method==='POST'){
 }
 if(p==='/api/changes/check'&&req.method==='POST'){
  if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});
+ if(session.target==='mobile')return reply(res,409,{error:'جلسة الهاتف مخصصة لمراقبة المتصفح فقط'});
  if(Date.now()-lastPing>30000)return reply(res,409,{error:'وكيل Windows غير متصل حاليًا'});
  const d=await body(req),item=changes.find(x=>x.id===d.id);
  if(!item)return reply(res,404,{error:'الطلب غير موجود'});
@@ -186,11 +232,14 @@ if(p==='/api/control/start'&&req.method==='POST'){
  const d=await body(req);
  if(!validDuration(d.duration))return reply(res,400,{error:'اختر مدة اتصال صحيحة'});
  if(live())return reply(res,409,{error:'جلسة الفحص نشطة بالفعل. يمكن تغيير مدتها دون إيقاف.'});
- session={...newDuration(d.duration),id:crypto.randomUUID()};
+ const target=d.target||'computer';
+ if(!['computer','mobile'].includes(target))return reply(res,400,{error:'نوع الجهاز غير مدعوم'});
+ if(target==='mobile'&&!onlinePhones().length)return reply(res,409,{error:'الهاتف غير مرتبط. افتح الموقع على الهاتف واضغط «ربط هذا الهاتف» أولًا'});
+ session={...newDuration(d.duration),id:crypto.randomUUID(),target};
  clearJobs('جلسة جديدة');results=[];
- enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');
- evt('بدء جلسة فحص قراءة فقط: '+SESSION_LABELS[d.duration]);
- return reply(res,200,{ok:true,duration:session.duration,expires:session.expires,unlimited:session.expires===null});
+ if(target==='computer'){enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health')}
+ evt('بدء جلسة '+(target==='computer'?'فحص الكمبيوتر':'متابعة متصفح الهاتف')+' لمدة '+SESSION_LABELS[d.duration]);
+ return reply(res,200,{ok:true,target,duration:session.duration,expires:session.expires,unlimited:session.expires===null});
 }
 if(p==='/api/control/duration'&&req.method==='POST'){
  if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});
@@ -201,8 +250,8 @@ if(p==='/api/control/duration'&&req.method==='POST'){
  evt('تغيير مدة جلسة الفحص إلى: '+SESSION_LABELS[d.duration]);
  return reply(res,200,{ok:true,duration:session.duration,expires:session.expires,unlimited:session.expires===null});
 }
-if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص شامل جديد');return reply(res,200,{ok:true})}
-if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
+if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});if(session.target==='mobile')return reply(res,409,{error:'اختر الكمبيوتر لفحوص Windows وOracle'});enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص شامل جديد');return reply(res,200,{ok:true})}
+if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});if(session.target==='mobile')return reply(res,409,{error:'هذه الجلسة مخصصة لمتصفح الهاتف'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
 if(p==='/api/control/stop'&&req.method==='POST'){session=null;clearJobs('إيقاف المستخدم');evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
 return reply(res,404,{error:'not found'});
 }catch(e){console.error(e.message);return reply(res,500,{error:'request failed'})}
