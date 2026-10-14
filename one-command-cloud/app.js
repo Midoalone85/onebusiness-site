@@ -1,4 +1,4 @@
-const $=id=>document.getElementById(id);let current=null,lastSessionDuration=null,currentPhoneId=null,phonePolling=false;
+const $=id=>document.getElementById(id);let current=null,lastSessionDuration=null,currentPhoneId=null,phonePolling=false,pendingAssist=null,lastMonitorInterval=null;
 function durationHint(d){
  if(!d.active)return 'الجلسة متوقفة. اختار المدة ثم اضغط ابدأ الفحص.';
  if(d.unlimited)return 'بدون حد زمني • مستمرة حتى إيقافها أو إعادة تشغيل الاستضافة • '+(d.pendingJobs||0)+' مهام في الانتظار';
@@ -110,7 +110,39 @@ $('openNotepad').onclick=()=>allowedWindowsAction('notepad');
 $('openCalculator').onclick=()=>allowedWindowsAction('calculator');
 $('pingPhone').onclick=()=>phoneAction('ping');
 $('buzzPhone').onclick=()=>phoneAction('vibrate');
-async function refresh(){try{const d=await request('/api/state');if(!d)return;current=d;$('login').hidden=true;$('app').hidden=false;val('agentState',d.agentOnline?'متصل الآن ●':'غير متصل ○');$('agentState').className='metric '+(d.agentOnline?'good':'bad');val('agentHint',d.agentOnline?'الوكيل يستجيب ويستطيع استقبال طلبات الفحص':'يجب تشغيل Windows Agent على جهازك أولًا');$('agentBar').style.width=d.agentOnline?'100%':'9%';val('sessionState',d.active?'نشطة ✓':'متوقفة');$('controlTarget').disabled=d.active;if(d.active)$('controlTarget').value=d.controlTarget||'computer';$('start').disabled=d.active;$('stop').disabled=!d.active;$('scan').disabled=!(d.active&&d.controlTarget!=='mobile');$('openNotepad').disabled=!(d.active&&d.controlTarget==='computer'&&d.agentOnline);$('openCalculator').disabled=$('openNotepad').disabled;$('oracleCheck').disabled=!(d.active&&d.controlTarget!=='mobile');val('count',String(d.results.length));val('sessionHint',durationHint(d));$('applyDuration').disabled=!d.active;if(d.active&&lastSessionDuration!==d.sessionDuration){$('sessionDuration').value=d.sessionDuration;lastSessionDuration=d.sessionDuration}if(!d.active)lastSessionDuration=null;renderChanges(d.changes||[]);updateBrowserBackup(d.changes||[]);showJobTimeline(d.jobs||[]);renderPhones(d.phones||[],d);const g=d.diagnosis||{};val('diagnosis',[g.title||'في انتظار نتائج الفحص',...(g.problems||[]).map(x=>'⚠ '+x),...(g.ok||[]).map(x=>'✓ '+x),...(g.suggestions||[]).map(x=>'↳ '+x),g.disclaimer||''].filter(Boolean).join('\n'));$('analyze').disabled=!(d.active&&d.aiConfigured&&d.results.length);val('aiStatus',d.aiConfigured?'AI API متصل بالإعدادات. اضغط للتحليل بعد موافقتك على مشاركة التقرير.':'التحليل الآلي يحتاج إعداد OpenAI API key. الفحص بدون AI متاح دائمًا.');val('results',d.results.length?d.results.map(x=>new Date(x.at).toLocaleString('ar-SA')+' | '+x.kind+'\n'+JSON.stringify(x.data,null,2)).join('\n\n'):'لا توجد تقارير بعد.');val('events',d.events.map(x=>new Date(x.at).toLocaleTimeString('ar-SA')+' • '+x.message).join('\n')||'لا توجد عمليات بعد.')}catch(e){console.warn(e.message);val('agentHint','تعذر تحديث الحالة. تحقق من الاتصال وأعد المحاولة.')}}
+function resetAssistPreview(){pendingAssist=null;$('assistPreview').hidden=true}
+$('assistForm').onsubmit=async e=>{
+ e.preventDefault();resetAssistPreview();
+ const value=$('assistText').value.trim();
+ try{
+  const plan=await request('/api/assist/preview','POST',{text:value});
+  if(!plan)return;
+  pendingAssist={text:value,label:plan.label};
+  val('assistLabel','المقترح: '+plan.label+' (قائمة سماح محددة)');
+  $('assistPreview').hidden=false;
+  val('assistStatus',current?.active&&current?.controlTarget==='computer'?'الإجراء جاهز للموافقة.':'اعرض الأمر ثم ابدأ جلسة الكمبيوتر قبل الموافقة.');
+ }catch(err){val('assistStatus',err.message)}
+};
+$('cancelAssist').onclick=()=>{resetAssistPreview();val('assistStatus','تم إلغاء الأمر المقترح.')};
+$('approveAssist').onclick=async()=>{
+ if(!pendingAssist)return;
+ const proposed=pendingAssist;
+ if(!confirm('توافق على: '+proposed.label+'؟ لن تنفذ أي أوامر خارج القائمة المسموحة.'))return;
+ try{const r=await request('/api/assist/execute','POST',{text:proposed.text,approved:true});
+   if(r){resetAssistPreview();val('assistStatus','تم إرسال: '+r.label+' ('+r.queued+' مهمة). تابع حالة الفحوص.');await refresh()}
+ }catch(err){val('assistStatus','لم يتم التنفيذ: '+err.message)}
+};
+$('applyMonitor').onclick=async()=>{
+ const interval=$('monitorInterval').value;
+ if(interval!=='off'&&!confirm('توافق على تشغيل فحوص تلقائية قراءة فقط أثناء جلسة الكمبيوتر؟'))return;
+ try{const r=await request('/api/control/monitor','POST',{interval});if(r){lastMonitorInterval=interval;await refresh()}}
+ catch(e){alert(e.message)}
+};
+async function refresh(){try{const d=await request('/api/state');if(!d)return;current=d;$('login').hidden=true;$('app').hidden=false;$('applyMonitor').disabled=!(d.active&&d.controlTarget==='computer');
+const mi=d.monitor?.interval||'off';
+if(mi!==lastMonitorInterval){$('monitorInterval').value=mi;lastMonitorInterval=mi}
+val('monitorStatus',mi==='off'?'المراقبة الدورية متوقفة.':('المراقبة مفعّلة. الفحص التالي: '+(d.monitor?.nextAt?new Date(d.monitor.nextAt).toLocaleString('ar-SA'):'غير محدد')+'. يتم إيقافها عند انتهاء الجلسة أو إعادة التشغيل.'));
+val('agentState',d.agentOnline?'متصل الآن ●':'غير متصل ○');$('agentState').className='metric '+(d.agentOnline?'good':'bad');val('agentHint',d.agentOnline?'الوكيل يستجيب ويستطيع استقبال طلبات الفحص':'يجب تشغيل Windows Agent على جهازك أولًا');$('agentBar').style.width=d.agentOnline?'100%':'9%';val('sessionState',d.active?'نشطة ✓':'متوقفة');$('controlTarget').disabled=d.active;if(d.active)$('controlTarget').value=d.controlTarget||'computer';$('start').disabled=d.active;$('stop').disabled=!d.active;$('scan').disabled=!(d.active&&d.controlTarget!=='mobile');$('openNotepad').disabled=!(d.active&&d.controlTarget==='computer'&&d.agentOnline);$('openCalculator').disabled=$('openNotepad').disabled;$('oracleCheck').disabled=!(d.active&&d.controlTarget!=='mobile');val('count',String(d.results.length));val('sessionHint',durationHint(d));$('applyDuration').disabled=!d.active;if(d.active&&lastSessionDuration!==d.sessionDuration){$('sessionDuration').value=d.sessionDuration;lastSessionDuration=d.sessionDuration}if(!d.active)lastSessionDuration=null;renderChanges(d.changes||[]);updateBrowserBackup(d.changes||[]);showJobTimeline(d.jobs||[]);renderPhones(d.phones||[],d);const g=d.diagnosis||{};val('diagnosis',[g.title||'في انتظار نتائج الفحص',...(g.problems||[]).map(x=>'⚠ '+x),...(g.ok||[]).map(x=>'✓ '+x),...(g.suggestions||[]).map(x=>'↳ '+x),g.disclaimer||''].filter(Boolean).join('\n'));$('analyze').disabled=!(d.active&&d.aiConfigured&&d.results.length);val('aiStatus',d.aiConfigured?'AI API متصل بالإعدادات. اضغط للتحليل بعد موافقتك على مشاركة التقرير.':'التحليل الآلي يحتاج إعداد OpenAI API key. الفحص بدون AI متاح دائمًا.');val('results',d.results.length?d.results.map(x=>new Date(x.at).toLocaleString('ar-SA')+' | '+x.kind+'\n'+JSON.stringify(x.data,null,2)).join('\n\n'):'لا توجد تقارير بعد.');val('events',d.events.map(x=>new Date(x.at).toLocaleTimeString('ar-SA')+' • '+x.message).join('\n')||'لا توجد عمليات بعد.')}catch(e){console.warn(e.message);val('agentHint','تعذر تحديث الحالة. تحقق من الاتصال وأعد المحاولة.')}}
 $('loginForm').onsubmit=async e=>{e.preventDefault();try{await request('/api/login','POST',{password:$('password').value.trim()});$('password').value='';val('loginError','');await refresh()}catch(e){val('loginError',e.message)}};
 async function action(path){try{await request(path,'POST',{});await refresh()}catch(e){alert(e.message)}}
 async function setDuration(start){
