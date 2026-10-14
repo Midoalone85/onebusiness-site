@@ -17,8 +17,9 @@ function oracleHealth(){return new Promise(resolve=>{
   const lines=String(stdout).trim().split(/\r?\n/),disk=(lines[2]||'').trim().split(/\s+/),mem=(lines[3]||'').trim().split(/\s+/);
   const names=['oneerp-v3','oneerp-db','oneerp-v3-https','oneerp-v3-public','oneerp-v3-acme','oneerp-v3-gzip'];
   const found=new Map(lines.slice(4).map(line=>{const m=line.trim().match(/^(\S+)\s+(.+)$/);return m?[m[1],m[2]]:[]}).filter(x=>x.length===2));
-  const services=Object.fromEntries(names.map(name=>[name,{running:found.has(name)&&/^Up\b/.test(found.get(name)),status:found.get(name)||'not shown as running'}]));
-  resolve({connected:true,host:'oneerp',hostname:(lines[0]||'').slice(0,100),uptime:(lines[1]||'').slice(0,160),diskUsePercent:Number.parseInt((disk[4]||'').replace('%',''),10)||null,freeDiskKB:Number(disk[3])||null,memoryAvailableMB:Number(mem[6])||null,services,serviceSource:'docker ps (running containers only)',checkedAt:new Date().toISOString(),readonly:true});
+  const dockerInspectionAvailable=found.size>0;
+  const services=dockerInspectionAvailable?Object.fromEntries(names.map(name=>[name,{running:found.has(name)&&/^Up\b/.test(found.get(name)),status:found.get(name)||'not shown as running'}])):null;
+  resolve({connected:true,host:'oneerp',hostname:(lines[0]||'').slice(0,100),uptime:(lines[1]||'').slice(0,160),diskUsePercent:Number.parseInt((disk[4]||'').replace('%',''),10)||null,freeDiskKB:Number(disk[3])||null,memoryAvailableMB:Number(mem[6])||null,services,dockerInspectionAvailable,serviceSource:'docker ps (running containers only)',checkedAt:new Date().toISOString(),readonly:true});
  })
 })}
 function launchAllowedApp(kind){
