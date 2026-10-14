@@ -12,6 +12,30 @@ function reply(res,c,o,more={}){res.writeHead(c,{'Content-Type':'application/jso
 async function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',v=>{s+=v;if(s.length>12000){reject(Error('body too big'));req.destroy()}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('invalid JSON'))}});req.on('error',reject)})}
 function allowOrigin(req){if(!req.headers.origin)return true;try{const u=new URL(req.headers.origin);return u.protocol==='https:'&&u.host===req.headers.host}catch{return false}}
 function enqueue(kind){const j={id:crypto.randomUUID(),kind,at:Date.now()};queue.push(j);issued.set(j.id,j);if(queue.length>12)queue.shift()}
+function summarizeDiagnostics(items){
+ const problems=[],ok=[],suggestions=[];
+ if(!items.length)return {status:'waiting',title:'في انتظار نتائج الفحص',problems:[],ok:[],suggestions:['ابدأ التحكم والفحص بعد تشغيل Windows Agent.']};
+ for(const r of items){const d=r.data||{};
+  if(r.kind==='inventory'){
+   ok.push('تم استلام معلومات جهاز Windows');
+   if(Number.isFinite(d.totalMemoryGB)&&Number.isFinite(d.freeMemoryGB)&&d.totalMemoryGB>0&&d.freeMemoryGB/d.totalMemoryGB<0.1){problems.push('الذاكرة المتاحة على Windows منخفضة');suggestions.push('راجع استهلاك الذاكرة والبرامج المفتوحة قبل إعادة التشغيل')}
+   if(Number.isFinite(d.homeFreeGB)&&d.homeFreeGB<3){problems.push('مساحة القرص منخفضة');suggestions.push('افحص سعة القرص والملفات المؤقتة، دون حذف تلقائي')}
+  }
+  if(r.kind==='erp_ports'&&Array.isArray(d.checks)){
+   for(const c of d.checks){const name='منفذ '+String(c.port||'?');if(c.tcp===false){problems.push(name+' لا يقبل اتصال TCP');suggestions.push('تحقق من تشغيل الخدمة وسجلاتها المحلية')}
+   else if(c.tcp===true){ok.push(name+' يقبل TCP');
+    if(c.http?.description==='HTTP timeout'){problems.push(name+' مفتوح لكن استجابة HTTP متأخرة');suggestions.push('راجع سجلات التطبيق والاتصالات واستهلاك الموارد قبل إعادة تشغيل الخدمة')}
+    else if(Number(c.http?.status)>=500){problems.push(name+' أعاد HTTP '+c.http.status);suggestions.push('افحص سجل الخطأ والطلب الذي سبب استجابة HTTP 5xx')}
+    else if(Number(c.http?.status)>=200&&Number(c.http?.status)<400){ok.push(name+' أعاد HTTP '+c.http.status)}
+   }}
+  }
+  if(r.kind==='oracle_network'){
+   if(d.sshTcpReachable===true)ok.push('Oracle: المنفذ 22 قابل للوصول، دون التحقق من الدخول');
+   else if(d.sshTcpReachable===false){problems.push('منفذ SSH في Oracle لا يستجيب من Windows');suggestions.push('راجع الشبكة وقواعد السماح من لوحة Oracle دون تغيير الجدار الناري تلقائيًا')}
+  }
+ }
+ return {status:problems.length?'attention':'observed',title:problems.length?'توجد نتائج تحتاج متابعة':'لا توجد أخطاء ضمن الفحوص المحدودة الواردة',problems:[...new Set(problems)].slice(0,8),ok:[...new Set(ok)].slice(0,8),suggestions:[...new Set(suggestions)].slice(0,8),disclaimer:'تشخيص أولي من فحوص محدودة، وليس ضمانًا لسلامة نظام ONE ERP.'}
+}
 const server=http.createServer(async(req,res)=>{res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 const p=new URL(req.url,'http://localhost').pathname;
 try{
@@ -28,10 +52,10 @@ if(p==='/agent/poll'||p==='/agent/report'){
 }
 if(p==='/api/login'&&req.method==='POST'){
  if(!allowOrigin(req))return reply(res,403,{error:'Origin not accepted'});
- const ip='owner-login-global',a=attempts.get(ip)||{fails:0,blocked:0};
+ const ip=sha(String(req.socket.remoteAddress||'unknown')+'|'+String(req.headers['user-agent']||'').slice(0,180)),a=attempts.get(ip)||{fails:0,blocked:0};
  if(a.blocked>Date.now())return reply(res,429,{error:'انتظر 15 دقيقة قبل المحاولة'});
  const b=await body(req);
- if(typeof b.password!=='string'||!eq(sha(b.password),PW)){a.fails++;if(a.fails>=5){a.blocked=Date.now()+900000;a.fails=0}attempts.set(ip,a);return reply(res,401,{error:'مفتاح الدخول غير صحيح'})}
+ if(typeof b.password!=='string'||!eq(sha(b.password),PW)){a.fails++;if(a.fails>=6){a.blocked=Date.now()+900000;a.fails=0}attempts.set(ip,a);return reply(res,401,{error:'مفتاح الدخول غير صحيح'})}
  attempts.delete(ip);const exp=Date.now()+30*60000;evt('تسجيل دخول المالك');
  return reply(res,200,{ok:true},{'Set-Cookie':'oc_session='+exp+'.'+mac('owner:'+exp)+'; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=1800'})
 }
@@ -64,8 +88,8 @@ if(p==='/api/ai/analyze'&&req.method==='POST'){
   evt('تحليل تقرير الفحص بإذن المالك');return reply(res,200,{answer:String(answer).slice(0,5000)});
  }finally{clearTimeout(timer)}
 }
-if(p==='/api/logout'&&req.method==='POST')return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});
-if(p==='/api/state'&&req.method==='GET')return reply(res,200,{agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});
+if(p==='/api/logout'&&req.method==='POST'){session=null;queue=[];issued.clear();evt('تسجيل الخروج وإيقاف جلسة الفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
+if(p==='/api/state'&&req.method==='GET')return reply(res,200,{diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});
 if(p==='/api/control/start'&&req.method==='POST'){session={expires:Date.now()+900000,id:crypto.randomUUID()};queue=[];issued.clear();results=[];enqueue('inventory');enqueue('erp_ports');evt('بدء جلسة فحص لمدة 15 دقيقة');return reply(res,200,{ok:true})}
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});enqueue('inventory');enqueue('erp_ports');evt('طلب فحص جديد');return reply(res,200,{ok:true})}
 if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});enqueue('oracle_network');evt('طلب اختبار اتصال Oracle TCP فقط، دون SSH login');return reply(res,200,{ok:true,scope:'oracle_network'})}
