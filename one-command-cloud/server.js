@@ -10,7 +10,7 @@ function authed(req){const id=sessionId(req);const item=id&&ownerSessions.get(id
 function live(){return session&&session.expires>Date.now()}
 function evt(s){events.unshift({at:new Date().toISOString(),message:s});events.splice(30)}
 function reply(res,c,o,more={}){res.writeHead(c,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...more});res.end(JSON.stringify(o))}
-async function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',v=>{s+=v;if(s.length>12000){reject(Error('body too big'));req.destroy()}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('invalid JSON'))}});req.on('error',reject)})}
+async function body(req,maxChars=12000){return new Promise((resolve,reject)=>{let s='';req.on('data',v=>{s+=v;if(s.length>maxChars){reject(Error('body too big'));req.destroy()}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('invalid JSON'))}});req.on('error',reject)})}
 function allowOrigin(req){if(!req.headers.origin)return true;try{const u=new URL(req.headers.origin);const loopback=u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname)&&['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);return u.host===req.headers.host&&(u.protocol==='https:'||loopback)}catch{return false}}
 function enqueue(kind){const j={id:crypto.randomUUID(),kind,at:Date.now()};queue.push(j);issued.set(j.id,j);if(queue.length>12)queue.shift()}
 function summarizeDiagnostics(items){
@@ -93,7 +93,7 @@ if(p==='/api/ai/analyze'&&req.method==='POST'){
  }finally{clearTimeout(timer)}
 }
 if(p==='/api/logout'&&req.method==='POST'){ownerSessions.delete(sessionId(req));session=null;queue=[];issued.clear();evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
-if(p==='/api/state'&&req.method==='GET')return reply(res,200,{changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});
+if(p==='/api/state'&&req.method==='GET')return reply(res,200,{changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});
 // Planning-only requests: no agent commands, no cloud or ERP changes.
 if(p==='/api/changes'&&req.method==='POST'){
  const d=await body(req);const title=typeof d.title==='string'?d.title.trim():'',details=typeof d.details==='string'?d.details.trim():'';
@@ -113,8 +113,42 @@ if(p==='/api/changes/review'&&req.method==='POST'){
  evt('تحديث مراجعة الطلب '+item.target+' إلى '+d.status);
  return reply(res,200,{ok:true,status:item.status,executable:false});
 }
-if(p==='/api/control/start'&&req.method==='POST'){session={expires:Date.now()+900000,id:crypto.randomUUID()};queue=[];issued.clear();results=[];enqueue('inventory');enqueue('erp_ports');evt('بدء جلسة فحص لمدة 15 دقيقة');return reply(res,200,{ok:true})}
-if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});enqueue('inventory');enqueue('erp_ports');evt('طلب فحص جديد');return reply(res,200,{ok:true})}
+if(p==='/api/changes/import'&&req.method==='POST'){
+ const data=await body(req,80000);
+ if(!data||!Array.isArray(data.changes)||data.changes.length>40)return reply(res,400,{error:'ملف النسخة الاحتياطية غير صحيح أو يحتوي طلبات أكثر من الحد المسموح'});
+ let imported=0;
+ for(const item of data.changes){
+  if(!item||typeof item.id!=='string'||!/^[-a-f0-9]{36}$/.test(item.id)||
+    typeof item.title!=='string'||item.title.length<4||item.title.length>110||
+    typeof item.details!=='string'||item.details.length<10||item.details.length>1200||
+    !['ONE ERP','Oracle','Windows','Other'].includes(item.target)||
+    !['pending_review','reviewed','rejected'].includes(item.status)||
+    typeof item.created!=='string'||!Number.isFinite(Date.parse(item.created)))return reply(res,400,{error:'بيانات أحد الطلبات في ملف الاستعادة غير صالحة'});
+ }
+ for(const item of data.changes.slice().reverse()){
+  if(changes.some(x=>x.id===item.id))continue;
+  const safe={id:item.id,title:item.title,target:item.target,details:item.details,status:item.status,created:item.created,updated:Number.isFinite(Date.parse(item.updated))?item.updated:item.created};
+  changes.unshift(safe);imported++;
+ }
+ if(changes.length>40)changes.length=40;
+ evt('استعادة '+imported+' طلب تطوير من نسخة محلية، دون أي تنفيذ');
+ return reply(res,200,{ok:true,imported,count:changes.length,executed:false});
+}
+if(p==='/api/changes/check'&&req.method==='POST'){
+ if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});
+ if(Date.now()-lastPing>30000)return reply(res,409,{error:'وكيل Windows غير متصل حاليًا'});
+ const d=await body(req),item=changes.find(x=>x.id===d.id);
+ if(!item)return reply(res,404,{error:'الطلب غير موجود'});
+ if(item.status!=='reviewed')return reply(res,403,{error:'راجع الطلب أولًا'});
+ const kinds=({Oracle:['oracle_network','oracle_health'],'ONE ERP':['erp_ports'],Windows:['inventory']})[item.target];
+ if(!kinds)return reply(res,400,{error:'المشروع يحتاج تحديد فحص مسموح'});
+ for(const kind of kinds)enqueue(kind);
+ item.lastCheckRequested=new Date().toISOString();
+ evt('طلب فحص للقراءة فقط ضمن مهمة '+item.target);
+ return reply(res,200,{ok:true,scope:'read_only_diagnostics',kinds,modifications:false});
+}
+if(p==='/api/control/start'&&req.method==='POST'){session={expires:Date.now()+900000,id:crypto.randomUUID()};queue=[];issued.clear();results=[];enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('بدء فحص Windows وONE ERP وOracle لمدة 15 دقيقة');return reply(res,200,{ok:true})}
+if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص شامل جديد');return reply(res,200,{ok:true})}
 if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
 if(p==='/api/control/stop'&&req.method==='POST'){session=null;queue=[];issued.clear();evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
 return reply(res,404,{error:'not found'});
