@@ -29,7 +29,29 @@ async function main(){
   assert.equal(backup.code,200);assert.equal(backup.data.imported,1);
   assert.equal((await post('/api/changes/import',{changes:[{id:'bad',title:'bad',target:'Oracle',details:'request too small',status:'reviewed',created:new Date().toISOString()}]},cookie)).code,400);
 
-  assert.equal((await post('/api/control/start',{},cookie)).code,200);
+  assert.equal((await post('/api/control/start',{duration:'nonsense'},cookie)).code,400);
+  assert.equal((await post('/api/control/start',{duration:'hour'},cookie)).code,200);
+  let durationState=await req('/api/state',{headers:{cookie}});
+  assert.equal(durationState.data.sessionDuration,'hour');
+  assert.equal(durationState.data.unlimited,false);
+  assert.ok(durationState.data.expires-Date.now()>3500000);
+  assert.equal((await post('/api/control/start',{duration:'day'},cookie)).code,409);
+  for(const [duration,ms] of [['day',86400000],['week',604800000],['month',2592000000]]){
+   const changed=await post('/api/control/duration',{duration},cookie);
+   assert.equal(changed.code,200);
+   const state=await req('/api/state',{headers:{cookie}});
+   assert.equal(state.data.sessionDuration,duration);
+   assert.ok(Math.abs(state.data.expires-Date.now()-ms)<60000);
+  }
+  assert.equal((await post('/api/control/duration',{duration:'never'},cookie)).code,400);
+  const infinite=await post('/api/control/duration',{duration:'unlimited'},cookie);
+  assert.equal(infinite.code,200);
+  assert.equal(infinite.data.expires,null);
+  const infiniteState=await req('/api/state',{headers:{cookie}});
+  assert.equal(infiniteState.data.unlimited,true);
+  assert.equal(infiniteState.data.active,true);
+  assert.equal(infiniteState.data.expires,null);
+  assert.equal((await post('/api/control/duration',{duration:'hour'},cookie)).code,200);
   const beforeJobs=await req('/api/state',{headers:{cookie}});
   assert.equal(beforeJobs.data.pendingJobs,4);
   await post('/api/control/scan',{},cookie);
@@ -49,11 +71,16 @@ async function main(){
   let state=await req('/api/state',{headers:{cookie}});assert.equal(state.data.results.length,1);assert.ok(state.data.diagnosis.ok.length>0);
   assert.equal((await post('/api/control/stop',{},cookie)).code,200);
   assert.equal((await post('/api/control/scan',{},cookie)).code,409);
+  assert.equal((await post('/api/control/duration',{duration:'week'},cookie)).code,409);
+  assert.equal((await post('/api/control/start',{duration:'unlimited'},cookie)).code,200);
+  const foreverStarted=await req('/api/state',{headers:{cookie}});
+  assert.equal(foreverStarted.data.unlimited,true);
+  assert.equal((await post('/api/control/stop',{},cookie)).code,200);
   assert.equal((await post('/api/logout',{},cookie)).code,200);
   assert.equal((await req('/api/state',{headers:{cookie}})).code,401,'logout revoked');
   for(let i=0;i<7;i++)await post('/api/login',{password:'wrong'});
   assert.equal((await post('/api/login',{password})).code,200,'valid owner can recover from bad attempts');
-  console.log('PASS: boot, login, origin check, scan, agent, report, stop, logout revocation, lockout recovery, planning-only workflow, backup import, full four-job scan');
+  console.log('PASS: boot, login, origin check, scan, agent, report, stop, logout revocation, lockout recovery, planning-only workflow, backup import, full four-job scan, selectable and unlimited session durations');
  }finally{proc.kill()}
 }
 main().catch(e=>{console.error('FAIL:',e.stack||e);proc.kill();process.exitCode=1});
