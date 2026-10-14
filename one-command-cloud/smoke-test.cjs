@@ -30,6 +30,11 @@ async function main(){
   assert.equal((await post('/api/changes/import',{changes:[{id:'bad',title:'bad',target:'Oracle',details:'request too small',status:'reviewed',created:new Date().toISOString()}]},cookie)).code,400);
 
   assert.equal((await post('/api/control/start',{},cookie)).code,200);
+  const beforeJobs=await req('/api/state',{headers:{cookie}});
+  assert.equal(beforeJobs.data.pendingJobs,4);
+  await post('/api/control/scan',{},cookie);
+  const afterJobs=await req('/api/state',{headers:{cookie}});
+  assert.equal(afterJobs.data.pendingJobs,4);
   let invalid=await post('/api/changes/check',{id:'123e4567-e89b-42d3-a456-426614174000'},cookie);
   assert.equal(invalid.code,409,'agent must be online before task checks');
 
