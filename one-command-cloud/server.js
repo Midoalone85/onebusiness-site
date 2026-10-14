@@ -327,16 +327,7 @@ if(p==='/api/assist/execute'&&req.method==='POST'){
  evt('مساعد الأوامر المحلي: '+plan.label+' • موافقة صريحة');
  return reply(res,200,{ok:true,label:plan.label,queued:added,scope:'allowlisted_only'});
 }
-if(p==='/api/control/windows/app'&&req.method==='POST'){
- if(!live()||session.target!=='computer')return reply(res,409,{error:'ابدأ جلسة الكمبيوتر أولًا'});
- if(Date.now()-lastPing>30000)return reply(res,409,{error:'Windows Agent غير متصل'});
- const d=await body(req),apps={notepad:'windows_notepad',calculator:'windows_calculator'};
- if(!Object.hasOwn(apps,d.app))return reply(res,400,{error:'التطبيق غير مسموح'});
- const queued=enqueue(apps[d.app]);
- if(!queued)return reply(res,409,{error:'التطبيق لديه طلب في الانتظار أو لا توجد سعة'});
- evt('طلب تشغيل تطبيق Windows المسموح: '+d.app);
- return reply(res,200,{ok:true,queued:true,app:d.app,scope:'allowlisted_windows_action'});
-}
+if(p==='/api/control/windows/app'&&req.method==='POST')return reply(res,410,{error:'لأمان الجهاز، اعرض الإجراء أولًا ثم وافق عليه من المساعد'});
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});if(session.target==='mobile')return reply(res,409,{error:'اختر الكمبيوتر لفحوص Windows وOracle'});enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص شامل جديد');return reply(res,200,{ok:true})}
 if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});if(session.target==='mobile')return reply(res,409,{error:'هذه الجلسة مخصصة لمتصفح الهاتف'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
 if(p==='/api/control/stop'&&req.method==='POST'){resetMonitor();clearApprovals();session=null;for(const d of phones.values()){d.pending=null;d.commands=[]}clearJobs('إيقاف المستخدم');evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
