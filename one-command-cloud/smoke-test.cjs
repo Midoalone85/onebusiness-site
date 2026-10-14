@@ -1,0 +1,34 @@
+'use strict';
+const {spawn}=require('node:child_process'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const password='LOCAL_TEST_ONLY_not_a_real_key',token='LOCAL_AGENT_TEST_ONLY_abcdefghijklmnopqrstuvwxyz123456';
+const port=39841,base='http://127.0.0.1:'+port;
+const proc=spawn(process.execPath,['server.js'],{cwd:__dirname,env:{...process.env,PORT:String(port),OC_ADMIN_HASH:crypto.createHash('sha256').update(password).digest('hex'),OC_COOKIE_SECRET:'LOCAL_TEST_COOKIE_SIGNER_SUITABLY_LONG_STRING_ONLY',OC_AGENT_TOKEN:token,OPENAI_API_KEY:''},windowsHide:true,stdio:'ignore'});
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function req(path,opt={}){const r=await fetch(base+path,opt);return {code:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')}}
+const post=(path,obj={},cookie='',origin)=>req(path,{method:'POST',headers:{'content-type':'application/json',...(cookie?{cookie}:{}),...(origin?{origin}:{})},body:JSON.stringify(obj)});
+async function main(){
+ try{
+  let ready=false;for(let i=0;i<30;i++){try{const r=await req('/healthz');ready=r.code===200;if(ready)break}catch{}await sleep(120)}assert.ok(ready,'service starts');
+  assert.equal((await req('/api/state')).code,401);
+  assert.equal((await post('/api/login',{password:'no'})).code,401);
+  let login=await post('/api/login',{password});assert.equal(login.code,200);
+  const cookie=login.cookie.split(';')[0];
+  assert.equal((await req('/api/state',{headers:{cookie}})).code,200);
+  assert.equal((await post('/api/control/start',{},cookie,'https://evil.example')).code,403);
+  assert.equal((await post('/api/control/start',{},cookie)).code,200);
+  let jobs=[];
+  for(let i=0;i<2;i++){const j=await req('/agent/poll',{headers:{authorization:'Bearer '+token}});assert.equal(j.code,200);jobs.push(j.data.job)}
+  assert.deepEqual(jobs.map(j=>j.kind),['inventory','erp_ports']);
+  let rep=await req('/agent/report',{method:'POST',headers:{'authorization':'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({id:jobs[0].id,kind:jobs[0].kind,data:{platform:'test',totalMemoryGB:8,freeMemoryGB:5}})});
+  assert.equal(rep.code,200);
+  let state=await req('/api/state',{headers:{cookie}});assert.equal(state.data.results.length,1);assert.ok(state.data.diagnosis.ok.length>0);
+  assert.equal((await post('/api/control/stop',{},cookie)).code,200);
+  assert.equal((await post('/api/control/scan',{},cookie)).code,409);
+  assert.equal((await post('/api/logout',{},cookie)).code,200);
+  assert.equal((await req('/api/state',{headers:{cookie}})).code,401,'logout revoked');
+  for(let i=0;i<7;i++)await post('/api/login',{password:'wrong'});
+  assert.equal((await post('/api/login',{password})).code,200,'valid owner can recover from bad attempts');
+  console.log('PASS: boot, login, origin check, scan, agent, report, stop, logout revocation, lockout recovery');
+ }finally{proc.kill()}
+}
+main().catch(e=>{console.error('FAIL:',e.stack||e);proc.kill();process.exitCode=1});
