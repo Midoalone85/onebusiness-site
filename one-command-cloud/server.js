@@ -7,7 +7,11 @@ const sha=s=>crypto.createHash('sha256').update(s).digest('hex'),mac=s=>crypto.c
 const eq=(a,b)=>{let x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y)};
 function sessionId(req){const raw=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('oc_session='))||'';const [id,sig]=raw.slice(11).split('.');return /^[a-f0-9]{48}$/.test(id||'')&&eq(mac('owner:'+id),sig||'')?id:null}
 function authed(req){const id=sessionId(req);const item=id&&ownerSessions.get(id);if(!item)return false;if(item.expires<=Date.now()){ownerSessions.delete(id);return false}return true}
-function live(){return session&&session.expires>Date.now()}
+const SESSION_DURATIONS=Object.freeze({hour:3600000,day:86400000,week:604800000,month:2592000000,unlimited:null});
+const SESSION_LABELS=Object.freeze({hour:'ساعة',day:'يوم',week:'أسبوع',month:'شهر (30 يومًا)',unlimited:'بدون حد زمني'});
+function validDuration(d){return typeof d==='string'&&Object.hasOwn(SESSION_DURATIONS,d)}
+function live(){return !!session&&(session.expires===null||session.expires>Date.now())}
+function newDuration(d){const now=Date.now();return {duration:d,startedAt:now,expires:SESSION_DURATIONS[d]===null?null:now+SESSION_DURATIONS[d]}}
 function evt(s){events.unshift({at:new Date().toISOString(),message:s});events.splice(30)}
 function reply(res,c,o,more={}){res.writeHead(c,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...more});res.end(JSON.stringify(o))}
 async function body(req,maxChars=12000){return new Promise((resolve,reject)=>{let s='';req.on('data',v=>{s+=v;if(s.length>maxChars){reject(Error('body too big'));req.destroy()}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'))}catch{reject(Error('invalid JSON'))}});req.on('error',reject)})}
@@ -124,7 +128,7 @@ if(p==='/api/ai/analyze'&&req.method==='POST'){
  }finally{clearTimeout(timer)}
 }
 if(p==='/api/logout'&&req.method==='POST'){ownerSessions.delete(sessionId(req));session=null;clearJobs('تم تسجيل الخروج');evt('تسجيل الخروج وإبطال جلسة الدخول والفحص');return reply(res,200,{ok:true},{'Set-Cookie':'oc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'});}
-if(p==='/api/state'&&req.method==='GET'){sweepJobs();return reply(res,200,{jobs:jobHistory.slice(0,16),changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});}
+if(p==='/api/state'&&req.method==='GET'){sweepJobs();return reply(res,200,{sessionDuration:live()?session.duration:null,sessionStartedAt:live()?session.startedAt:null,unlimited:!!(live()&&session.expires===null),availableDurations:Object.keys(SESSION_DURATIONS),jobs:jobHistory.slice(0,16),changes:changes.slice(0,30),diagnosis:summarizeDiagnostics(results),agentOnline:Date.now()-lastPing<20000,active:!!live(),expires:live()?session.expires:null,pendingJobs:queue.length,events,results,aiConfigured:!!process.env.OPENAI_API_KEY});}
 // Planning-only requests: no agent commands, no cloud or ERP changes.
 if(p==='/api/changes'&&req.method==='POST'){
  const d=await body(req);const title=typeof d.title==='string'?d.title.trim():'',details=typeof d.details==='string'?d.details.trim():'';
@@ -178,7 +182,25 @@ if(p==='/api/changes/check'&&req.method==='POST'){
  evt('طلب فحص للقراءة فقط ضمن مهمة '+item.target);
  return reply(res,200,{ok:true,scope:'read_only_diagnostics',kinds,modifications:false});
 }
-if(p==='/api/control/start'&&req.method==='POST'){session={expires:Date.now()+900000,id:crypto.randomUUID()};clearJobs('جلسة جديدة');results=[];enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('بدء فحص Windows وONE ERP وOracle لمدة 15 دقيقة');return reply(res,200,{ok:true})}
+if(p==='/api/control/start'&&req.method==='POST'){
+ const d=await body(req);
+ if(!validDuration(d.duration))return reply(res,400,{error:'اختر مدة اتصال صحيحة'});
+ if(live())return reply(res,409,{error:'جلسة الفحص نشطة بالفعل. يمكن تغيير مدتها دون إيقاف.'});
+ session={...newDuration(d.duration),id:crypto.randomUUID()};
+ clearJobs('جلسة جديدة');results=[];
+ enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');
+ evt('بدء جلسة فحص قراءة فقط: '+SESSION_LABELS[d.duration]);
+ return reply(res,200,{ok:true,duration:session.duration,expires:session.expires,unlimited:session.expires===null});
+}
+if(p==='/api/control/duration'&&req.method==='POST'){
+ if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});
+ const d=await body(req);
+ if(!validDuration(d.duration))return reply(res,400,{error:'اختر مدة اتصال صحيحة'});
+ const next=newDuration(d.duration);
+ session.duration=next.duration;session.startedAt=next.startedAt;session.expires=next.expires;
+ evt('تغيير مدة جلسة الفحص إلى: '+SESSION_LABELS[d.duration]);
+ return reply(res,200,{ok:true,duration:session.duration,expires:session.expires,unlimited:session.expires===null});
+}
 if(p==='/api/control/scan'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ الجلسة'});enqueue('inventory');enqueue('erp_ports');enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص شامل جديد');return reply(res,200,{ok:true})}
 if(p==='/api/control/oracle'&&req.method==='POST'){if(!live())return reply(res,409,{error:'ابدأ جلسة الفحص أولًا'});enqueue('oracle_network');enqueue('oracle_health');evt('طلب فحص Oracle TCP وصحة الخدمات عبر SSH قراءة فقط');return reply(res,200,{ok:true,scope:'oracle_health_read_only'})}
 if(p==='/api/control/stop'&&req.method==='POST'){session=null;clearJobs('إيقاف المستخدم');evt('إيقاف الجلسة');return reply(res,200,{ok:true})}
