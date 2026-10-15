@@ -269,8 +269,8 @@ test('returns and quarantine show consistent immutable sample references',()=>{
    assert.match(vendor.main,/RMA-V-2026-004/);
    assert.match(vendor.main,/REC-2026-003/);
    assert.match(customer.main,/module=inventory&view=quarantine/);
-   assert.match(vendor.main,/module=inventory&view=returns/);
-   assert.match(inventory.main,/module=purchasing&view=returns/);
+   assert.match(vendor.main,/module=purchasing&view=return_case/);
+   assert.match(inventory.main,/module=inventory&view=return_case/);
    assert.match(quarantine.main,/module=sales&view=returns/);
    for(const r of [customer,vendor,inventory,quarantine]){
      assert.match(r.main,/id="backBtn"/);
@@ -289,7 +289,7 @@ test('unified returns display separate stock and finance status across business 
      assert.match(r.main,/id="backBtn"/);
      assert.match(r.main,/id="recordCount"/);
      assert.match(r.main,/DEMO DATA/);
-     assert.match(r.main,/module='+module+'&view=return_case/);
+     assert.ok(r.main.includes('module='+module+'&view=return_case'));
      assert.match(r.main,/class="related-workflow"/);
      if(module==='purchasing'){
        assert.match(r.main,/RMA-V-2026-004/);
