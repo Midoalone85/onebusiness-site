@@ -5998,9 +5998,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
              Decimal("2"),Decimal("2"),Decimal("25"),
              Decimal("9"),Decimal("16"),Decimal("9"),True))
         self.assertEqual(self.admin.execute(
-            "SELECT count(*) FROM one_payment_docs WHERE tenant_id=%s "
-            "AND direction='customer_receipt' AND status='applied'",
-            (tenant,)).fetchone()[0],1)
+            "SELECT count(*) FROM one_payment_allocations a "
+            "JOIN one_payment_docs d ON d.tenant_id=a.tenant_id "
+            "AND d.id=a.payment_id "
+            "WHERE a.tenant_id=%s AND a.invoice_id=%s "
+            "AND d.direction='customer_receipt' AND d.status='applied'",
+            (tenant,invoice.id)).fetchone()[0],1)
 
     def test_nrv_full_paid_refund_does_not_make_receivable_negative(self):
         tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
