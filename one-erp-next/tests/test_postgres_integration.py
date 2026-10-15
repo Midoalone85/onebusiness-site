@@ -326,6 +326,9 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION "
             "one_refund_bank_candidate_company_overview(uuid,uuid) "
             "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_refund_control_pulse(uuid,uuid) TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -6520,6 +6523,56 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.bank_candidate_company_report(self.tenant_b,bank_clerk)
         with self.assertRaises(self.psycopg.Error):
             self.bank_candidate_company_report(tenant,uuid4())
+
+    # 042 | ONE PULSE reconciles all non-disbursed internal refund stages.
+    def refund_control_pulse(self,tenant,actor):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_refund_control_pulse(%s,%s)",
+                (tenant,actor)).fetchone()
+
+    def test_refund_control_pulse_tracks_every_unpaid_stage_without_false_cash_claim(self):
+        before=self.refund_control_pulse(self.tenant_a,self.actor)
+        tenant,preparer,rma,invoice,reviewer=self.prepare_refund_approval()
+        recognized=self.refund_control_pulse(tenant,self.actor)
+        self.assertEqual(recognized[0]-before[0],Decimal("10"))
+        self.assertEqual(recognized[1]-before[1],Decimal("10"))
+        self.assertEqual(recognized[5],before[5])
+        order,_=self.nrv_request_approval(tenant,preparer,rma)
+        pending=self.refund_control_pulse(tenant,self.actor)
+        self.assertEqual(pending[1],before[1])
+        self.assertEqual(pending[2]-before[2],Decimal("10"))
+        self.nrv_approve_request(tenant,reviewer,order)
+        approved=self.refund_control_pulse(tenant,self.actor)
+        self.assertEqual(approved[2],before[2])
+        self.assertEqual(approved[3]-before[3],Decimal("10"))
+        bank_clerk=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'accountant')",(tenant,bank_clerk))
+        self.register_bank_candidate(tenant,bank_clerk,order)
+        bank=self.refund_control_pulse(tenant,self.actor)
+        self.assertEqual(bank[3],before[3])
+        self.assertEqual(bank[4]-before[4],Decimal("10"))
+        self.assertEqual(bank[0]-before[0],Decimal("10"))
+        self.assertEqual(bank[5],before[5])
+        self.assertTrue(bank[6])
+        self.assertEqual(bank[7],
+                         "bank_settlement_unknown_no_authenticated_feed")
+        self.assertEqual(bank[0],sum(bank[1:5]))
+
+    def test_refund_control_pulse_tenant_reader_roles_are_scoped(self):
+        tenant,preparer,reviewer,bank_clerk,order=self.prepare_bank_candidate_order()
+        baseline=self.refund_control_pulse(tenant,self.actor)
+        self.assertTrue(baseline[6])
+        for company,actor in ((self.tenant_b,self.actor),
+                              (tenant,uuid4())):
+            with self.assertRaises(self.psycopg.Error):
+                self.refund_control_pulse(company,actor)
 
 if __name__ == "__main__":
     unittest.main()
