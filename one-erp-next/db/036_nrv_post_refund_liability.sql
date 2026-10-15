@@ -183,7 +183,7 @@ REVOKE ALL ON FUNCTION one_recognize_nrv_customer_refund(
 -- receivable already reversed by the posted claim journal. This is separate
 -- from the previous 004 "paid + issued credits" ceiling guard.
 CREATE FUNCTION one_refund_claim_block_later_receipt()
-RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER AS $
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER AS $guard_refund_cash$
 DECLARE item record; paid numeric(24,3); credited numeric(24,3);
         reversed_ar numeric(24,3); ceiling numeric(24,3);
 BEGIN
@@ -213,7 +213,7 @@ BEGIN
   END LOOP;
  END IF;
  RETURN NEW;
-END $;
+END $guard_refund_cash$;
 CREATE TRIGGER refund_claim_later_payment_guard AFTER UPDATE
  ON one_payment_docs FOR EACH ROW
  EXECUTE FUNCTION one_refund_claim_block_later_receipt();
