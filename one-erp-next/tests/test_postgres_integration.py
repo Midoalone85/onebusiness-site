@@ -126,6 +126,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_apply_payment(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        # 051: period comparison is exposed only to the disposable CI runtime.
+        for func in (
+            "one_soft_adjustment_statement_comparison(uuid,uuid,uuid)",
+            "one_soft_adjustment_statement_drift(uuid,uuid,uuid)",
+        ):
+            cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
+                              " TO one_erp_runtime_ci")
         # 050: limits and multi-line preview functions granted ONLY in disposable CI.
         for func in (
             "one_actor_soft_adjust_limit(uuid,uuid,text)",
@@ -7887,6 +7894,198 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(self.commerce_execute(
             tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
             (tenant,journal,owner)),journal)
+
+
+    # 051 | Financial statements show real POSTED accounting amounts separately
+    # from adjustment what-if amounts, frozen approval basis and later GL drift.
+    def statement_051(self,tenant,actor,request,*,drift=False):
+        fn=("one_soft_adjustment_statement_drift" if drift else
+            "one_soft_adjustment_statement_comparison")
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            rows=self.db.execute(
+                "SELECT * FROM "+fn+"(%s,%s,%s)",
+                (tenant,request,actor)).fetchall()
+        return {row[0]:row for row in rows}
+
+    def test_051_ledger_comparison_separates_posted_assets_profit_and_proposal(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        receipt=uuid4()
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,receipt,owner))
+        self.value_stock_event(
+            tenant,owner,receipt,"grni",period_id=period)
+        self.soft_request_049(tenant,owner,period)
+        self.soft_approve_049(tenant,reviewer,period)
+        request,journal=self.multi_request_050(
+            tenant,owner,period,[
+             {"account_id":"cogs","debit":30,"credit":0},
+             {"account_id":"inventory","debit":20,"credit":0},
+             {"account_id":"grni","debit":0,"credit":40},
+             {"account_id":"inventory","debit":0,"credit":10}])
+        result=self.statement_051(tenant,reviewer,request)
+        self.assertEqual(len(result),7)
+        self.assertEqual(result["assets"][3:6],
+                         (Decimal("62.50"),Decimal("10"),
+                          Decimal("72.50")))
+        self.assertEqual(result["liabilities"][3:6],
+                         (Decimal("62.50"),Decimal("40"),
+                          Decimal("102.50")))
+        self.assertEqual(result["expenses"][3:6],
+                         (Decimal("0"),Decimal("30"),
+                          Decimal("30")))
+        self.assertEqual(result["net_income"][3:6],
+                         (Decimal("0"),Decimal("-30"),
+                          Decimal("-30")))
+        self.assertEqual(result["accounting_equation_gap"][3:6],
+                         (Decimal("0"),Decimal("0"),Decimal("0")))
+        self.assertEqual(result["net_income"][6:8],
+                         ("draft","LIVE_PERIOD_POSTED_GL_WITH_DRAFT_WHAT_IF"))
+        with self.assertRaises(self.psycopg.Error):
+            self.statement_051(tenant,uuid4(),request)
+        with self.assertRaises(self.psycopg.Error):
+            self.statement_051(self.tenant_b,reviewer,request)
+        with self.assertRaises(self.psycopg.Error):
+            self.statement_051(tenant,owner,request,drift=True)
+        self.assertEqual(self.commerce_execute(
+            tenant,reviewer,"SELECT one_approve_soft_adjustment(%s,%s,%s)",
+            (tenant,request,reviewer)),request)
+        frozen=self.statement_051(tenant,owner,request,drift=True)
+        self.assertEqual(len(frozen),7)
+        self.assertEqual(frozen["net_income"][3:10],
+                         (Decimal("0"),Decimal("-30"),Decimal("-30"),
+                          Decimal("0"),Decimal("-30"),
+                          Decimal("-30"),Decimal("0")))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_soft_adjustment_statement_approval_seals "
+            "WHERE tenant_id=%s AND request_id=%s",
+            (tenant,request)).fetchone()[0],7)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "UPDATE one_soft_adjustment_statement_approval_seals "
+                "SET before_at_approval=1 WHERE tenant_id=%s AND request_id=%s "
+                "RETURNING section",(tenant,request))
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+            (tenant,journal,owner)),journal)
+        posted=self.statement_051(tenant,reviewer,request)
+        self.assertEqual(posted["assets"][3:6],result["assets"][3:6])
+        self.assertEqual(posted["assets"][6],"posted")
+        self.assertEqual(posted["assets"][7],
+                         "CURRENT_PERIOD_POSTED_GL_EXCLUDING_THIS_POSTED_ADJUSTMENT")
+        self.assertEqual(self.statement_051(
+            tenant,owner,request,drift=True)["net_income"][9],0)
+
+    def test_051_approval_baseline_remains_frozen_after_other_journal_posts(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.soft_request_049(tenant,owner,period)
+        self.soft_approve_049(tenant,reviewer,period)
+        first,first_journal=self.adjust_request_049(
+            tenant,owner,period,amount="12.50")
+        self.commerce_execute(
+            tenant,reviewer,"SELECT one_approve_soft_adjustment(%s,%s,%s)",
+            (tenant,first,reviewer))
+        sealed_first=self.statement_051(tenant,owner,first,drift=True)
+        self.assertEqual(sealed_first["liabilities"][3],Decimal("0"))
+        later,later_journal=self.adjust_request_049(
+            tenant,owner,period,amount="7.50")
+        self.commerce_execute(
+            tenant,reviewer,"SELECT one_approve_soft_adjustment(%s,%s,%s)",
+            (tenant,later,reviewer))
+        self.commerce_execute(
+            tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+            (tenant,later_journal,owner))
+        drift=self.statement_051(tenant,reviewer,first,drift=True)
+        self.assertEqual(drift["liabilities"][3],Decimal("0"))
+        self.assertEqual(drift["liabilities"][6],Decimal("7.50"))
+        self.assertEqual(drift["liabilities"][9],Decimal("7.50"))
+        self.assertEqual(drift["net_income"][9],Decimal("-7.50"))
+        self.assertEqual(drift["accounting_equation_gap"][9],Decimal("0"))
+        self.assertEqual(drift["liabilities"][5],Decimal("12.50"))
+        self.assertEqual(drift["liabilities"][8],Decimal("20.00"))
+        self.assertEqual(drift["liabilities"][10],"draft")
+        self.commerce_execute(
+            tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+            (tenant,first_journal,owner))
+        posted=self.statement_051(tenant,reviewer,first,drift=True)
+        self.assertEqual(posted["liabilities"][9],Decimal("7.50"))
+        self.assertEqual(posted["liabilities"][10],"posted")
+        self.assertEqual(self.admin.execute(
+            "SELECT projected_at_approval FROM "
+            "one_soft_adjustment_statement_approval_seals "
+            "WHERE tenant_id=%s AND request_id=%s AND section='liabilities'",
+            (tenant,first)).fetchone()[0],Decimal("12.50"))
+
+    def test_051_financial_report_profit_is_revenue_less_expenses(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.admin.execute(
+            "INSERT INTO one_accounts(tenant_id,id,code,name,kind) "
+            "VALUES(%s,'revenue','4190','Revenue for statement CI','revenue')",
+            (tenant,))
+        old_entry=uuid4()
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(owner),))
+            self.db.execute(
+                "INSERT INTO one_journal_entries(tenant_id,id,period_id,"
+                "reference,idempotency_key,occurred_on,currency) "
+                "VALUES(%s,%s,%s,'Recognized revenue',%s,%s,'SAR')",
+                (tenant,old_entry,period,str(uuid4()),date.today()))
+            self.db.execute(
+                "INSERT INTO one_journal_lines(tenant_id,entry_id,"
+                "line_number,account_id,debit,credit) VALUES"
+                "(%s,%s,1,'inventory',100,0),"
+                "(%s,%s,2,'revenue',0,100)",
+                (tenant,old_entry,tenant,old_entry))
+            self.db.execute("SELECT one_post_journal(%s,%s,%s)",
+                            (tenant,old_entry,owner))
+        self.soft_request_049(tenant,owner,period)
+        self.soft_approve_049(tenant,reviewer,period)
+        request,journal=self.adjust_request_049(
+            tenant,owner,period,amount="20.00")
+        vals=self.statement_051(tenant,owner,request)
+        self.assertEqual(vals["revenue"][3:6],
+                         (Decimal("100"),Decimal("0"),Decimal("100")))
+        self.assertEqual(vals["expenses"][3:6],
+                         (Decimal("0"),Decimal("20"),Decimal("20")))
+        self.assertEqual(vals["net_income"][3:6],
+                         (Decimal("100"),Decimal("-20"),Decimal("80")))
+        self.assertEqual(vals["assets"][5],Decimal("100"))
+        self.assertEqual(vals["liabilities"][5],Decimal("20"))
+        self.assertEqual(vals["accounting_equation_gap"][5],0)
+
+    def test_051_per_user_report_permission_revocation_blocks_snapshot_access(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.soft_request_049(tenant,owner,period)
+        self.soft_approve_049(tenant,reviewer,period)
+        request,journal=self.adjust_request_049(tenant,owner,period)
+        self.commerce_execute(
+            tenant,reviewer,"SELECT one_approve_soft_adjustment(%s,%s,%s)",
+            (tenant,request,reviewer))
+        self.assertEqual(len(self.statement_051(
+            tenant,owner,request,drift=True)),7)
+        denial=self.propose_permission_048(
+            tenant,owner,'finance.period.statement.preview','deny',
+            target_user=owner)
+        self.approve_permission_048(tenant,reviewer,denial)
+        with self.assertRaises(self.psycopg.Error):
+            self.statement_051(tenant,owner,request)
+        with self.assertRaises(self.psycopg.Error):
+            self.statement_051(tenant,owner,request,drift=True)
+        self.assertEqual(len(self.statement_051(
+            tenant,reviewer,request,drift=True)),7)
 
 if __name__ == "__main__":
     unittest.main()
