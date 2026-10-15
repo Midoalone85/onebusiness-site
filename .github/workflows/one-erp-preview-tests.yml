@@ -1,0 +1,29 @@
+name: ONE ERP Next Preview UI Checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "one-erp-preview/**"
+      - ".github/workflows/one-erp-preview-tests.yml"
+  pull_request:
+    paths:
+      - "one-erp-preview/**"
+      - ".github/workflows/one-erp-preview-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preview-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check static JavaScript syntax
+        run: node --check one-erp-preview/ui.js
+      - name: Test all fictional-data workspaces in AR and EN
+        run: node --test one-erp-preview/tests/navigation.test.cjs
