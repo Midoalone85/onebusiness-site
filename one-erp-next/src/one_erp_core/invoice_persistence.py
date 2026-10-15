@@ -29,6 +29,7 @@ def persist_invoice_with_journal(
     actor_id: UUID,
     memberships: tuple[Membership, ...],
     minor_units: int = 2,
+    goods_receipt_liability_accounts: frozenset[str] = frozenset(),
 ) -> InvoicePostingProposal:
     """One transaction from source invoice to posted journal and sealed snapshot.
 
@@ -40,6 +41,7 @@ def persist_invoice_with_journal(
     proposal = propose_invoice_journal(
         document, accounts=accounts, chart=dict(chart), period=period,
         minor_units=minor_units,
+        goods_receipt_liability_accounts=goods_receipt_liability_accounts,
     )
     is_customer = document.kind in (DocumentType.CUSTOMER_INVOICE,DocumentType.CUSTOMER_CREDIT)
     control_id = accounts.receivable_id if is_customer else accounts.payable_id
