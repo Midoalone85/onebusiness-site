@@ -59,7 +59,7 @@ BEGIN
    AND original.id=claim.original_invoice_id
  JOIN one_journal_entries j ON j.tenant_id=claim.tenant_id
    AND j.id=claim.journal_id
- JOIN LATERAL one_nrv_qa_return_check(
+ LEFT JOIN LATERAL one_nrv_qa_return_check(
    claim.tenant_id,p_actor,claim.return_job_id
  ) qa ON true
  CROSS JOIN LATERAL (
