@@ -130,3 +130,8 @@
   .kpi{min-height:125px}
   .work-header{min-height:135px}
 }
+
+/* Compact accessible menus: visible keyboard focus with safe, 44px touch rows. */
+.flyout:focus-within{border-color:#a6c8f5}
+.flylink:focus-visible{outline:2px solid #155bdd;outline-offset:-2px}
+@media(max-width:710px){.flylink{min-height:44px}}
