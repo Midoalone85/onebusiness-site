@@ -164,6 +164,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         ):
             cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
                               " TO one_erp_runtime_ci")
+        # Returns are reachable only from the disposable CI runtime role.
+        for func in (
+            "one_request_return(uuid,uuid,uuid,numeric,uuid,uuid,text)",
+            "one_finish_return(uuid,uuid,numeric,uuid,uuid)",
+        ):
+            cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
+                              " TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -2390,6 +2397,236 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 self.reporting_db.execute(
                     "SELECT stream_position FROM one_operation_outbox "
                     "WHERE tenant_id=%s",(tenant,)).fetchall()
+
+
+
+    def test_customer_return_quarantines_only_inspected_accepted_quantity(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job,dispatch_event,quarantine=uuid4(),uuid4(),uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name,warehouse_type) "
+            "VALUES (%s,%s,%s,'Quarantine','quarantine')",
+            (tenant,quarantine,"Q-"+quarantine.hex))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+            (tenant,job,sale,actor))
+        for stage in ("picked","packed"):
+            self.delivery_stage(tenant,actor,job,stage)
+        self.delivery_stage(tenant,actor,job,"dispatched",dispatch_event)
+        return_id,event_id=uuid4(),uuid4()
+        self.assertEqual(self.commerce_execute(
+            tenant,actor,
+            "SELECT one_request_return(%s,%s,%s,2,%s,%s,'Product inspected')",
+            (tenant,return_id,dispatch_event,quarantine,actor)),return_id)
+        self.assertEqual(self.commerce_execute(
+            tenant,actor,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+            (tenant,return_id,event_id,actor)),return_id)
+        self.assertEqual(self.admin.execute(
+            "SELECT status,accepted_qty,processed_event_id FROM one_return_jobs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,return_id)).fetchone(),
+            ("completed",Decimal("1"),event_id))
+        q_qty=self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone()[0]
+        self.assertEqual(q_qty,Decimal("1"))
+        original=self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()
+        self.assertEqual(original,(Decimal("3"),Decimal("2")))
+        events=set(self.admin.execute(
+            "SELECT event_type,source_id FROM one_operation_outbox "
+            "WHERE tenant_id=%s AND source_id IN (%s,%s)",
+            (tenant,return_id,event_id)).fetchall())
+        self.assertEqual(events,{
+            ("returns.requested",return_id),("returns.completed",return_id),
+            ("stock.customer_returned",event_id),
+        })
+        self.assertEqual(self.admin.execute(
+            "SELECT movement_kind,warehouse_id,quantity FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,event_id)).fetchone(),
+            ("customer_return",quarantine,Decimal("1")))
+
+    def test_return_quantity_guard_counts_pending_and_prior_accepted_only(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job,src,quarantine=uuid4(),uuid4(),uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name,warehouse_type) "
+            "VALUES (%s,%s,%s,'Quarantine','quarantine')",
+            (tenant,quarantine,"Q-"+quarantine.hex))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+            (tenant,job,sale,actor))
+        self.delivery_stage(tenant,actor,job,"picked")
+        self.delivery_stage(tenant,actor,job,"packed")
+        self.delivery_stage(tenant,actor,job,"dispatched",src)
+        r1=uuid4()
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_request_return(%s,%s,%s,2,%s,%s,'Returned shipment')",
+            (tenant,r1,src,quarantine,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,
+                "SELECT one_request_return(%s,%s,%s,1,%s,%s,'Oversubscribed')",
+                (tenant,uuid4(),src,quarantine,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+            (tenant,r1,uuid4(),actor))
+        r2=uuid4()
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_request_return(%s,%s,%s,1,%s,%s,'Second return')",
+            (tenant,r2,src,quarantine,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_finish_return(%s,%s,0,%s,%s)",
+            (tenant,r2,None,actor))
+        self.assertEqual(self.admin.execute(
+            "SELECT status,accepted_qty FROM one_return_jobs WHERE "
+            "tenant_id=%s AND id=%s",(tenant,r2)).fetchone(),
+            ("rejected",Decimal("0")))
+        r3=uuid4()
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_request_return(%s,%s,%s,1,%s,%s,'Reinspection allowed')",
+            (tenant,r3,src,quarantine,actor))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_return_jobs WHERE tenant_id=%s "
+            "AND source_event_id=%s",(tenant,src)).fetchone()[0],3)
+
+    def test_vendor_return_refuses_reserved_stock_and_then_dispatches_unreserved(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        original=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,original,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_reserve_sale_line(%s,%s,1,4,%s,%s)",
+            (tenant,sale,uuid4(),actor))
+        return_job,event=uuid4(),uuid4()
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_request_return(%s,%s,%s,2,%s,%s,'Supplier recall')",
+            (tenant,return_job,original,None,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_finish_return(%s,%s,2,%s,%s)",
+                (tenant,return_job,event,actor))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_return_jobs WHERE tenant_id=%s AND id=%s",
+            (tenant,return_job)).fetchone()[0],"requested")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s AND id=%s",
+            (tenant,event)).fetchone()[0],0)
+        self.commerce_execute(
+            tenant,actor,"SELECT one_release_sale_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,uuid4(),actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_finish_return(%s,%s,2,%s,%s)",
+            (tenant,return_job,event,actor))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("3"),Decimal("2")))
+        self.assertEqual(self.admin.execute(
+            "SELECT movement_kind,quantity FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,event)).fetchone(),("vendor_return",Decimal("2")))
+        self.assertEqual(self.admin.execute(
+            "SELECT event_type FROM one_operation_outbox WHERE tenant_id=%s "
+            "AND source_id=%s AND event_type='stock.vendor_returned'",
+            (tenant,event)).fetchone(),("stock.vendor_returned",))
+
+    def test_return_mutations_not_repeatable_and_invalid_quarantine_refused(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        src=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,purchase,src,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_request_return(%s,%s,%s,1,%s,%s,'Bad company')",
+                (tenant,uuid4(),src,uuid4(),actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,uuid4(),
+                "SELECT one_request_return(%s,%s,%s,1,%s,%s,'Actor denied')",
+                (tenant,uuid4(),src,None,uuid4()))
+        rjob=uuid4()
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_request_return(%s,%s,%s,1,%s,%s,'Good supplier return')",
+            (tenant,rjob,src,None,actor))
+        event=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+            (tenant,rjob,event,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+                (tenant,rjob,uuid4(),actor))
+        for stmt in (
+            "DELETE FROM one_return_jobs WHERE tenant_id=%s AND id=%s RETURNING id",
+            "UPDATE one_return_jobs SET reason='tampered' "
+            "WHERE tenant_id=%s AND id=%s RETURNING id",
+            "DELETE FROM one_return_audit WHERE tenant_id=%s "
+            "AND job_id=%s RETURNING id",
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(tenant,actor,stmt,(tenant,rjob))
+
+    def test_concurrent_return_requests_cannot_exceed_original_movement(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        source=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,purchase,source,actor))
+        gate=Barrier(2)
+        def attempt(job_id):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(tenant),))
+                        conn.execute("SELECT set_config('one.actor_id',%s,true)",
+                                     (str(actor),))
+                        gate.wait(timeout=10)
+                        conn.execute(
+                            "SELECT one_request_return(%s,%s,%s,2,%s,%s,'Supplier returns')",
+                            (tenant,job_id,source,None,actor))
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a=pool.submit(attempt,uuid4())
+            b=pool.submit(attempt,uuid4())
+            results=(a.result(timeout=25),b.result(timeout=25))
+        self.assertEqual(sorted(results),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(quantity) FROM one_return_jobs "
+            "WHERE tenant_id=%s AND source_event_id=%s AND status='requested'",
+            (tenant,source)).fetchone()[0],Decimal("2"))
 
 
 if __name__ == "__main__":
