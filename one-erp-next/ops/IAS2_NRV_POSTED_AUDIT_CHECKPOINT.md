@@ -71,3 +71,39 @@ The following are not yet guaranteed:
 This is an auditable **development component**, not certification of
 IFRS/SOCPA compliance or a production-ready ERP. Changes are restricted to
 the draft GitHub feature branch. CI evidence is tracked in the PR thread.
+
+
+## 027 | Controlled sale of NRV-impaired inventory
+
+When a sale of previously written-down goods is correctly authorized and
+traced to its original sale order, the prototype posts **both** gross source
+cost and a proportional allowance release in the same PostgreSQL transaction.
+For the SAR 62.50/5-unit cost and SAR 17.50 NRV allowance example:
+
+| 2 units sold | SAR |
+| --- | ---: |
+| Gross COGS debit / inventory credit | 25.00 |
+| Allowance debit / COGS credit | 7.00 |
+| **Net cost of units sold** | **18.00** |
+| Remaining gross inventory cost (3 units) | 37.50 |
+| Remaining NRV allowance | (10.50) |
+| **Remaining inventory net carrying value** | **27.00** |
+
+Sale of all five units uses the whole SAR 62.50 gross historical cost and
+releases the full SAR 17.50 allowance, producing SAR 45.00 net COGS. The
+allowance row safely persists with zero quantity/cost/allowance so that past
+audit evidence is never orphaned.
+
+Underlying physical movement, source cost valuation, gross COGS posting,
+allowance release posting, inventory allowance revision, movement event,
+source-linked release record, financial audits and outbox all succeed in the
+same database transaction or roll back. Standard unadjusted stock dispatch
+while the allowance is active remains blocked; only the source-linked
+controlled prototype path can post an adjusted sale.
+
+Explicit limits: sale-specific source path only. Reserved shipment, packed
+carrier delivery, supplier returns, warranty replacement, warehouse transfers,
+mixed-cost lots, production usage, and scrapping still need separate
+allowance allocations and dedicated tests. Application authentication and
+least-privilege privileges are NOT hardened; CI grants/GUCs are unsafe for
+production. Do not expose it as a user-facing stock sale yet.
