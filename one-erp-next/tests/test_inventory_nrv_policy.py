@@ -53,6 +53,18 @@ class IAS2InventoryNRVTests(unittest.TestCase):
         self.assertEqual(result.journal.lines[0].debit,D("24"))
         self.assertEqual(result.journal.lines[1].credit,D("24"))
 
+    def test_full_write_down_to_zero_may_recover_but_not_above_cost(self):
+        depleted=replace(self.position,current_carrying_value=D("0"))
+        result=self.check(position=depleted)
+        self.assertEqual(result.reversal,D("72"))
+        self.assertEqual(result.carrying_value_after,D("72"))
+        self.assertEqual(result.journal.lines[0].debit,D("72"))
+        zero=self.check(position=depleted,estimate=replace(
+            self.estimate,per_unit_sale_price=D("0"),
+            per_unit_selling_cost=D("0")))
+        self.assertEqual(zero.carrying_value_after,D("0"))
+        self.assertIsNone(zero.journal)
+
     def test_reversal_never_exceeds_original_cost(self):
         position=replace(self.position,current_carrying_value=D("72"))
         result=self.check(position=position,estimate=replace(
