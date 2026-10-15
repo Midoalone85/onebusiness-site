@@ -1,0 +1,56 @@
+name: ONE ERP Brand Owner Guard
+
+on:
+  push:
+    branches:
+      - main
+      - chore/one-erp-branding-main-20261015
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  no-personal-owner-in-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check personal repository owner is not hardcoded in web or source files
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          owner = os.environ["GITHUB_REPOSITORY_OWNER"].strip()
+          if not owner:
+              raise SystemExit("No repository owner available")
+          pattern = re.compile(re.escape(owner), flags=re.IGNORECASE)
+          listed = subprocess.check_output(["git", "ls-files", "-z"])
+          files = [
+              Path(os.fsdecode(p))
+              for p in listed.split(b"\0")
+              if p and Path(os.fsdecode(p)).suffix.lower()
+              in {".md", ".html", ".js", ".css", ".json", ".py", ".yml", ".yaml", ".sql", ".txt"}
+          ]
+          matches = []
+          for f in files:
+              try:
+                  text = f.read_text(encoding="utf-8")
+              except UnicodeDecodeError:
+                  continue
+              if pattern.search(text):
+                  matches.append(str(f))
+          if matches:
+              print("Brand-identity guard: personal GitHub owner found in:")
+              for path in matches:
+                  print(f"  {path}")
+              raise SystemExit(1)
+          print(f"ONE ERP brand-identity guard passed: {len(files)} text files checked.")
+          PY
