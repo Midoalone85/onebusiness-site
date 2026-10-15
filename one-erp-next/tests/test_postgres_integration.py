@@ -126,6 +126,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_apply_payment(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        # 046: permit two-step stock-date workflows in disposable CI only.
+        for func in (
+            "one_request_inventory_effective_date(uuid,uuid,date,uuid)",
+            "one_approve_inventory_effective_date(uuid,uuid,uuid)",
+            "one_inventory_gross_history_asof(uuid,date,uuid)",
+        ):
+            cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
+                              " TO one_erp_runtime_ci")
         # 045: grant the read-only report function to the disposable CI role.
         cls.admin.execute(
             "GRANT EXECUTE ON FUNCTION "
@@ -6964,6 +6972,166 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 tenant,admin,"DELETE FROM one_period_inventory_seal_lines "
                 "WHERE tenant_id=%s AND period_id=%s RETURNING product_id",
                 (tenant,period))
+
+
+    # 046 | No guessed event dates: each event needs an independent approval.
+    def inventory_history_046_fixture(self):
+        tenant,owner,reviewer,product,warehouse,period = (uuid4() for _ in range(6))
+        purchase,sale=uuid4(),uuid4()
+        start=date.today().replace(month=1,day=1)
+        end=start.replace(year=start.year+1)
+        self.admin.execute(
+            "INSERT INTO one_tenants(id,company_name) VALUES(%s,'Dated inventory CI')",
+            (tenant,))
+        for actor,role in ((owner,"company_admin"),(reviewer,"accountant")):
+            self.admin.execute(
+                "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+                "VALUES(%s,%s,%s)",(tenant,actor,role))
+        self.admin.execute(
+            "INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive) "
+            "VALUES(%s,%s,%s,%s)",(tenant,period,start,end))
+        for acct,code,kind in (
+            ("inventory","1540","asset"),
+            ("grni","2350","liability"),
+            ("cogs","5350","expense"),
+        ):
+            self.admin.execute(
+                "INSERT INTO one_accounts(tenant_id,id,code,name,kind) "
+                "VALUES(%s,%s,%s,%s,%s)",
+                (tenant,acct,code,acct,kind))
+        self.admin.execute(
+            "INSERT INTO one_products(tenant_id,id,sku,name) "
+            "VALUES(%s,%s,%s,'Effective dated item')",
+            (tenant,product,product.hex))
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) "
+            "VALUES(%s,%s,%s,'History warehouse')",
+            (tenant,warehouse,warehouse.hex[:15]))
+        for order,kind in ((purchase,"purchase"),(sale,"sale")):
+            self.admin.execute(
+                "INSERT INTO one_commercial_orders "
+                "(tenant_id,id,kind,number,partner_id,currency) "
+                "VALUES(%s,%s,%s,%s,'TEMPORAL-CI','SAR')",
+                (tenant,order,kind,order.hex))
+            self.admin.execute(
+                "INSERT INTO one_commercial_order_lines(tenant_id,order_id,"
+                "line_no,product_id,warehouse_id,ordered_qty,unit_price) "
+                "VALUES(%s,%s,1,%s,%s,5,12.50)",
+                (tenant,order,product,warehouse))
+            self.commerce_execute(
+                tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,owner))
+        return tenant,owner,reviewer,product,warehouse,period,purchase,sale
+
+    def history_asof_046(self,tenant,actor,cutoff):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_inventory_gross_history_asof(%s,%s,%s)",
+                (tenant,cutoff,actor)).fetchall()
+
+    def request_date_046(self,tenant,actor,event,on):
+        return self.commerce_execute(
+            tenant,actor,
+            "SELECT one_request_inventory_effective_date(%s,%s,%s,%s)",
+            (tenant,event,on,actor))
+
+    def approve_date_046(self,tenant,actor,event):
+        return self.commerce_execute(
+            tenant,actor,
+            "SELECT one_approve_inventory_effective_date(%s,%s,%s)",
+            (tenant,event,actor))
+
+    def test_046_stock_history_rejects_missing_dates_and_preserves_asof(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        receipt,dispatch=uuid4(),uuid4()
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,receipt,owner))
+        self.value_stock_event(tenant,owner,receipt,"grni",period_id=period)
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,dispatch,owner))
+        self.value_stock_event(tenant,owner,dispatch,"cogs",period_id=period)
+        with self.assertRaises(self.psycopg.Error):
+            self.history_asof_046(tenant,owner,date.today())
+        with self.assertRaises(self.psycopg.Error):
+            self.request_date_046(tenant,reviewer,receipt,date.today())
+        self.assertEqual(self.request_date_046(
+            tenant,owner,receipt,date.today()),receipt)
+        with self.assertRaises(self.psycopg.Error):
+            self.approve_date_046(tenant,owner,receipt)
+        with self.assertRaises(self.psycopg.Error):
+            self.approve_date_046(self.tenant_b,reviewer,receipt)
+        self.assertEqual(self.approve_date_046(
+            tenant,reviewer,receipt),receipt)
+        with self.assertRaises(self.psycopg.Error):
+            self.history_asof_046(tenant,owner,date.today())
+        self.request_date_046(tenant,owner,dispatch,date.today())
+        self.approve_date_046(tenant,reviewer,dispatch)
+        self.assertEqual(self.history_asof_046(
+            tenant,owner,date.today()-timedelta(days=1)),[])
+        rows=self.history_asof_046(tenant,reviewer,date.today())
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0][0:5],
+                         (warehouse,product,"SAR",Decimal("3"),Decimal("37.50")))
+        self.assertEqual(rows[0][5],2)
+        self.assertEqual(rows[0][7],"DUAL_ATTESTED_BUSINESS_DATE_GROSS_ONLY")
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "UPDATE one_inventory_effective_dates "
+                "SET effective_on=%s WHERE tenant_id=%s AND stock_event_id=%s "
+                "RETURNING stock_event_id",
+                (date.today()-timedelta(days=1),tenant,receipt))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "DELETE FROM one_inventory_date_requests "
+                "WHERE tenant_id=%s AND stock_event_id=%s RETURNING stock_event_id",
+                (tenant,receipt))
+        # New unregistered source invalidates even previously complete reports.
+        extra=uuid4()
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,1,%s,%s)",
+            (tenant,purchase,extra,owner))
+        self.value_stock_event(tenant,owner,extra,"grni",period_id=period)
+        with self.assertRaises(self.psycopg.Error):
+            self.history_asof_046(tenant,owner,date.today())
+        self.request_date_046(tenant,owner,extra,date.today())
+        self.approve_date_046(tenant,reviewer,extra)
+        self.assertEqual(
+            self.history_asof_046(tenant,owner,date.today())[0][3:5],
+            (Decimal("4"),Decimal("50.00")))
+
+    def test_046_reviewer_cannot_approve_wrong_gl_date_or_closed_period(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        event=uuid4()
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,1,%s,%s)",
+            (tenant,purchase,event,owner))
+        self.value_stock_event(tenant,owner,event,"grni",period_id=period)
+        yesterday=date.today()-timedelta(days=1)
+        self.request_date_046(tenant,owner,event,yesterday)
+        with self.assertRaises(self.psycopg.Error):
+            self.approve_date_046(tenant,reviewer,event)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_inventory_effective_dates "
+            "WHERE tenant_id=%s AND stock_event_id=%s",
+            (tenant,event)).fetchone()[0],0)
+        with self.assertRaises(self.psycopg.Error):
+            self.request_date_046(tenant,owner,event,date.today())
+        with self.assertRaises(self.psycopg.Error):
+            self.history_asof_046(tenant,uuid4(),date.today())
 
 if __name__ == "__main__":
     unittest.main()
