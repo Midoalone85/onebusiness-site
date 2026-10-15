@@ -126,6 +126,15 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_apply_payment(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        # 047: disposable PostgreSQL CI service grants, NOT production roles.
+        for func in (
+            "one_request_historical_inventory_close(uuid,uuid)",
+            "one_approve_historical_inventory_close(uuid,uuid)",
+            "one_inventory_historical_net_asof(uuid,date,uuid)",
+            "one_inventory_historical_close_details(uuid,uuid,uuid)",
+        ):
+            cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
+                              " TO one_erp_runtime_ci")
         # 046: permit two-step stock-date workflows in disposable CI only.
         for func in (
             "one_request_inventory_effective_date(uuid,uuid,date,uuid)",
@@ -6975,11 +6984,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
 
 
     # 046 | No guessed event dates: each event needs an independent approval.
-    def inventory_history_046_fixture(self):
+    def inventory_history_046_fixture(self, *, period_end=None):
         tenant,owner,reviewer,product,warehouse,period = (uuid4() for _ in range(6))
         purchase,sale=uuid4(),uuid4()
         start=date.today().replace(month=1,day=1)
-        end=start.replace(year=start.year+1)
+        end=period_end or start.replace(year=start.year+1)
         self.admin.execute(
             "INSERT INTO one_tenants(id,company_name) VALUES(%s,'Dated inventory CI')",
             (tenant,))
@@ -7132,6 +7141,172 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.request_date_046(tenant,owner,event,date.today())
         with self.assertRaises(self.psycopg.Error):
             self.history_asof_046(tenant,uuid4(),date.today())
+
+
+    # 047 | Strict cutoff only after a separate admin request and approval.
+    def activate_strict_047(self,tenant,owner,reviewer):
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,
+            "SELECT one_request_historical_inventory_close(%s,%s)",
+            (tenant,owner)),tenant)
+        self.assertEqual(self.commerce_execute(
+            tenant,reviewer,
+            "SELECT one_approve_historical_inventory_close(%s,%s)",
+            (tenant,reviewer)),tenant)
+
+    def history_net_047(self,tenant,actor,cutoff):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_inventory_historical_net_asof(%s,%s,%s)",
+                (tenant,cutoff,actor)).fetchall()
+
+    def test_047_strict_close_blocks_undated_stock_then_seals_true_cutoff(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture(
+                period_end=date.today()+timedelta(days=1)))
+        event=uuid4()
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,event,owner))
+        self.value_stock_event(tenant,owner,event,"grni",period_id=period)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,reviewer,
+                "SELECT one_request_historical_inventory_close(%s,%s)",
+                (tenant,reviewer))
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,
+            "SELECT one_request_historical_inventory_close(%s,%s)",
+            (tenant,owner)),tenant)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "SELECT one_approve_historical_inventory_close(%s,%s)",
+                (tenant,owner))
+        self.assertEqual(self.commerce_execute(
+            tenant,reviewer,
+            "SELECT one_approve_historical_inventory_close(%s,%s)",
+            (tenant,reviewer)),tenant)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_close_period(%s,%s,%s)",
+                (tenant,period,owner))
+        self.assertFalse(self.admin.execute(
+            "SELECT closed FROM one_periods WHERE tenant_id=%s AND id=%s",
+            (tenant,period)).fetchone()[0])
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_period_historical_inventory_close "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (tenant,period)).fetchone()[0],0)
+        self.request_date_046(tenant,owner,event,date.today())
+        self.approve_date_046(tenant,reviewer,event)
+        self.assertEqual(self.history_net_047(
+            tenant,reviewer,date.today())[0][3:7],
+            (Decimal("5"),Decimal("62.50"),Decimal("0"),Decimal("62.50")))
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_close_period(%s,%s,%s)",
+            (tenant,period,owner)),period)
+        h=self.admin.execute(
+            "SELECT cutoff_on,position_count,evidence_kind "
+            "FROM one_period_historical_inventory_close "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (tenant,period)).fetchone()
+        self.assertEqual(h,(date.today(),1,
+            "HISTORICAL_PERIOD_END_POSTED_GROSS_AND_NRV"))
+        detail=self.admin.execute(
+            "SELECT physical_qty,gross_book_value,nrv_allowance,net_book_value "
+            "FROM one_period_historical_inventory_close_lines "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (tenant,period)).fetchone()
+        self.assertEqual(detail,(5,Decimal("62.50"),0,Decimal("62.50")))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "UPDATE one_period_historical_inventory_close_lines "
+                "SET gross_book_value=10 WHERE tenant_id=%s AND period_id=%s "
+                "RETURNING product_id",(tenant,period))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                self.tenant_b,reviewer,
+                "SELECT count(*) FROM one_inventory_historical_close_details(%s,%s,%s)",
+                (self.tenant_b,period,reviewer))
+        with self.assertRaises(self.psycopg.Error):
+            self.request_date_046(tenant,owner,uuid4(),date.today())
+
+    def test_047_asof_nrv_posts_reconcile_and_seal_net_cost(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture(
+                period_end=date.today()+timedelta(days=1)))
+        stock_event=uuid4()
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,stock_event,owner))
+        self.value_stock_event(tenant,owner,stock_event,"grni",period_id=period)
+        self.request_date_046(tenant,owner,stock_event,date.today())
+        self.approve_date_046(tenant,reviewer,stock_event)
+        for acct,code,kind in (
+            ("nrvallow","1590","asset"),
+            ("nrvexpense","5750","expense")):
+            self.admin.execute(
+                "INSERT INTO one_accounts(tenant_id,id,code,name,kind) "
+                "VALUES(%s,%s,%s,%s,%s)",
+                (tenant,acct,code,acct,kind))
+        nrv_event,nrv_journal=uuid4(),uuid4()
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,
+            "SELECT one_post_inventory_nrv_adjustment("
+            "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (tenant,warehouse,product,nrv_event,nrv_journal,period,
+             "nrvallow","nrvexpense",owner,0,Decimal("5"),
+             Decimal("62.50"),Decimal("10"),Decimal("0"),Decimal("1"),
+             "NRV-047-"+nrv_event.hex,date.today())),nrv_event)
+        rows=self.history_net_047(tenant,reviewer,date.today())
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0][3:7],
+                         (Decimal("5"),Decimal("62.50"),
+                          Decimal("17.50"),Decimal("45.00")))
+        self.activate_strict_047(tenant,owner,reviewer)
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_close_period(%s,%s,%s)",
+            (tenant,period,owner)),period)
+        entry=self.admin.execute(
+            "SELECT gross_book_value,nrv_allowance,net_book_value "
+            "FROM one_period_historical_inventory_close_lines "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (tenant,period)).fetchone()
+        self.assertEqual(entry,(Decimal("62.50"),Decimal("17.50"),
+                                Decimal("45.00")))
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(reviewer),))
+            details=self.db.execute(
+                "SELECT gross_book_value,nrv_allowance,net_book_value,cutoff_on "
+                "FROM one_inventory_historical_close_details(%s,%s,%s)",
+                (tenant,period,reviewer)).fetchone()
+        self.assertEqual(details,(*entry,date.today()))
+
+    def test_047_future_cutoff_fails_without_partial_close_records(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.activate_strict_047(tenant,owner,reviewer)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_close_period(%s,%s,%s)",
+                (tenant,period,owner))
+        for table in ("one_period_historical_inventory_close",
+                      "one_period_inventory_seals","one_period_close_audit"):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+
+                " WHERE tenant_id=%s AND period_id=%s",
+                (tenant,period)).fetchone()[0],0)
 
 if __name__ == "__main__":
     unittest.main()
