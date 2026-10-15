@@ -22,6 +22,7 @@ from one_erp_core.invoicing import (
 from one_erp_core.invoice_persistence import persist_invoice_with_journal
 from one_erp_core.sales_invoice_bridge import persist_dispatch_backed_sales_invoice
 from one_erp_core.return_credit_bridge import persist_return_backed_customer_credit
+from one_erp_core.vendor_goods_bridge import persist_valued_goods_vendor_bill
 from one_erp_core.payments import (
     PaymentRequest, PaymentDirection, PaymentLedgerAccounts,
     PaymentAllocation, OpenInvoice,
@@ -196,6 +197,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         cls.admin.execute(
             "GRANT EXECUTE ON FUNCTION "
             "one_value_physical_stock_event(uuid,uuid,uuid,text,text,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_link_goods_vendor_bill(uuid,uuid,uuid,text,integer[],uuid) "
             "TO one_erp_runtime_ci"
         )
         cls.db = psycopg.connect(
@@ -3468,6 +3474,193 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(self.admin.execute(
             "SELECT count(*) FROM one_stock_value_events WHERE tenant_id=%s "
             "AND stock_event_id=%s",(tenant,receipt)).fetchone()[0],1)
+
+
+
+    def valued_receipt_for_vendor_bill(self,qty=Decimal("5")):
+        tenant,admin,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,admin))
+        physical=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_fulfill_commercial_line(%s,%s,1,%s,%s,%s)",
+            (tenant,purchase,qty,physical,admin))
+        self.value_stock_event(tenant,admin,physical,"grni")
+        return tenant,admin,product,warehouse,purchase,sale,physical
+
+    def sample_goods_vendor_bill(self,tenant,quantity,*,partner="TEST-PARTNER",
+                                 price=Decimal("12.50"),grni="grni"):
+        return InvoiceDocument(
+            uuid4(),tenant,"VB-"+uuid4().hex,partner,
+            DocumentType.VENDOR_BILL,date(2026,10,15),date(2026,11,15),
+            "SAR",(InvoiceLine("Accepted stock / GRNI",grni,quantity,price),),
+        )
+
+    def post_matched_vendor_goods(self,tenant,actor,purchase,doc,lines=(1,)):
+        membership=(Membership(actor,tenant,Role.ACCOUNTANT),)
+        return persist_valued_goods_vendor_bill(
+            self.db,order_id=purchase,order_line_numbers=lines,
+            grni_account_id="grni",document=doc,
+            accounts=self.invoice_accounts,chart=self.chart,
+            period=self.period,period_id=self.period_id,
+            actor_id=actor,memberships=membership,
+        )
+
+    def test_valued_receipt_3_way_match_clears_grni_to_vendor_ap(self):
+        tenant,admin,product,warehouse,purchase,sale,physical=(
+            self.valued_receipt_for_vendor_bill())
+        doc=self.sample_goods_vendor_bill(tenant,Decimal("3"))
+        proposal=self.post_matched_vendor_goods(tenant,self.actor,purchase,doc)
+        self.assertEqual(proposal.totals.net,Decimal("37.50"))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_invoice_docs WHERE tenant_id=%s AND id=%s",
+            (tenant,doc.id)).fetchone()[0],"issued")
+        self.assertEqual(self.admin.execute(
+            "SELECT order_id,order_line_no,billed_qty "
+            "FROM one_goods_bill_allocations WHERE tenant_id=%s AND bill_id=%s",
+            (tenant,doc.id)).fetchone(),
+            (purchase,1,Decimal("3")))
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,doc.id)).fetchall(),
+            [("grni",Decimal("37.50"),Decimal("0")),
+             ("ap",Decimal("0"),Decimal("37.50"))])
+        next_doc=self.sample_goods_vendor_bill(tenant,Decimal("2"))
+        self.post_matched_vendor_goods(tenant,self.actor,purchase,next_doc)
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(billed_qty) FROM one_goods_bill_allocations "
+            "WHERE tenant_id=%s AND order_id=%s",
+            (tenant,purchase)).fetchone()[0],Decimal("5"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_audit "
+            "WHERE tenant_id=%s AND doc_id IN (%s,%s)",
+            (tenant,doc.id,next_doc.id)).fetchone()[0],2)
+
+    def test_goods_vendor_bill_overmatched_qty_rolls_back_document_gl_and_audit(self):
+        tenant,admin,product,warehouse,purchase,sale,physical=(
+            self.valued_receipt_for_vendor_bill(Decimal("2")))
+        first=self.sample_goods_vendor_bill(tenant,Decimal("1"))
+        self.post_matched_vendor_goods(tenant,self.actor,purchase,first)
+        excess=self.sample_goods_vendor_bill(tenant,Decimal("2"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_matched_vendor_goods(tenant,self.actor,purchase,excess)
+        for table,col in (
+            ("one_invoice_docs","id"),
+            ("one_journal_entries","id"),
+            ("one_invoice_audit","doc_id"),
+            ("one_goods_bill_allocations","bill_id"),
+        ):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+" WHERE tenant_id=%s AND "+col+
+                "=%s",(tenant,excess.id)).fetchone()[0],0)
+
+    def test_goods_vendor_bill_rejects_wrong_partner_price_and_receipt_absence(self):
+        tenant,admin,product,warehouse,purchase,sale,physical=(
+            self.valued_receipt_for_vendor_bill(Decimal("3")))
+        bad_docs=[
+            self.sample_goods_vendor_bill(tenant,Decimal("1"),partner="OTHER"),
+            self.sample_goods_vendor_bill(tenant,Decimal("1"),
+                                          price=Decimal("13.00")),
+        ]
+        for doc in bad_docs:
+            with self.subTest(doc=doc.id),self.assertRaises(self.psycopg.Error):
+                self.post_matched_vendor_goods(tenant,self.actor,purchase,doc)
+        other_tenant,other_admin,_,_,other_purchase,_,_=(
+            self.valued_receipt_for_vendor_bill(Decimal("1")))
+        # A separate purchase order is not covered by this goods bill's PO.
+        early=self.sample_goods_vendor_bill(tenant,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_matched_vendor_goods(tenant,self.actor,uuid4(),early)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_docs WHERE tenant_id=%s "
+            "AND id IN (%s,%s,%s)",(tenant,*[d.id for d in bad_docs],early.id)
+        ).fetchone()[0],0)
+
+    def test_goods_vendor_bill_wont_post_before_valued_physical_receipt(self):
+        tenant,admin,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,admin))
+        # First not even received; then physically received but unvalued.
+        doc=self.sample_goods_vendor_bill(tenant,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_matched_vendor_goods(tenant,self.actor,purchase,doc)
+        physical=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,purchase,physical,admin))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_matched_vendor_goods(tenant,self.actor,purchase,doc)
+        self.value_stock_event(tenant,admin,physical,"grni")
+        self.post_matched_vendor_goods(tenant,self.actor,purchase,doc)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_goods_bill_allocations "
+            "WHERE tenant_id=%s AND bill_id=%s",
+            (tenant,doc.id)).fetchone()[0],1)
+
+    def test_vendor_bill_grni_clearing_cannot_bypass_dedicated_bridge(self):
+        from one_erp_core.accounting import AccountingError
+        tenant,admin,product,warehouse,purchase,sale,physical=(
+            self.valued_receipt_for_vendor_bill(Decimal("1")))
+        doc=self.sample_goods_vendor_bill(tenant,Decimal("1"))
+        with self.assertRaises(AccountingError):
+            persist_invoice_with_journal(
+                self.db,document=doc,accounts=self.invoice_accounts,
+                chart=self.chart,period=self.period,
+                period_id=self.period_id,actor_id=self.actor,
+                memberships=self.memberships)
+        with self.assertRaises(AccountingError):
+            self.post_matched_vendor_goods(
+                tenant,self.actor,purchase,doc,lines=(1,1))
+        with self.assertRaises(AccountingError):
+            self.post_matched_vendor_goods(
+                tenant,self.actor,purchase,doc,lines=(True,))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_docs WHERE tenant_id=%s AND id=%s",
+            (tenant,doc.id)).fetchone()[0],0)
+
+    def test_concurrent_valued_vendor_bills_do_not_double_claim_same_receipt(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,admin,product,warehouse,purchase,sale,physical=(
+            self.valued_receipt_for_vendor_bill(Decimal("2")))
+        docs=[self.sample_goods_vendor_bill(tenant,Decimal("2")) for _ in range(2)]
+        barrier=Barrier(2)
+        def run(doc):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True
+            ) as conn:
+                try:
+                    barrier.wait(timeout=10)
+                    persist_valued_goods_vendor_bill(
+                        conn,order_id=purchase,order_line_numbers=(1,),
+                        grni_account_id="grni",document=doc,
+                        accounts=self.invoice_accounts,chart=self.chart,
+                        period=self.period,period_id=self.period_id,
+                        actor_id=self.actor,memberships=self.memberships,
+                    )
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            left=pool.submit(run,docs[0])
+            right=pool.submit(run,docs[1])
+            results=(left.result(timeout=30),right.result(timeout=30))
+        self.assertEqual(sorted(results),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(billed_qty) FROM one_goods_bill_allocations "
+            "WHERE tenant_id=%s AND order_id=%s",
+            (tenant,purchase)).fetchone()[0],Decimal("2"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_docs WHERE tenant_id=%s "
+            "AND id IN (%s,%s)",
+            (tenant,docs[0].id,docs[1].id)).fetchone()[0],1)
 
 
 if __name__ == "__main__":
