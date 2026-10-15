@@ -59,7 +59,7 @@ function getStorage(){try{return localStorage.getItem('one_erp_preview_lang')}ca
 function setStorage(v){try{localStorage.setItem('one_erp_preview_lang',v)}catch(e){}}
 function toolbarNav(active){
 return '<header class="site-head"><div class="toprow"><div class="topinner"><a class="brand" href="'+homeUrl()+'"><span class="brand-square">ONE</span><span><span class="brand-name">ONE ERP</span><span class="brand-caption">BUSINESS OPERATING SYSTEM</span></span></a><div class="header-tools"><button class="head-ghost hide-small" type="button" data-action="one-ai">'+ico('spark')+' ONE AI</button><button class="head-ghost" type="button" data-action="language" aria-label="Switch language">'+(lang==='ar'?'English':'العربية')+'</button><span class="operator"><span class="bubble">DE</span>'+t('fictional')+'</span></div></div></div>'+
-'<div class="navrow"><nav class="navinner" aria-label="'+t('applications')+'"><div class="navrail"><a class="navitem '+(PAGE==='home'?'active':'')+'" href="'+homeUrl()+'">'+ico('home','navicon')+t('home')+'</a>'+MODS.map(function(m){return '<button type="button" class="navitem '+(active&&active.id===m.id?'active':'')+'" data-menu-trigger="'+m.id+'" aria-expanded="false" aria-haspopup="true" aria-label="'+name(m)+'">'+ico(m.icon,'navicon')+norm(name(m))+' '+ico('chevron','chev')+'</button>'}).join('')+'</div><span class="navinfo">'+t('preview')+'</span></nav></div></header><div id="flyout" class="flyout hidden" role="menu" aria-label="'+t('applications')+'"></div>'
+'<div class="navrow"><nav class="navinner" aria-label="'+t('applications')+'"><div class="navrail"><a class="navitem '+(PAGE==='home'?'active':'')+'" href="'+homeUrl()+'">'+ico('home','navicon')+t('home')+'</a>'+MODS.map(function(m){return '<button type="button" class="navitem '+(active&&active.id===m.id?'active':'')+'" data-menu-trigger="'+m.id+'" aria-expanded="false" aria-haspopup="menu" aria-controls="flyout" aria-label="'+name(m)+'">'+ico(m.icon,'navicon')+norm(name(m))+' '+ico('chevron','chev')+'</button>'}).join('')+'</div><span class="navinfo">'+t('preview')+'</span></nav></div></header><div id="flyout" class="flyout hidden" role="menu" aria-label="'+t('applications')+'"></div>'
 }
 function demoAlert(){return '<div class="demo-alert"><span>'+ico('shield')+' &nbsp;'+t('demo')+'</span><span class="demo-pill">DEMO DATA</span></div>'}
 function foot(){return '<footer class="footer">ONE ERP NEXT · '+t('preview')+' · '+t('secure')+' · © ONE Business</footer>'}
@@ -198,11 +198,19 @@ return toolbarNav(m)+'<main class="wrap">'+demoAlert()+
 '<div class="panel">'+panelTitle(label(v),t('period'))+'<div class="work-tools">'+actionMarkup+'<button class="btn" type="button" data-action="export">'+ico('download')+' '+t('export')+'</button><button class="btn" type="button" data-action="print">'+ico('printer')+' '+t('print')+'</button><button class="btn" type="button" data-action="demo" aria-label="'+t('refresh')+'">'+ico('filter')+' '+t('refresh')+'</button></div>'+
 '<div class="table-tools"><label style="display:flex;flex:1;gap:10px;align-items:center">'+ico('search')+' <input class="filter" type="search" id="recordSearch" placeholder="'+t('search')+'" aria-label="'+t('search')+'"></label><span class="demo-pill">'+t('fictional')+'</span></div>'+
 '<div class="tablewrap"><table><thead><tr>'+data.columns.map(function(c){return '<th>'+norm(c)+'</th>'}).join('')+'</tr></thead><tbody id="dataRows">'+rows+'</tbody></table></div>'+
-'<div class="table-foot"><span>'+t('recordCount')+': '+data.rows.length+'</span><span>🔒 '+t('noReal')+'</span></div></div>'+
+'<div class="table-foot"><span id="recordCount" role="status" aria-live="polite">'+t('recordCount')+': '+data.rows.length+'</span><span>🔒 '+t('noReal')+'</span></div></div>'+
 '<section class="panel">'+panelTitle(t('quick'),t('more'))+'<div class="module-sections">'+m.views.filter(function(x){return x[0]!==v[0]}).slice(0,6).map(function(x){return '<a class="module-link" href="'+linkTo(m,x)+'"><span class="bubble">'+ico(m.icon)+'</span><span><strong>'+norm(label(x))+'</strong><small>'+norm(tx(m.arSub,m.enSub))+'</small></span></a>'}).join('')+'</div></section>'+
 '<div class="notice">'+ico('shield')+' '+t('pageNote')+' '+t('noReal')+'</div>'+foot()+'</main>'+dialog();
 }
 var opened=null,lastTrigger=null;
+function menuItems(){
+ var menu=document.getElementById('flyout');
+ return menu?Array.prototype.slice.call(menu.querySelectorAll('a[role="menuitem"]')):[];
+}
+function focusMenuItem(index){
+ var items=menuItems();
+ if(items.length)items[index<0?items.length-1:Math.min(index,items.length-1)].focus();
+}
 function hideMenu(){var el=document.getElementById('flyout');if(el)el.classList.add('hidden');document.querySelectorAll('[data-menu-trigger]').forEach(function(b){b.setAttribute('aria-expanded','false')});opened=null}
 function showMenu(id,b){var m=moduleById(id),menu=document.getElementById('flyout');if(!menu||!b)return;
 if(opened===id){hideMenu();return}
@@ -235,9 +243,20 @@ setTimeout(function(){URL.revokeObjectURL(obj)},1000);
 function modal(){document.getElementById('dialog').classList.remove('hidden');document.getElementById('dialogTitle').textContent=t('preview');document.getElementById('dialogText').innerHTML='<p>'+t('notLive')+'</p><p>'+t('demoAnswer')+'</p>'}
 function closeDialog(){document.getElementById('dialog').classList.add('hidden')}
 function showAI(){document.getElementById('dialog').classList.remove('hidden');document.getElementById('dialogTitle').textContent=t('ask');document.getElementById('dialogText').innerHTML='<p>'+t('aiExplain')+'</p><input id="askText" maxlength="110" class="filter" style="max-width:none;width:100%" placeholder="'+norm(t('aiPlaceholder'))+'"><button class="btn primary" type="button" data-action="answer" style="margin-top:12px">'+t('askGo')+'</button><div id="aiResult"></div>'}
-function filterTable(value){var rows=document.querySelectorAll('#dataRows tr'),count=0;rows.forEach(function(r){var visible=r.textContent.toLocaleLowerCase().includes(value.toLocaleLowerCase());r.hidden=!visible;if(visible)count++});var tbody=document.getElementById('dataRows'),oldEmpty=document.getElementById('noMatchRow');
-if(oldEmpty)oldEmpty.remove();
-if(!count&&rows.length){var tr=document.createElement('tr');tr.id='noMatchRow';var td=document.createElement('td');td.colSpan=rows[0].cells.length;td.textContent=t('noRows');td.style.textAlign='center';td.style.padding='25px';tr.appendChild(td);tbody.appendChild(tr)}
+function filterTable(value){
+ var tbody=document.getElementById('dataRows'),oldEmpty=document.getElementById('noMatchRow');
+ if(oldEmpty)oldEmpty.remove();
+ var rows=document.querySelectorAll('#dataRows tr'),count=0;
+ var term=value.toLocaleLowerCase().trim();
+ rows.forEach(function(r){var visible=r.textContent.toLocaleLowerCase().includes(term);r.hidden=!visible;if(visible)count++});
+ var counter=document.getElementById('recordCount');
+ if(counter)counter.textContent=t('recordCount')+': '+count+' / '+rows.length;
+ if(!count&&rows.length){
+  var tr=document.createElement('tr');tr.id='noMatchRow';
+  var td=document.createElement('td');td.colSpan=rows[0].cells.length;
+  td.textContent=t('noRows');td.style.textAlign='center';td.style.padding='25px';
+  tr.appendChild(td);tbody.appendChild(tr);
+ }
 }
 function setupEvents(){
 document.addEventListener('click',function(e){var trigger=e.target.closest('[data-menu-trigger]');if(trigger){showMenu(trigger.dataset.menuTrigger,trigger);return}
@@ -251,7 +270,31 @@ if(b.dataset.action==='export'){downloadSampleCSV();return}
 if(b.dataset.action==='close-dialog'){closeDialog();return}
 if(b.dataset.action==='answer'){var q=document.getElementById('askText').value||'';var answer=/ربح|profit/i.test(q)?t('profit')+': '+money(235000):/مبيع|sales/i.test(q)?t('revenue')+': '+money(980000):/فاتور|invoice/i.test(q)?t('invoices')+': 18':t('demoAnswer');document.getElementById('aiResult').innerHTML='<div class="notice">'+answer+'<br>'+t('demoAnswer')+'</div>';return}
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){hideMenu();closeDialog()}});
+document.addEventListener('keydown',function(e){
+ if(e.key==='Escape'){
+  var wasOpen=!!opened;hideMenu();closeDialog();
+  if(wasOpen&&lastTrigger&&typeof lastTrigger.focus==='function')lastTrigger.focus();
+  return;
+ }
+ var trigger=e.target.closest&&e.target.closest('[data-menu-trigger]');
+ if(trigger&&(e.key==='ArrowDown'||e.key==='ArrowUp')){
+  e.preventDefault();
+  if(opened!==trigger.dataset.menuTrigger)showMenu(trigger.dataset.menuTrigger,trigger);
+  focusMenuItem(e.key==='ArrowUp'?-1:0);
+  return;
+ }
+ if(!opened||!e.target.closest||!e.target.closest('#flyout'))return;
+ var items=menuItems(),index=items.indexOf(document.activeElement);
+ if(index<0)index=items.indexOf(e.target);
+ if(!items.length)return;
+ if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='Home'||e.key==='End'){
+  e.preventDefault();
+  if(e.key==='Home')index=0;
+  else if(e.key==='End')index=items.length-1;
+  else index=(index+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;
+  items[index].focus();
+ }
+});
 document.addEventListener('input',function(e){if(e.target.id==='recordSearch')filterTable(e.target.value)});
 document.addEventListener('click',function(e){if(e.target.id==='dialog')closeDialog()});
 window.addEventListener('resize',function(){if(opened&&lastTrigger){var menu=document.getElementById('flyout');if(menu)positionMenu(lastTrigger,menu)}});
