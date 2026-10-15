@@ -2367,5 +2367,30 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 self.commerce_execute(tenant,actor,stmt,(tenant,job))
 
 
+
+    def test_operation_event_cursor_monotonic_and_read_role_cannot_access_queue(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,1,%s)",
+            (tenant,job,sale,actor))
+        self.delivery_stage(tenant,actor,job,"picked")
+        rows=self.admin.execute(
+            "SELECT stream_position,event_type FROM one_operation_outbox "
+            "WHERE tenant_id=%s AND source_id=%s ORDER BY stream_position",
+            (tenant,job)).fetchall()
+        self.assertEqual([r[1] for r in rows],
+                         ["delivery.created","delivery.picked"])
+        self.assertLess(rows[0][0],rows[1][0])
+        with self.assertRaises(self.psycopg.Error):
+            with self.reporting_db.transaction():
+                self.reporting_db.execute(
+                    "SELECT set_config('one.tenant_id',%s,true)",
+                    (str(tenant),))
+                self.reporting_db.execute(
+                    "SELECT stream_position FROM one_operation_outbox "
+                    "WHERE tenant_id=%s",(tenant,)).fetchall()
+
+
 if __name__ == "__main__":
     unittest.main()
