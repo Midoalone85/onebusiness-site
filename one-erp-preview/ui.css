@@ -88,7 +88,9 @@
   td:nth-child(2){grid-column:2;grid-row:1;text-align:end;color:#7185a0;font-size:10px;white-space:normal}
   td:nth-child(3){grid-column:1;grid-row:2;color:#435d79}
   td:nth-child(4){grid-column:2;grid-row:2;text-align:end;font-weight:850}
+  td:nth-child(4)::before{content:attr(data-label) " · ";font-size:9px;font-weight:650;color:#8399b0}
   td:nth-child(5){grid-column:2;grid-row:3;text-align:end}
+  td:nth-child(3):nth-last-child(2)::before{content:attr(data-label) " · ";font-size:9px;color:#8399b0}
   td .tag{font-size:9px;padding:4px 6px}
   .table-foot{font-size:9px;margin-top:9px}
   .module-sections{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
