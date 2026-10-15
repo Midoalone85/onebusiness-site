@@ -91,3 +91,20 @@ exist in this development slice.
 Do not migrate or deploy these experimental tables to Oracle production or
 advertise them as a Saudi-compliant refund workflow. Passing CI means code
 tests passed in a disposable dataset, nothing more.
+
+## Concurrency and CI evidence
+
+The original RMA lock is acquired before the original invoice row lock,
+consistent with the existing return-backed credit operation. Payment
+allocation serializes on the same original invoice. Concurrent refund
+recognition attempts for a single inspected RMA are verified to produce
+exactly one posted claim and one original-liability recognition, with the
+second transaction rejected. A subsequent cash receipt allocated against
+AR already derecognized by the claim is blocked and completely rolled back.
+
+PostgreSQL 14 CI for this feature completed with **441 tests passing under
+Python 3.11 and 441 passing under Python 3.13**:
+https://github.com/Midoalone85/onebusiness-site/actions/runs/38735719927
+
+These numbers are development-test evidence, not sign-off for production,
+external payment rails, official tax notes, or statutory compliance.
