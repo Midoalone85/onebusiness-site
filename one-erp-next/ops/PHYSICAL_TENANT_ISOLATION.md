@@ -81,3 +81,27 @@ Use the latest successful commit SHA on the **draft finance feature branch**,
 not an earlier green check, before claiming this proof passed.
 
 Do not merge or deploy this feature branch automatically.
+
+## Independent elevated inventory preflight (new, CI only)
+
+`src/one_erp_core/tenant_inventory.py` adds
+`verify_exclusive_tenant_inventory`, which must run through a separately
+authorized **privileged inspection** connection, never a customer/report login.
+It checks a pinned physical database name, bypass-RLS inspector permission,
+the exactly-one-tenant row condition, the expected restricted login role,
+the absence of `PUBLIC CONNECT`, and denial of `CONNECT` to every peer
+reader role explicitly enumerated by the vetted backend. Queries run in
+`REPEATABLE READ, READ ONLY` and never return patient or customer records.
+
+The existing `tenant_readiness.verify_physical_tenant_database` remains the
+separate limited-report-reader gate; neither gate is a substitute for the other.
+CI negative tests inject a second tenant, PUBLIC CONNECT, and a cross-tenant
+CONNECT grant, and require fail-closed outcomes. Each injection is reverted.
+
+**Limits:** The caller must prove the peer-role inventory is complete. Role
+inheritance, other cluster users, network-level access (`pg_hba`/firewall),
+unreviewed privilege grants, vault rotation, backups and restore drills are
+not certified by this function. Its digest represents checked catalog facts
+in a disposable CI instance, NOT real signed infrastructure evidence. An
+independent signer must never treat a digest alone as permission to activate
+a customer, and no production user/tenant is enrolled by these tests.
