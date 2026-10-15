@@ -48,7 +48,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install integration driver
-        run: python -m pip install "psycopg[binary]>=3.1,<4"
+        run: python -m pip install "psycopg[binary]>=3.1,<4" "PyJWT[crypto]>=2.10,<3"
       - name: Compile sources
         working-directory: one-erp-next
         run: python -m compileall -q src tests
