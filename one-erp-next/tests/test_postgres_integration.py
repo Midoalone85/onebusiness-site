@@ -2281,5 +2281,91 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,warehouse,product)).fetchone()[0],Decimal("4"))
 
 
+
+    def test_one_operation_outbox_connects_sales_warehouse_invoice_and_gl(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+            (tenant,job,sale,actor))
+        self.delivery_stage(tenant,actor,job,"picked")
+        self.delivery_stage(tenant,actor,job,"packed")
+        shipment=uuid4()
+        self.delivery_stage(tenant,actor,job,"dispatched",shipment)
+        self.delivery_stage(tenant,actor,job,"delivered",proof="TEST-EXTERNAL-REF")
+        doc=self.sale_source_invoice(tenant,Decimal("2"))
+        self.post_dispatched_sale_invoice(sale,actor,doc)
+        rows=self.admin.execute(
+            "SELECT event_type,source_id FROM one_operation_outbox "
+            "WHERE tenant_id=%s AND source_id IN (%s,%s,%s) "
+            "ORDER BY event_type",
+            (tenant,job,shipment,doc.id)).fetchall()
+        events=set(rows)
+        self.assertTrue({
+            ("delivery.created",job),
+            ("delivery.picked",job),
+            ("delivery.packed",job),
+            ("delivery.dispatched",job),
+            ("delivery.delivered",job),
+            ("stock.sale_dispatched",shipment),
+            ("finance.journal_posted",doc.id),
+            ("finance.invoice_issued",doc.id),
+        }.issubset(events))
+        self.assertEqual(len(rows),len(events))
+
+    def test_one_operation_outbox_receiving_posts_only_accepted_stock(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        inspection,event=uuid4(),uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_start_receiving_inspection(%s,%s,%s,1,4,%s)",
+            (tenant,inspection,purchase,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_complete_receiving_inspection(%s,%s,3,1,%s,%s)",
+            (tenant,inspection,actor,event))
+        rows=set(self.admin.execute(
+            "SELECT event_type,source_id FROM one_operation_outbox "
+            "WHERE tenant_id=%s AND source_id IN (%s,%s)",
+            (tenant,inspection,event)).fetchall())
+        self.assertEqual(rows,{
+            ("receiving.inspection_started",inspection),
+            ("receiving.inspection_completed",inspection),
+            ("stock.purchase_received",event),
+        })
+
+    def test_one_operation_outbox_immutable_scoped_and_no_failed_event(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+            (tenant,job,sale,actor))
+        self.delivery_stage(tenant,actor,job,"picked")
+        self.delivery_stage(tenant,actor,job,"packed")
+        bogus=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.delivery_stage(tenant,actor,job,"dispatched",bogus,
+                                proof="should roll back")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_operation_outbox WHERE tenant_id=%s "
+            "AND event_type='delivery.dispatched' AND source_id=%s",
+            (tenant,job)).fetchone()[0],0)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(self.tenant_b),))
+            self.assertEqual(self.db.execute(
+                "SELECT count(*) FROM one_operation_outbox WHERE source_id=%s",
+                (job,)).fetchone()[0],0)
+        for stmt in (
+            "UPDATE one_operation_outbox SET event_type='delivery.delivered' "
+            "WHERE tenant_id=%s AND source_id=%s RETURNING id",
+            "DELETE FROM one_operation_outbox "
+            "WHERE tenant_id=%s AND source_id=%s RETURNING id",
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(tenant,actor,stmt,(tenant,job))
+
+
 if __name__ == "__main__":
     unittest.main()
