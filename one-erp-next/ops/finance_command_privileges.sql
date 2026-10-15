@@ -20,6 +20,12 @@ BEGIN
  END IF;
 END $ddl$;
 
+-- PostgreSQL 14's default public schema may grant CREATE to PUBLIC.
+-- PostgreSQL cannot revoke an inherited PUBLIC permission for only one role.
+-- Deny it to PUBLIC at the dedicated tenant database level. A DBA must
+-- verify other legitimate schema authors have explicit GRANT CREATE.
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+
 -- This script does not grant role membership, broad schema DDL or DB LOGIN.
 GRANT USAGE ON SCHEMA public TO one_erp_finance_command_executor;
 REVOKE ALL ON ALL TABLES IN SCHEMA public
@@ -64,8 +70,13 @@ GRANT INSERT ON TABLE
  one_soft_adjustment_statement_approval_seals,
  one_journal_entries,
  one_journal_lines,
- one_ledger_audit
+ one_ledger_audit,
+ one_operation_outbox
 TO one_erp_finance_command_executor;
+
+-- Journal-posted audit fanout writes to one_operation_outbox through
+-- one_route_operation_event trigger. INSERT is necessary for committed GL;
+-- there is deliberately NO SELECT/UPDATE/DELETE on outbox for this role.
 
 -- The INVOKER function and line-edit trigger use SELECT .. FOR UPDATE.
 -- These column-scoped UPDATE privileges supply PostgreSQL's row lock right.
