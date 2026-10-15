@@ -290,6 +290,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "one_nrv_return_settlement_exposure(uuid,uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_recognize_nrv_customer_refund("
+            "uuid,uuid,uuid,uuid,uuid,text,text,text,uuid,date,text) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -355,6 +361,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             ("vatin","130",AccountKind.ASSET),
             ("nrvallow","145",AccountKind.ASSET),
             ("nrvexpense","525",AccountKind.EXPENSE),
+            ("refunddue","250",AccountKind.LIABILITY),
         ):
             item = Account(name,cls.tenant_a,code,name,kind)
             cls.chart[name] = item
@@ -5951,6 +5958,146 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         ):
             with self.assertRaises(self.psycopg.Error):
                 self.nrv_refund_exposure(tid,actor,rma,original)
+
+    # 036 | Recognized refund liability, still NO bank transfer or legal VAT note.
+    def nrv_recognize_refund(self,tenant,admin,rma,invoice,*,journal=None,
+                             period=None,ar="ar",revenue="sales",
+                             liability="refunddue",as_of=date(2026,10,17)):
+        journal=journal or uuid4()
+        result=self.commerce_execute(
+           tenant,admin,"SELECT one_recognize_nrv_customer_refund("
+           "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+           (tenant,rma,invoice.id,journal,period or self.period_id,
+            ar,revenue,liability,admin,as_of,
+            "Reviewed return cash refund obligation"))
+        return journal,result
+
+    def test_nrv_part_paid_refund_creates_exact_ar_and_liability_journal(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        journal,posted=self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        self.assertEqual(journal,posted)
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines WHERE "
+            "tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,journal)).fetchall(),[
+             ("sales",Decimal("25"),Decimal("0")),
+             ("ar",Decimal("0"),Decimal("15")),
+             ("refunddue",Decimal("0"),Decimal("10"))])
+        self.assertEqual(self.admin.execute(
+            "SELECT gross_return_amount,ar_reduction,refund_liability "
+            "FROM one_nrv_refund_claims WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,rma)).fetchone(),
+            (Decimal("25"),Decimal("15"),Decimal("10")))
+        exposure=self.nrv_refund_exposure(tenant,admin,rma,invoice)
+        self.assertEqual(exposure[5],Decimal("0"))
+        self.assertEqual(exposure[-3:],(
+            Decimal("0"),Decimal("0"),"refund_liability_recognized"))
+        self.assertEqual(self.nrv_report(tenant,admin,qa,product),(
+             Decimal("2"),Decimal("2"),Decimal("25"),
+             Decimal("9"),Decimal("16"),Decimal("9"),True))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_payment_docs WHERE tenant_id=%s "
+            "AND direction='customer_receipt' AND status='applied'",
+            (tenant,)).fetchone()[0],1)
+
+    def test_nrv_full_paid_refund_does_not_make_receivable_negative(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("25")),
+                          invoice,outstanding=Decimal("25"))
+        journal,_=self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines WHERE "
+            "tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,journal)).fetchall(),[
+             ("sales",Decimal("25"),Decimal("0")),
+             ("refunddue",Decimal("0"),Decimal("25"))])
+        self.assertEqual(self.nrv_refund_exposure(
+           tenant,admin,rma,invoice)[-3:],
+           (Decimal("0"),Decimal("0"),"refund_liability_recognized"))
+
+    def test_nrv_refund_claim_unpaid_invoice_refused_without_payment(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        attempted=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_recognize_refund(tenant,admin,rma,invoice,journal=attempted)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries WHERE "
+            "tenant_id=%s AND id=%s",(tenant,attempted)).fetchone()[0],0)
+        self.assertEqual(self.nrv_refund_exposure(
+           tenant,admin,rma,invoice)[-1],"internal_credit_ready")
+
+    def test_nrv_refund_duplicate_or_new_customer_credit_does_not_double_reverse(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        journal,_=self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        additional=self.credit_for_source_return(invoice,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.issue_accepted_return_credit(additional,rma,admin)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_nrv_refund_claims "
+            "WHERE tenant_id=%s AND return_job_id=%s",(tenant,rma)).fetchone()[0],1)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_docs WHERE tenant_id=%s AND id=%s",
+            (tenant,additional.id)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries "
+            "WHERE tenant_id=%s AND id=%s",(tenant,journal)).fetchone()[0],1)
+
+    def test_nrv_refund_bad_period_and_accounts_fail_without_residual(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        for changes in (
+            {"period":uuid4()},{"ar":"ap"},{"revenue":"expense"},
+            {"liability":"inventory"},{"as_of":date(2026,10,1)}
+        ):
+            journal=uuid4()
+            with self.assertRaises(self.psycopg.Error):
+                self.nrv_recognize_refund(
+                    tenant,admin,rma,invoice,journal=journal,**changes)
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM one_journal_entries "
+                "WHERE tenant_id=%s AND id=%s",
+                (tenant,journal)).fetchone()[0],0)
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM one_nrv_refund_claims "
+                "WHERE tenant_id=%s AND return_job_id=%s",
+                (tenant,rma)).fetchone()[0],0)
+        self.nrv_recognize_refund(tenant,admin,rma,invoice)
+
+    def test_nrv_refund_refuses_other_company_and_inactive_identity(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        for target,actor in ((self.tenant_b,admin),(tenant,uuid4())):
+            with self.assertRaises(self.psycopg.Error):
+                self.nrv_recognize_refund(target,actor,rma,invoice)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_nrv_refund_claims "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,rma)).fetchone()[0],0)
+
+    def test_nrv_refund_taxed_original_is_rejected_until_approved_ksa_pack(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        order=self.admin.execute(
+            "SELECT order_id FROM one_stock_events WHERE tenant_id=%s AND id=%s",
+            (tenant,shipped)).fetchone()[0]
+        invoice=self.sale_source_invoice(tenant,Decimal("2"))
+        invoice=replace(invoice,lines=(replace(
+            invoice.lines[0],tax_category=TaxCategory.STANDARD,
+            tax_code="VAT15",tax_rate=Decimal("0.15")),))
+        self.post_dispatched_sale_invoice(order,admin,invoice)
+        self.reassess_nrv_return(tenant,admin,rma,Decimal("2"))
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("28.75"))
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_recognize_refund(tenant,admin,rma,invoice)
 
 if __name__ == "__main__":
     unittest.main()
