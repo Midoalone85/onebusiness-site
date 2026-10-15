@@ -2760,5 +2760,70 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,job)).fetchone()[0],0)
 
 
+
+    def test_authorized_accountant_can_credit_admin_inspected_customer_return(self):
+        tenant,actor,source,job=self.complete_customer_return_for_invoice(
+            acceptance=Decimal("1"))
+        credit=self.credit_for_source_return(source,Decimal("1"))
+        approved=persist_return_backed_customer_credit(
+            self.db,return_job_id=job,document=credit,
+            accounts=self.invoice_accounts,chart=self.chart,
+            period=self.period,period_id=self.period_id,
+            actor_id=self.actor,memberships=self.memberships,
+        )
+        self.assertEqual(approved.totals.net,Decimal("12.50"))
+        self.assertEqual(self.admin.execute(
+            "SELECT actor_id FROM one_customer_return_credits "
+            "WHERE tenant_id=%s AND credit_invoice_id=%s",
+            (tenant,credit.id)).fetchone()[0],self.actor)
+
+    def test_parallel_credits_cannot_use_same_accepted_return_twice(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,actor,source,job=self.complete_customer_return_for_invoice(
+            acceptance=Decimal("1"))
+        docs=[self.credit_for_source_return(source,Decimal("1")) for _ in range(2)]
+        gate=Barrier(2)
+        def try_credit(doc):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True,
+            ) as conn:
+                try:
+                    gate.wait(timeout=10)
+                    persist_return_backed_customer_credit(
+                        conn,return_job_id=job,document=doc,
+                        accounts=self.invoice_accounts,chart=self.chart,
+                        period=self.period,period_id=self.period_id,
+                        actor_id=actor,memberships=(
+                            Membership(actor,tenant,Role.COMPANY_ADMIN),
+                        ),
+                    )
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a=pool.submit(try_credit,docs[0])
+            b=pool.submit(try_credit,docs[1])
+            success=(a.result(timeout=30),b.result(timeout=30))
+        self.assertEqual(sorted(success),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(quantity) FROM one_customer_return_credits "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,job)).fetchone()[0],Decimal("1"))
+        for table,column in (
+            ("one_customer_return_credits","credit_invoice_id"),
+            ("one_invoice_docs","id"),
+            ("one_journal_entries","id"),
+        ):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+" WHERE tenant_id=%s AND "
+                +column+" IN (%s,%s)",
+                (tenant,docs[0].id,docs[1].id)).fetchone()[0],1)
+
+
 if __name__ == "__main__":
     unittest.main()
