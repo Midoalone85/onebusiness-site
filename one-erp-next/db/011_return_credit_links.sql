@@ -113,7 +113,7 @@ BEGIN
      OR credit_line.discount_amount<>0 THEN
     RAISE EXCEPTION 'Credit quantity precision and discount must match policy';
   END IF;
-  SELECT alloc.quantity,alloc.invoice_line_number
+  SELECT alloc.billed_qty,alloc.invoice_line_number
     INTO matched_qty,original_line_no
     FROM one_sales_invoice_allocations alloc
     WHERE alloc.tenant_id=p_tenant AND alloc.invoice_id=p_original
