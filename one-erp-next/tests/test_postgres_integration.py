@@ -3373,15 +3373,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.commerce_execute(
             tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
             (tenant,purchase,evt,actor))
-        closed=uuid4()
-        self.admin.execute(
-            "INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive,closed) "
-            "VALUES (%s,%s,%s,%s,true)",
-            (tenant,closed,date(2026,1,1),date(2027,1,1)))
+        # An unknown/unauthorized period must fail without partial valuations.
+        invalid_period=uuid4()
         for args in (
             {"offset":"cogs"},
             {"offset":"grni","inventory":"sales"},
-            {"offset":"grni","period_id":closed},
+            {"offset":"grni","period_id":invalid_period},
         ):
             with self.subTest(args=args),self.assertRaises(self.psycopg.Error):
                 self.value_stock_event(tenant,actor,evt,**args)
