@@ -272,6 +272,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "uuid,uuid,numeric,uuid,uuid,uuid,uuid,uuid,"
             "text,text,text,text,uuid,numeric,numeric,numeric,text,date) "
             "TO one_erp_runtime_ci")
+        cls.admin.execute("GRANT EXECUTE ON FUNCTION "
+          "one_nrv_qa_return_check(uuid,uuid,uuid) TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -5640,6 +5642,32 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT count(*) FROM one_nrv_customer_return_reviews "
             "WHERE tenant_id=%s AND return_job_id=%s",
             (tenant,rma)).fetchone()[0],1)
+
+    def test_nrv_qa_source_report_links_original_sale_and_posted_qa(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        self.reassess_nrv_return(tenant,admin,rma,Decimal("2"))
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",(str(admin),))
+            report=self.db.execute(
+                "SELECT * FROM one_nrv_qa_return_check(%s,%s,%s)",
+                (tenant,admin,rma)).fetchone()
+        self.assertEqual(report,(Decimal("2"),Decimal("25"),
+                                 Decimal("9"),Decimal("16"),True))
+
+    def test_nrv_qa_source_report_rejects_wrong_tenant_and_unknown_actor(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        self.reassess_nrv_return(tenant,admin,rma,Decimal("2"))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(tenant,uuid4(),
+                "SELECT * FROM one_nrv_qa_return_check(%s,%s,%s)",
+                (tenant,uuid4(),rma))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(self.tenant_b,admin,
+                "SELECT * FROM one_nrv_qa_return_check(%s,%s,%s)",
+                (self.tenant_b,admin,rma))
 
 if __name__ == "__main__":
     unittest.main()
