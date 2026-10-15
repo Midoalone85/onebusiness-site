@@ -126,6 +126,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_apply_payment(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        # 048: ONLY disposable PG14 CI role; production grant audit required.
+        for func in (
+            "one_actor_has_permission(uuid,uuid,text)",
+            "one_request_permission_change(uuid,uuid,uuid,text,text,text,date,date,uuid)",
+            "one_approve_permission_change(uuid,uuid,uuid)",
+        ):
+            cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
+                              " TO one_erp_runtime_ci")
         # 047: disposable PostgreSQL CI service grants, NOT production roles.
         for func in (
             "one_request_historical_inventory_close(uuid,uuid)",
@@ -7349,6 +7357,139 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT count(*) FROM one_period_historical_inventory_close_lines "
             "WHERE tenant_id=%s AND period_id=%s",
             (tenant,old_period)).fetchone()[0],0)
+
+
+    # 048 | User/role policy overrides are independently approved, append-only
+    # and enforced in the database, not just client-side button visibility.
+    def propose_permission_048(self,tenant,author,permission,decision,
+                               target_user=None,target_role=None):
+        request=uuid4()
+        self.assertEqual(self.commerce_execute(
+            tenant,author,
+            "SELECT one_request_permission_change("
+            "%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (tenant,request,target_user,target_role,permission,decision,
+             date.today(),None,author)),request)
+        return request
+
+    def approve_permission_048(self,tenant,approver,request):
+        return self.commerce_execute(
+            tenant,approver,
+            "SELECT one_approve_permission_change(%s,%s,%s)",
+            (tenant,request,approver))
+
+    def has_permission_048(self,tenant,actor,permission):
+        return self.commerce_execute(
+            tenant,actor,
+            "SELECT one_actor_has_permission(%s,%s,%s)",
+            (tenant,actor,permission))
+
+    def test_048_admin_can_lose_close_permission_without_losing_membership(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture(
+                period_end=date.today()+timedelta(days=1)))
+        self.assertTrue(self.has_permission_048(
+            tenant,owner,'finance.period.hard_close'))
+        self.assertFalse(self.has_permission_048(
+            tenant,reviewer,'finance.period.hard_close'))
+        self.assertFalse(self.has_permission_048(
+            tenant,uuid4(),'finance.period.hard_close'))
+        self.assertFalse(self.has_permission_048(
+            self.tenant_b,owner,'finance.period.hard_close'))
+        denial=self.propose_permission_048(
+            tenant,owner,'finance.period.hard_close','deny',target_user=owner)
+        with self.assertRaises(self.psycopg.Error):
+            self.approve_permission_048(tenant,owner,denial)
+        self.assertTrue(self.has_permission_048(
+            tenant,owner,'finance.period.hard_close'))
+        self.assertEqual(self.approve_permission_048(
+            tenant,reviewer,denial),denial)
+        self.assertFalse(self.has_permission_048(
+            tenant,owner,'finance.period.hard_close'))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_close_period(%s,%s,%s)",
+                (tenant,period,owner))
+        self.assertFalse(self.admin.execute(
+            "SELECT closed FROM one_periods WHERE tenant_id=%s AND id=%s",
+            (tenant,period)).fetchone()[0])
+        restore=self.propose_permission_048(
+            tenant,owner,'finance.period.hard_close','allow',target_user=owner)
+        self.approve_permission_048(tenant,reviewer,restore)
+        self.assertTrue(self.has_permission_048(
+            tenant,owner,'finance.period.hard_close'))
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_close_period(%s,%s,%s)",
+            (tenant,period,owner)),period)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,"UPDATE one_permission_change_approvals "
+                "SET approved_by=%s WHERE tenant_id=%s AND request_id=%s "
+                "RETURNING request_id",(owner,tenant,denial))
+
+    def test_048_role_denial_user_exception_and_high_risk_approval(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.assertTrue(self.has_permission_048(
+            tenant,reviewer,'finance.inventory.history.activate.approve'))
+        role_deny=self.propose_permission_048(
+            tenant,owner,'finance.inventory.history.activate.approve','deny',
+            target_role='accountant')
+        self.approve_permission_048(tenant,reviewer,role_deny)
+        self.assertFalse(self.has_permission_048(
+            tenant,reviewer,'finance.inventory.history.activate.approve'))
+        self.commerce_execute(
+            tenant,owner,"SELECT one_request_historical_inventory_close(%s,%s)",
+            (tenant,owner))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,reviewer,
+                "SELECT one_approve_historical_inventory_close(%s,%s)",
+                (tenant,reviewer))
+        # A more specific independently approved USER allow overrides ROLE deny.
+        user_allow=self.propose_permission_048(
+            tenant,owner,'finance.inventory.history.activate.approve','allow',
+            target_user=reviewer)
+        self.approve_permission_048(tenant,reviewer,user_allow)
+        self.assertTrue(self.has_permission_048(
+            tenant,reviewer,'finance.inventory.history.activate.approve'))
+        self.assertEqual(self.commerce_execute(
+            tenant,reviewer,
+            "SELECT one_approve_historical_inventory_close(%s,%s)",
+            (tenant,reviewer)),tenant)
+        self.assertFalse(self.has_permission_048(
+            tenant,reviewer,'finance.unknown.administration'))
+        with self.assertRaises(self.psycopg.Error):
+            self.propose_permission_048(
+                tenant,reviewer,'finance.period.soft_adjust','allow',
+                target_user=reviewer)
+
+    def test_048_date_attestation_responds_to_individual_permission_denial(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        event=uuid4()
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,purchase,event,owner))
+        self.value_stock_event(tenant,owner,event,"grni",period_id=period)
+        restriction=self.propose_permission_048(
+            tenant,owner,'inventory.date.approve','deny',
+            target_user=reviewer)
+        self.approve_permission_048(tenant,reviewer,restriction)
+        self.request_date_046(tenant,owner,event,date.today())
+        with self.assertRaises(self.psycopg.Error):
+            self.approve_date_046(tenant,reviewer,event)
+        self.assertFalse(self.admin.execute(
+            "SELECT EXISTS(SELECT 1 FROM one_inventory_effective_dates "
+            "WHERE tenant_id=%s AND stock_event_id=%s)",
+            (tenant,event)).fetchone()[0])
+        restore=self.propose_permission_048(
+            tenant,owner,'inventory.date.approve','allow',
+            target_user=reviewer)
+        self.approve_permission_048(tenant,reviewer,restore)
+        self.assertEqual(self.approve_date_046(
+            tenant,reviewer,event),event)
 
 if __name__ == "__main__":
     unittest.main()
