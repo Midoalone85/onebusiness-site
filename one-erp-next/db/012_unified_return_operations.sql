@@ -94,9 +94,9 @@ BEGIN
   END IF;
 
   SELECT evt.order_id INTO source_order
-    FROM one_return_jobs r JOIN one_stock_events evt
-      ON evt.tenant_id=r.tenant_id AND evt.id=r.source_event_id
-    WHERE r.tenant_id=p_tenant AND r.id=p_return;
+    FROM one_return_jobs ret_job JOIN one_stock_events evt
+      ON evt.tenant_id=ret_job.tenant_id AND evt.id=ret_job.source_event_id
+    WHERE ret_job.tenant_id=p_tenant AND ret_job.id=p_return;
   IF source_order IS NULL THEN RAISE EXCEPTION 'Unknown return source'; END IF;
   PERFORM 1 FROM one_commercial_orders
     WHERE tenant_id=p_tenant AND id=source_order FOR UPDATE;
