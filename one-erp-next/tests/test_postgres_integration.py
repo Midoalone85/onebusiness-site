@@ -8446,6 +8446,55 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (signature,)).fetchone()[0])
 
 
+    # Stage-specific tenant fixture: never contaminate the shared tenant_a
+    # bookkeeping used by prior-period-close and reporting tests.
+    def commerce_fixture_055(self):
+        tenant,owner,product,warehouse,purchase,sale=(
+            uuid4(),uuid4(),uuid4(),uuid4(),uuid4(),uuid4())
+        self.admin.execute(
+            "INSERT INTO one_tenants(id,company_name) "
+            "VALUES(%s,'Isolated stage 055 tenant')",(tenant,))
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'company_admin')",(tenant,owner))
+        self.admin.execute(
+            "INSERT INTO one_products(tenant_id,id,sku,name) "
+            "VALUES(%s,%s,%s,'Warehouse 055 test product')",
+            (tenant,product,'SKU-'+product.hex))
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) "
+            "VALUES(%s,%s,%s,'Warehouse 055')",
+            (tenant,warehouse,'WH-'+warehouse.hex))
+        for order,kind in ((purchase,'purchase'),(sale,'sale')):
+            self.admin.execute(
+                "INSERT INTO one_commercial_orders "
+                "(tenant_id,id,kind,number,partner_id,currency) "
+                "VALUES(%s,%s,%s,%s,'CI-PARTNER','SAR')",
+                (tenant,order,kind,'CI-'+order.hex))
+            self.admin.execute(
+                "INSERT INTO one_commercial_order_lines "
+                "(tenant_id,order_id,line_no,product_id,warehouse_id,"
+                "ordered_qty,unit_price) VALUES(%s,%s,1,%s,%s,5,12.50)",
+                (tenant,order,product,warehouse))
+        return tenant,owner,product,warehouse,purchase,sale
+
+    def prepare_outbound_delivery_055(self):
+        tenant,owner,product,warehouse,purchase,sale=(
+            self.commerce_fixture_055())
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,owner))
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,uuid4(),owner))
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_reserve_sale_line(%s,%s,1,4,%s,%s)",
+            (tenant,sale,uuid4(),owner))
+        return tenant,owner,product,warehouse,purchase,sale
+
     # 055 | Source-event permission gates protect old commerce APIs and their
     # accounting/physical stock side effects; existing admin-only checks
     # remain, so new ALLOW does not yet delegate through those legacy paths.
@@ -8464,7 +8513,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         return reviewer
 
     def test_055_sales_purchase_confirmation_are_separate_user_rights(self):
-        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture()
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
         reviewer=self.commerce_055_reviewers(tenant)
         self.source_permission_055(
             tenant,owner,reviewer,'sales.order.confirm','deny')
@@ -8494,7 +8543,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,owner,'sales.order.confirm')))
 
     def test_055_receipt_and_dispatch_denials_roll_back_stock_and_order(self):
-        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture()
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
         reviewer=self.commerce_055_reviewers(tenant)
         for order in (purchase,sale):
             self.commerce_execute(
@@ -8557,7 +8606,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,warehouse,product)).fetchone()[0],Decimal("1"))
 
     def test_055_warehouse_reservation_permission_separate_from_dispatch(self):
-        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture()
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
         reviewer=self.commerce_055_reviewers(tenant)
         for order in (purchase,sale):
             self.commerce_execute(
@@ -8592,7 +8641,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
 
     def test_055_customer_return_request_and_review_separately_restrict(self):
         tenant,owner,product,warehouse,purchase,sale=(
-            self.prepare_outbound_delivery())
+            self.prepare_outbound_delivery_055())
         reviewer=self.commerce_055_reviewers(tenant)
         delivery,dispatch,quarantine=uuid4(),uuid4(),uuid4()
         self.admin.execute(
