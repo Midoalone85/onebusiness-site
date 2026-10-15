@@ -116,6 +116,13 @@ CREATE TRIGGER invoice_line_guard BEFORE INSERT OR UPDATE OR DELETE
 
 CREATE FUNCTION one_invoice_doc_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+    IF TG_OP='INSERT' THEN
+        IF NEW.status<>'draft' OR NEW.approved_at IS NOT NULL
+           OR NEW.approved_by IS NOT NULL THEN
+            RAISE EXCEPTION 'Invoices must be created as drafts';
+        END IF;
+        RETURN NEW;
+    END IF;
     IF TG_OP='DELETE' OR OLD.status='issued' THEN
         RAISE EXCEPTION 'Issued invoices cannot be changed or removed';
     END IF;
@@ -137,7 +144,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END $$;
-CREATE TRIGGER invoice_doc_guard BEFORE UPDATE OR DELETE
+CREATE TRIGGER invoice_doc_guard BEFORE INSERT OR UPDATE OR DELETE
     ON one_invoice_docs FOR EACH ROW EXECUTE FUNCTION one_invoice_doc_guard();
 CREATE TRIGGER invoice_audit_immutable BEFORE UPDATE OR DELETE
     ON one_invoice_audit FOR EACH ROW EXECUTE FUNCTION one_protect_audit();
