@@ -127,7 +127,14 @@ BEGIN
 
  RETURN QUERY SELECT p_original,r.accepted_qty,src.gross_total,
   paid,credited,open_ar,base,tax,gross,
-  least(gross,open_ar),greatest(gross-open_ar,0),
+  CASE WHEN assessment IN (
+      'internal_credit_ready','requires_refund_liability_workflow',
+      'requires_zatca_tax_pack')
+    THEN least(gross,open_ar) ELSE 0 END,
+  CASE WHEN assessment IN (
+      'internal_credit_ready','requires_refund_liability_workflow',
+      'requires_zatca_tax_pack')
+    THEN greatest(gross-open_ar,0) ELSE 0 END,
   assessment;
 END $$;
 
