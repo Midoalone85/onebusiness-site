@@ -4483,5 +4483,75 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertFalse(report[-1])
 
 
+
+    def test_concurrent_supplier_bill_and_unbilled_return_cannot_claim_same_units(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,admin,product,warehouse,purchase,sale,source=(
+            self.valued_receipt_for_vendor_bill(Decimal("5")))
+        job=self.request_costed_vendor_return(
+            tenant,admin,source,Decimal("3"))
+        bill=self.sample_goods_vendor_bill(tenant,Decimal("3"))
+        gate=Barrier(2)
+        def try_vendor_return():
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(tenant),))
+                        conn.execute("SELECT set_config('one.actor_id',%s,true)",
+                                     (str(admin),))
+                        gate.wait(timeout=10)
+                        conn.execute(
+                            "SELECT one_complete_unbilled_vendor_return("
+                            "%s,%s,%s,%s,%s,'inventory','grni',%s)",
+                            (tenant,job,uuid4(),uuid4(),self.period_id,admin))
+                    return True
+                except self.psycopg.Error:
+                    return False
+        def try_vendor_bill():
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True
+            ) as conn:
+                try:
+                    gate.wait(timeout=10)
+                    persist_valued_goods_vendor_bill(
+                        conn,order_id=purchase,order_line_numbers=(1,),
+                        grni_account_id="grni",document=bill,
+                        accounts=self.invoice_accounts,chart=self.chart,
+                        period=self.period,period_id=self.period_id,
+                        actor_id=self.actor,memberships=self.memberships,
+                    )
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            one=pool.submit(try_vendor_return)
+            two=pool.submit(try_vendor_bill)
+            outcomes=(one.result(timeout=35),two.result(timeout=35))
+        self.assertEqual(sorted(outcomes),[False,True])
+        return_qty=self.admin.execute(
+            "SELECT coalesce(sum(quantity),0) FROM one_stock_events "
+            "WHERE tenant_id=%s AND order_id=%s AND "
+            "movement_kind='vendor_return'",
+            (tenant,purchase)).fetchone()[0]
+        bill_qty=self.admin.execute(
+            "SELECT coalesce(sum(billed_qty),0) FROM one_goods_bill_allocations "
+            "WHERE tenant_id=%s AND order_id=%s",
+            (tenant,purchase)).fetchone()[0]
+        self.assertLessEqual(return_qty+bill_qty,Decimal("5"))
+        self.assertEqual(return_qty+bill_qty,Decimal("3"))
+
+
 if __name__ == "__main__":
     unittest.main()
