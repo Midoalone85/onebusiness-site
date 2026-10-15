@@ -101,8 +101,12 @@ BEGIN
             jsonb_build_object('issuer',p_issuer));
     INSERT INTO one_auth.subject_links (issuer,subject,actor_id,active)
     VALUES (p_issuer,p_subject,p_actor,true)
-    ON CONFLICT (issuer,subject) DO UPDATE SET active=true;
-END $$;
+    ON CONFLICT (issuer,subject) DO UPDATE SET active=true
+        WHERE subject_links.actor_id=EXCLUDED.actor_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Subject already belongs to another actor';
+    END IF;
+END $;
 
 CREATE FUNCTION one_auth.disable_subject(
     p_issuer text, p_subject text, p_operator uuid, p_request uuid
