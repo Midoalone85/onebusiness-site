@@ -7505,10 +7505,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
 
     # 049 | Soft close is a reviewed state, not permission to overwrite books.
     def soft_state_049(self,tenant,actor,period):
-        return self.commerce_execute(
-            tenant,actor,
-            "SELECT * FROM one_finance_period_state(%s,%s,%s)",
-            (tenant,period,actor))
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_finance_period_state(%s,%s,%s)",
+                (tenant,period,actor)).fetchone()
 
     def soft_request_049(self,tenant,actor,period):
         return self.commerce_execute(
