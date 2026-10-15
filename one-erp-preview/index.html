@@ -16,6 +16,29 @@ html[dir=ltr] .navbtn.active{box-shadow:inset 3px 0 #166ae9}
 @media(max-width:760px){.shell{display:block}.sidebar{min-height:auto;display:flex;flex-direction:row;overflow:auto;padding:9px;gap:4px;border-bottom:1px solid var(--line)}.sidebar .navheading,.sidebar .menu-foot{display:none}.navbtn{white-space:nowrap;width:auto;padding:8px 11px}.navbtn span:first-child{font-size:17px}.top{padding:12px 15px}.brand b{font-size:17px}.brand small{font-size:9px}.symbol{width:39px;height:39px;font-size:13px}.head-btn{font-size:11px;padding:8px 9px}.content{padding:17px}.pagehead{align-items:start;flex-direction:column}.apps{grid-template-columns:repeat(2,minmax(0,1fr))}.dlist{grid-template-columns:1fr}.mini{grid-template-columns:1fr 1fr}.demo-banner{align-items:start;flex-direction:column}.pulse{height:155px}}
 @media(max-width:420px){.kpis{gap:9px}.metric{padding:13px}.metric strong{font-size:22px}.apps{gap:9px}.top-right{justify-content:flex-end}.trial{display:none}.mini{grid-template-columns:1fr}}
 @media print{.top,.sidebar,.demo-banner,.actions,.toolbar,.tabline,.footer,.head-btn{display:none!important}.shell{display:block}.content{padding:0}.panel,.metric{box-shadow:none;break-inside:avoid}body{background:#fff}}
+
+/* ONE ERP NEXT contextual workspaces: static, invented sample data only */
+.finance-subnav{display:flex;flex-direction:column;gap:2px;margin:0 8px 11px;padding:5px 0 5px 9px;border-inline-start:2px solid #dceafb}
+.finance-subnav button{background:transparent;border:0;text-align:start;padding:10px 12px;border-radius:9px;color:#607690;font-size:12px;font-weight:800;width:100%;min-height:39px}
+.finance-subnav button:hover,.finance-subnav button.selected{background:#edf4ff;color:#115bd8}
+.navbtn .caret{margin-inline-start:auto;font-size:12px;min-width:14px;transition:transform .2s}
+.navbtn[aria-expanded=true] .caret{transform:rotate(90deg)}
+.workspace{margin:-1px 0 24px;border:1px solid #dce8f7;border-radius:18px;background:white;box-shadow:var(--shadow);padding:17px 17px 10px}
+.workspace-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+.workspace-head strong{color:#124790;font-size:15px}.workspace-head small{display:block;color:#6c829c;font-size:11px;margin-top:4px}
+.workspace-tabs{display:flex;gap:7px;overflow-x:auto;scrollbar-width:thin;padding:0 0 9px}
+.workspace-tabs button{flex:0 0 auto;border:1px solid transparent;background:#f3f7fc;border-radius:10px;padding:10px 13px;color:#466583;font-size:11px;font-weight:900;min-height:43px}
+.workspace-tabs button:hover{background:#e7f2ff;border-color:#b9d3f7}.workspace-tabs button.selected{background:#155fdd;color:#fff;border-color:#155fdd;box-shadow:0 7px 14px rgba(21,95,221,.16)}
+.workspace-intro{background:linear-gradient(110deg,#f5f9ff,#fff);border:1px solid #e3ecfa;border-radius:16px;padding:19px;margin-bottom:16px}
+.workspace-intro .eyebrow{color:#3277bd}.workspace-intro h1{font-size:clamp(24px,3vw,34px);margin:9px 0 6px;color:#173d6d}.workspace-intro p{margin:0;color:#657b95;line-height:1.9;font-size:12px}
+.finance-table{margin-bottom:17px}.finance-tools{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:16px 0}.finance-tools .btn{min-height:41px}
+.four-cols{grid-template-columns:repeat(4,minmax(0,1fr))}
+.status-legend{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-top:12px;font-size:11px;color:#6e829a}
+.step-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.step-grid .tile{cursor:default}.step-grid .tile b{font-size:12px}
+@media(max-width:1050px){.step-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.sidebar{flex-wrap:nowrap}.finance-subnav{position:relative;flex-direction:row;flex:none;border-inline-start:0;margin:0 0 0 3px;padding:0;gap:4px;align-items:center}.finance-subnav button{width:auto;white-space:nowrap;border:1px solid #e3ecf7;background:#f6faff;padding:8px 10px}.workspace{padding:13px}.workspace-tabs button{font-size:11px;padding:9px 11px}.step-grid{grid-template-columns:1fr}.workspace-intro{padding:14px}}
+@media print{.workspace,.finance-tools{display:none!important}}
 </style>
 </head>
 <body>
@@ -28,7 +51,7 @@ html[dir=ltr] .navbtn.active{box-shadow:inset 3px 0 #166ae9}
 <script>
 (function(){
 'use strict';
-var state={lang:'ar',page:'home',sector:'hospital',tab:'balance',filter:'',question:''};
+var state={lang:'ar',page:'home',sector:'hospital',tab:'balance',filter:'',question:'',financeView:'overview',financeExpanded:false};
 var I={ar:{nav:'التطبيقات',home:'لوحة البيانات',finance:'المحاسبة',sales:'المبيعات',purchase:'المشتريات',inventory:'المخزون',medical:'القطاع الطبي',crm:'العملاء',reports:'التقارير',settings:'الإعدادات',hello:'مرحبًا بك في ONE ERP Next',subtitle:'نظرة شاملة على مؤشرات عملك وتجربة مبدئية لشكل النظام المستقل.',view:'معاينة تفاعلية',demo:'⚠️ <b>نسخة معاينة تفاعلية:</b> جميع الأرقام والبيانات المعروضة خيالية. لا يوجد تسجيل دخول أو اتصال ببيانات حقيقية أو مدفوعات.',orders:'أوامر البيع',invoices:'الفواتير',purchaseOrders:'أوامر الشراء',overdue:'فواتير متأخرة',months:'مؤشر الأداء - ONE PULSE',revenue:'الإيرادات',profit:'الربح',activity:'آخر النشاطات التجريبية',applications:'تطبيقات الأعمال',company:'شركة المثال التجارية',currency:'ر.س',demoHint:'بيانات تدريبية لا تمثل أي شركة حقيقية',financeTitle:'المحاسبة والمالية',financeDesc:'اطّلع على تقارير مالية افتراضية متوازنة ومربوطة بأرقام الحسابات.',assets:'الأصول',liabilities:'الالتزامات',equity:'حقوق الملكية شامل الربح',netprofit:'صافي ربح الفترة',tb:'ميزان المراجعة',balance:'المركز المالي',pnl:'الأرباح والخسائر',ledger:'دفتر الأستاذ',account:'الحساب',debit:'مدين',credit:'دائن',value:'القيمة',status:'الحالة',posted:'مرحل',draft:'مسودة',late:'متأخر',search:'بحث في البيانات الافتراضية...',number:'الرقم',customer:'العميل',date:'التاريخ',total:'الإجمالي',print:'طباعة التقرير',export:'تصدير CSV',salesTitle:'إدارة المبيعات',salesDesc:'أوامر البيع والفواتير وعملاء تجريبيون.',purchaseTitle:'إدارة المشتريات',purchaseDesc:'طلبات شراء تجريبية ومتابعة الموردين.',invTitle:'إدارة المخزون',invDesc:'أرصدة أصناف وحركة مخزون تجريبية.',medicalTitle:'القطاع الطبي',medicalDesc:'اختر النشاط لترى وحداته ونماذج العمل المخطط لها.',choose:'اختر نوع النشاط',hospital:'مستشفى',clinic:'عيادة',lab:'مختبر',pharmacy:'صيدلية',rooms:'الغرف والأسِرّة',patient:'ملفات المرضى',appointments:'المواعيد',nursing:'التمريض',radiology:'الأشعة',medicines:'الأدوية',meals:'وجبات المرضى',billing:'فواتير المرضى',labtests:'التحاليل',samples:'العينات',results:'نتائج المختبر',prescriptions:'الوصفات',drugs:'مخزون الأدوية',expiry:'الصلاحيات',doctors:'الأطباء',queue:'قائمة الانتظار',visits:'الزيارات',suppliers:'الموردون',notready:'واجهة معاينة فقط. تشغيل الوظيفة فعليًا يحتاج خدمة خلفية وقاعدة بيانات وصلاحيات مستخدمين.',demoAction:'هذا زر معاينة، ولا ينشئ أي معاملة حقيقية.',close:'إغلاق',settingTitle:'إعدادات المعاينة',settingDesc:'ضبط العرض لا يغيّر أي بيانات حقيقية.',aiTitle:'✦ اسأل ONE',aiDesc:'مثال تفاعلي للإجابات التوضيحية فقط. لم يتم ربط نموذج ذكاء اصطناعي أو بياناتك.',askPlaceholder:'جرّب: الربح، المبيعات، الفواتير',ask:'اسأل',download:'تنزيل',reportsTitle:'التقارير',reportsDesc:'تقارير محاسبية توضيحية قابلة للطباعة والتصدير التجريبي.',crmTitle:'إدارة علاقات العملاء',crmDesc:'عملاء محتملون وأنشطة تجريبية.',noResults:'لا توجد نتائج مطابقة',actions:'العمليات',details:'التفاصيل',balanced:'متوازن',sample:'مثال فقط',ready:'قيد التطوير'},
 en:{nav:'Applications',home:'Dashboard',finance:'Accounting',sales:'Sales',purchase:'Purchasing',inventory:'Inventory',medical:'Healthcare',crm:'CRM',reports:'Reports',settings:'Settings',hello:'Welcome to ONE ERP Next',subtitle:'An interactive preview of the independent business platform.',view:'Interactive preview',demo:'⚠️ <b>Interactive preview:</b> all numbers and records are fictional. No sign-in, real customer data, payments or production connection.',orders:'Sales orders',invoices:'Invoices',purchaseOrders:'Purchase orders',overdue:'Overdue invoices',months:'ONE PULSE · Financial performance',revenue:'Revenue',profit:'Profit',activity:'Sample recent activity',applications:'Business applications',company:'Example Trading Company',currency:'SAR',demoHint:'Illustrative data, not related to a real company',financeTitle:'Accounting & Finance',financeDesc:'Explore balanced sample statements and account-level details.',assets:'Assets',liabilities:'Liabilities',equity:'Equity incl. profit',netprofit:'Net period profit',tb:'Trial balance',balance:'Financial position',pnl:'Profit & loss',ledger:'General ledger',account:'Account',debit:'Debit',credit:'Credit',value:'Value',status:'Status',posted:'Posted',draft:'Draft',late:'Overdue',search:'Search fictional records...',number:'Number',customer:'Customer',date:'Date',total:'Total',print:'Print report',export:'Export CSV',salesTitle:'Sales management',salesDesc:'Sample sales orders, invoices and customers.',purchaseTitle:'Purchase management',purchaseDesc:'Sample purchase orders and suppliers.',invTitle:'Inventory management',invDesc:'Illustrative stock balances and movements.',medicalTitle:'Healthcare sector',medicalDesc:'Choose a sector to preview its planned operational modules.',choose:'Select activity',hospital:'Hospital',clinic:'Clinic',lab:'Laboratory',pharmacy:'Pharmacy',rooms:'Rooms & beds',patient:'Patient records',appointments:'Appointments',nursing:'Nursing',radiology:'Radiology',medicines:'Medication',meals:'Patient meals',billing:'Patient billing',labtests:'Lab tests',samples:'Samples',results:'Lab results',prescriptions:'Prescriptions',drugs:'Pharmacy inventory',expiry:'Expiry tracking',doctors:'Doctors',queue:'Waitlist',visits:'Visits',suppliers:'Suppliers',notready:'Preview only. Production operation requires secure backend services, database and user permissions.',demoAction:'This is a demo action. No real transaction has been created.',close:'Close',settingTitle:'Preview settings',settingDesc:'Display preferences do not modify business data.',aiTitle:'✦ Ask ONE',aiDesc:'Illustrative answers only. No AI model or company data is connected.',askPlaceholder:'Try: profit, sales, invoices',ask:'Ask',download:'Download',reportsTitle:'Reports',reportsDesc:'Sample financial statements ready for print and demo CSV export.',crmTitle:'Customer relationships',crmDesc:'Sample leads and activities.',noResults:'No matching records',actions:'Actions',details:'Details',balanced:'Balanced',sample:'Sample only',ready:'In development'}};
 var nav=[['home','⌂'],['finance','▦'],['sales','🧾'],['purchase','🛒'],['inventory','📦'],['medical','🏥'],['crm','◎'],['reports','▤'],['settings','⚙']];
@@ -119,14 +142,110 @@ function settings(){return title(t('settingTitle'),t('settingDesc'))+'<section c
 function ask(){return '<p>'+t('aiDesc')+'</p><div class="ask"><input id="askInput" type="text" maxlength="100" placeholder="'+t('askPlaceholder')+'"><button class="btn primary" id="askSend">'+t('ask')+'</button></div><div id="askResult"></div>'}
 function modal(head,body){el('modalTitle').textContent=head;el('modalBody').innerHTML=body;el('modalClose').textContent=t('close');el('overlay').classList.remove('hidden')}
 function close(){el('overlay').classList.add('hidden')}
-function page(p){if(!nav.some(function(x){return x[0]===p}))return;state.page=p;state.filter='';if(p!=='finance')state.tab='balance';render();window.scrollTo({top:0,behavior:'auto'})}
+
+/* Contextual navigation: application > feature > independent workspace. */
+var financeFeatures=[
+ {id:'overview',ar:'نظرة عامة',en:'Overview',icon:'⌂',arDesc:'ملخص الأرصدة والمؤشرات المالية',enDesc:'Balances and financial performance at a glance'},
+ {id:'journals',ar:'القيود اليومية',en:'Journal entries',icon:'▤',arDesc:'حركات القيود والترحيل والمراجعة',enDesc:'Review draft and posted journal entries'},
+ {id:'invoices',ar:'فواتير العملاء',en:'Customer invoices',icon:'🧾',arDesc:'إنشاء وإصدار ومتابعة فواتير المبيعات',enDesc:'Review sales invoices and customer balances'},
+ {id:'bills',ar:'فواتير الموردين',en:'Vendor bills',icon:'📥',arDesc:'فواتير المشتريات والاستحقاقات',enDesc:'Manage supplier bills and payables'},
+ {id:'payments',ar:'القبض والصرف',en:'Payments',icon:'💳',arDesc:'سندات القبض والصرف والتخصيص',enDesc:'Incoming, outgoing and allocated payments'},
+ {id:'bank',ar:'البنوك والتسويات',en:'Banking',icon:'🏦',arDesc:'حسابات البنوك وحالات المطابقة',enDesc:'Bank account balances and reconciliation queue'},
+ {id:'accounts',ar:'دليل الحسابات',en:'Chart of accounts',icon:'📚',arDesc:'الحسابات الرئيسية والفرعية والتصنيفات',enDesc:'Chart structure and account classifications'},
+ {id:'taxes',ar:'الضرائب والزكاة',en:'Tax & Zakat',icon:'📊',arDesc:'مركز الامتثال والتقارير التجريبية',enDesc:'Tax and compliance preparation preview'},
+ {id:'statements',ar:'التقارير المالية',en:'Financial reports',icon:'📈',arDesc:'ميزان المراجعة والمركز المالي والنتائج',enDesc:'Trial balance, financial position and results'}
+];
+function feature(id){return financeFeatures.find(function(x){return x.id===id})||financeFeatures[0]}
+function featureName(id){var x=feature(id);return state.lang==='ar'?x.ar:x.en}
+function featureDescription(id){var x=feature(id);return state.lang==='ar'?x.arDesc:x.enDesc}
+function openFinanceFeature(id){
+if(!financeFeatures.some(function(x){return x.id===id}))return;
+state.page='finance';state.financeView=id;state.financeExpanded=true;
+state.filter='';render();window.scrollTo({top:0,behavior:'auto'});
+}
+function financeNav(){
+var current=state.financeView;
+return '<div class="navgroup"><button type="button" class="navbtn '+(state.page==='finance'?'active':'')+'" aria-controls="finance-options" aria-expanded="'+(state.financeExpanded?'true':'false')+'" data-finance-toggle><span>▦</span><span>'+t('finance')+'</span><span class="caret" aria-hidden="true">›</span></button>'+
+(state.financeExpanded?'<div id="finance-options" class="finance-subnav">'+financeFeatures.map(function(x){return '<button type="button" data-finance-feature="'+x.id+'" class="'+(state.page==='finance'&&current===x.id?'selected':'')+'" '+(state.page==='finance'&&current===x.id?'aria-current="page"':'')+'>'+x.icon+' '+esc(featureName(x.id))+'</button>'}).join('')+'</div>':'')+'</div>';
+}
+function financeWorkspaceHeader(){
+return '<div class="workspace"><div class="workspace-head"><div><strong>▦ '+t('finance')+'</strong><small>'+esc(t('company'))+' / '+t('view')+'</small></div><span class="badge-demo">DEMO · '+(state.lang==='ar'?'غير متصل بالنظام الحقيقي':'No live backend')+'</span></div><div class="workspace-tabs" role="navigation" aria-label="'+esc(t('finance'))+'">'+
+financeFeatures.map(function(x){return '<button type="button" data-finance-feature="'+x.id+'" class="'+(state.financeView===x.id?'selected':'')+'" '+(state.financeView===x.id?'aria-current="page"':'')+'>'+x.icon+' '+esc(featureName(x.id))+'</button>'}).join('')+'</div></div>';
+}
+function sampleMoney(n){return money(n)}
+function financeButton(label,kind){return '<button class="btn '+(kind==='primary'?'primary':'')+'" data-demo-action="finance-'+esc(kind)+'">'+esc(label)+'</button>'}
+function financeIntro(){
+return '<div class="workspace-intro"><div class="eyebrow">ONE ERP NEXT / '+esc(t('finance'))+'</div><h1>'+esc(featureName(state.financeView))+'</h1><p>'+esc(featureDescription(state.financeView))+' · '+t('demoHint')+'</p></div>';
+}
+function financeOpsMenu(opts){
+return '<div class="finance-tools">'+opts.map(function(x,i){return financeButton(x,i===0?'primary':'secondary')}).join('')+'<button class="btn" id="printReport">🖨 '+t('print')+'</button></div>';
+}
+function financeRowStatus(s){return status(s)}
+function financeSection(){
+var f=state.financeView,ar=state.lang==='ar',moneyVal=money;
+var headings=[t('number'),t('date'),t('account'),t('total'),t('status')];
+var rows=[],actions=[],stats='',extra='';
+if(f==='journals'){
+actions=[tx('قيد يومية جديد','New journal entry'),tx('قيد تسوية','Adjustment'),tx('قيد عكسي','Reversal')];
+stats='<section class="mini">'+metric(tx('قيود مرحلة','Posted entries'),'22','✅')+metric(tx('قيود مسودة','Drafts'),'3','📝')+metric(tx('إجمالي المدين والدائن','Debits = credits'),moneyVal(3195000),'⚖️')+'</section>';
+rows=[['JE-2026-044','2026-10-15',tx('قيد مبيعات تجريبي','Sample sales journal'),moneyVal(84600),status('posted')],['JE-2026-043','2026-10-14',tx('قيد مصروف تجريبي','Sample expense journal'),moneyVal(3500),status('posted')],['JE-2026-042','2026-10-13',tx('قيد تسوية تجريبي','Sample adjustment'),moneyVal(7800),status('draft')]];
+}else if(f==='invoices'){
+actions=[tx('فاتورة عميل جديدة','New customer invoice'),tx('إشعار دائن','Credit note'),tx('متابعة التحصيل','Collection follow-up')];
+stats='<section class="mini">'+metric(t('invoices'),'18','🧾')+metric(tx('ذمم العملاء','Receivables'),moneyVal(430000),'💰')+metric(t('overdue'),'4','⏳')+'</section>';
+rows=[['INV-2026-119','2026-10-15',tx('شركة النخبة الافتراضية','Demo Elite Co.'),moneyVal(84600),status('posted')],['INV-2026-118','2026-10-14',tx('شركة المدى الافتراضية','Demo Horizon Ltd.'),moneyVal(33700),status('draft')],['INV-2026-117','2026-10-10',tx('شركة الأفق الافتراضية','Demo Vista Co.'),moneyVal(9300),status('late')]];
+}else if(f==='bills'){
+actions=[tx('فاتورة مورد جديدة','New vendor bill'),tx('اعتماد فاتورة','Approve bill'),tx('أعمار الموردين','Payables aging')];
+stats='<section class="mini">'+metric(tx('فواتير الموردين','Vendor bills'),'12','📥')+metric(tx('ذمم الموردين','Payables'),moneyVal(520000),'📋')+metric(tx('تنتظر الاعتماد','Awaiting approval'),'2','⏳')+'</section>';
+rows=[['BILL-2026-044','2026-10-15',tx('مورد التقنية الافتراضي','Demo Tech Supplier'),moneyVal(42500),status('posted')],['BILL-2026-043','2026-10-13',tx('مورد الأدوات الافتراضي','Demo Tools Supplier'),moneyVal(12500),status('draft')]];
+}else if(f==='payments'){
+actions=[tx('سند قبض','Receive payment'),tx('سند صرف','Make payment'),tx('تخصيص دفعة','Allocate payment')];
+stats='<section class="mini">'+metric(tx('القبض التجريبي','Sample receipts'),moneyVal(185000),'⬇️')+metric(tx('الصرف التجريبي','Sample payments'),moneyVal(97000),'⬆️')+metric(tx('غير مخصص','Unallocated'),moneyVal(12000),'⌛')+'</section>';
+rows=[['RCPT-2026-032','2026-10-15',tx('تحصيل عميل تجريبي','Sample receipt'),moneyVal(32500),status('posted')],['PAY-2026-029','2026-10-13',tx('صرف مورد تجريبي','Sample supplier payment'),moneyVal(18500),status('posted')]];
+}else if(f==='bank'){
+actions=[tx('استيراد كشف حساب','Import statement'),tx('اقتراح تسوية','Suggest reconciliation'),tx('مطابقة يدوية','Manual match')];
+stats='<section class="mini">'+metric(tx('رصيد البنوك','Bank balances'),moneyVal(580000),'🏦')+metric(tx('بنود تنتظر المطابقة','Unmatched items'),'8','🔎')+metric(tx('تسويات مقترحة','Proposed matches'),'5','🔗')+'</section>';
+rows=[['BANK-2026-107','2026-10-15',tx('حوالة واردة تجريبية','Sample incoming transfer'),moneyVal(32500),status('draft')],['BANK-2026-106','2026-10-14',tx('سداد مورد تجريبي','Sample vendor transfer'),moneyVal(18500),status('posted')]];
+}else if(f==='accounts'){
+actions=[tx('إضافة حساب','New account'),tx('مجموعات الحسابات','Account groups'),tx('إقفال الحساب','Account closing')];
+stats='<section class="mini">'+metric(tx('عدد الحسابات','Accounts'),String(report.length),'📚')+metric(tx('حسابات الأصول','Asset accounts'),'4','🏦')+metric(tx('العملة التجريبية','Demo currency'),tx('ريال سعودي','SAR'),'💱')+'</section>';
+headings=[t('number'),t('account'),tx('التصنيف','Type'),t('debit'),t('credit')];
+rows=report.map(function(r){return [r[0],esc(tx(r[1],r[2])),r[3]?tx('مدين','Debit'):tx('دائن','Credit'),moneyVal(r[3]),moneyVal(r[4])]});
+}else if(f==='taxes'){
+actions=[tx('إعداد فترة ضريبية','Prepare VAT period'),tx('مراجعة الزكاة','Review Zakat'),tx('إعدادات الفوترة الإلكترونية','E-invoicing setup')];
+stats='<section class="mini">'+metric(tx('ضريبة القيمة المضافة (مثال فقط)','Illustrative VAT rate'),'15%','📊')+metric(tx('الإقرارات التجريبية','Sample returns'),'4','🧮')+metric(tx('تكامل هيئة الزكاة','ZATCA connection'),tx('غير متصل','Not connected'),'🔒')+'</section>';
+rows=[['VAT-DEMO-Q3','2026-09-30',tx('إقرار تجريبي غير صالح للتقديم','Illustrative non-filing VAT return'),moneyVal(0),status('draft')],['ZAKAT-DEMO','2026-10-15',tx('تجهيز نموذج الزكاة','Sample Zakat preparation'),moneyVal(0),status('draft')]];
+extra='<div class="skeleton">'+tx('تنبيه: لا يوجد تكامل فعلي مع هيئة الزكاة والضريبة والجمارك، ولا تمثل الأرقام إقرارًا ضريبيًا أو نصيحة امتثال.','Notice: No live ZATCA integration. These are not tax returns or compliance advice.')+'</div>';
+}else if(f==='statements'){
+actions=[tx('ميزان المراجعة','Trial balance'),tx('الأرباح والخسائر','Profit and loss'),tx('المركز المالي','Balance sheet')];
+stats='<section class="mini">'+metric(t('assets'),moneyVal(2450000),'🏦')+metric(t('equity'),moneyVal(1330000),'⚖️')+metric(t('netprofit'),moneyVal(235000),'📈')+'</section>';
+headings=[t('number'),t('account'),t('debit'),t('credit')];
+rows=report.map(function(r){return [r[0],esc(tx(r[1],r[2])),moneyVal(r[3]),moneyVal(r[4])]});
+extra='<button class="btn" data-finance-feature="overview">'+tx('افتح لوحة المؤشرات المالية','Open finance overview')+'</button>';
+}
+return financeIntro()+stats+'<section class="panel finance-table"><div class="pflex"><div><h2>'+esc(featureName(f))+'</h2><p class="sub">'+t('demoHint')+'</p></div><span class="badge-demo">DEMO ONLY</span></div>'+
+financeOpsMenu(actions)+table(headings,rows.map(function(r){return r.map(function(cell){return String(cell)})}))+
+'<div class="status-legend"><span>🔒 '+esc(t('notready'))+'</span><span>'+esc(t('sample'))+'</span></div>'+extra+'</section>';
+}
+
+function page(p){
+if(!nav.some(function(x){return x[0]===p}))return;
+state.page=p;state.filter='';
+if(p==='finance'){state.financeExpanded=true;state.financeView='overview'}
+else state.tab='balance';
+render();window.scrollTo({top:0,behavior:'auto'});
+}
 function render(){
-document.documentElement.lang=state.lang;document.documentElement.dir=state.lang==='ar'?'rtl':'ltr';
+document.documentElement.lang=state.lang;
+document.documentElement.dir=state.lang==='ar'?'rtl':'ltr';
 el('lang').textContent=state.lang==='ar'?'English':'العربية';
 el('trialTag').textContent=t('view');el('demoLabel').innerHTML=t('demo');
-el('nav').innerHTML='<div class="navheading">'+t('nav')+'</div>'+nav.map(function(v){return '<button type="button" class="navbtn '+(state.page===v[0]?'active':'')+'" data-go="'+v[0]+'" '+(state.page===v[0]?'aria-current="page"':'')+'><span>'+v[1]+'</span><span>'+t(v[0])+'</span></button>'}).join('')+'<div class="menu-foot">ONE ERP NEXT<br>'+esc(t('view'))+' · DEMO</div>';
+el('nav').innerHTML='<div class="navheading">'+t('nav')+'</div>'+nav.map(function(v){
+if(v[0]==='finance')return financeNav();
+return '<button type="button" class="navbtn '+(state.page===v[0]?'active':'')+'" data-go="'+v[0]+'" '+(state.page===v[0]?'aria-current="page"':'')+'><span>'+v[1]+'</span><span>'+t(v[0])+'</span></button>';
+}).join('')+'<div class="menu-foot">ONE ERP NEXT<br>'+esc(t('view'))+' · DEMO</div>';
 var v=state.page;
-el('view').innerHTML=v==='home'?home():v==='finance'?finance():v==='sales'||v==='purchase'?documents(v):v==='inventory'?inventory():v==='medical'?healthcare():v==='crm'?crm():v==='reports'?reports():settings();
+var content=v==='home'?home():v==='finance'?(state.financeView==='overview'?finance():financeSection()):v==='sales'||v==='purchase'?documents(v):v==='inventory'?inventory():v==='medical'?healthcare():v==='crm'?crm():v==='reports'?reports():settings();
+el('view').innerHTML=(v==='finance'?financeWorkspaceHeader():'')+content;
 }
 function exportCSV(){
 var headings=['account_code','account_name','debit_SAR','credit_SAR'];
@@ -138,9 +257,11 @@ var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a
 document.addEventListener('click',function(ev){
 var btn=ev.target.closest('button');if(!btn)return;
 if(btn.id==='lang'||btn.hasAttribute('data-language')){state.lang=btn.getAttribute('data-language')|| (state.lang==='ar'?'en':'ar');render();return}
+if(btn.hasAttribute('data-finance-toggle')){if(state.page!=='finance'){openFinanceFeature('overview')}else{state.financeExpanded=!state.financeExpanded;render()}return}
+if(btn.hasAttribute('data-finance-feature')){openFinanceFeature(btn.getAttribute('data-finance-feature'));return}
 if(btn.hasAttribute('data-go')){page(btn.getAttribute('data-go'));return}
 if(btn.hasAttribute('data-tab')){state.tab=btn.getAttribute('data-tab');render();return}
-if(btn.hasAttribute('data-report')){state.tab=btn.getAttribute('data-report');page('finance');return}
+if(btn.hasAttribute('data-report')){state.tab=btn.getAttribute('data-report');state.financeView='overview';page('finance');state.tab=btn.getAttribute('data-report');render();return}
 if(btn.hasAttribute('data-med')){modal(t(btn.getAttribute('data-med')), '<p>'+t('notready')+'</p>');return}
 if(btn.hasAttribute('data-detail')){modal(t('details')+' · '+btn.getAttribute('data-detail'),'<p>'+t('demoHint')+'</p><p>'+t('notready')+'</p>');return}
 if(btn.hasAttribute('data-demo-action')){modal(t('sample'),'<p>'+t('demoAction')+'</p><p>'+t('notready')+'</p>');return}
