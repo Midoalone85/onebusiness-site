@@ -66,14 +66,23 @@ def _strict_pairs(pairs):
     return obj
 
 
-def _decode_unpadded(encoded: str) -> bytes:
+def _decode_unpadded(encoded: str, *, max_bytes: int) -> bytes:
+    """Reject oversized base64url input before regex matching or decoding.
+
+    Limits the work performed on untrusted signatures and claims. The bound
+    is calculated for the maximum unpadded base64url text of max_bytes.
+    """
     if (not isinstance(encoded, str) or not encoded or
-            not re.fullmatch(r"[A-Za-z0-9_-]+", encoded)):
+            len(encoded) > (max_bytes * 8 + 5) // 6):
+        raise InvalidBootstrapEvidence("Invalid attestation size")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", encoded):
         raise InvalidBootstrapEvidence("Invalid attestation encoding")
     try:
         raw = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
     except (ValueError, binascii.Error):
         raise InvalidBootstrapEvidence("Invalid attestation encoding") from None
+    if len(raw) > max_bytes:
+        raise InvalidBootstrapEvidence("Invalid attestation size")
     if base64.urlsafe_b64encode(raw).rstrip(b"=").decode() != encoded:
         raise InvalidBootstrapEvidence("Noncanonical attestation encoding")
     return raw
@@ -112,8 +121,8 @@ def verify_bootstrap_attestation(
             not isinstance(at, datetime) or at.tzinfo is None or
             at.utcoffset() is None):
         raise InvalidBootstrapEvidence("Invalid trusted attestation configuration")
-    payload = _decode_unpadded(claims_b64)
-    signature = _decode_unpadded(signature_b64)
+    payload = _decode_unpadded(claims_b64, max_bytes=_MAX_PAYLOAD)
+    signature = _decode_unpadded(signature_b64, max_bytes=64)
     if len(payload) > _MAX_PAYLOAD or len(signature) != 64:
         raise InvalidBootstrapEvidence("Invalid attestation size")
     try:
