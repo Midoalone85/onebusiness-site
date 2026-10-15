@@ -248,6 +248,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         cls.admin.execute(
             "GRANT EXECUTE ON FUNCTION one_inventory_nrv_reconciliation("
             "uuid,uuid,uuid,uuid) TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_inventory_nrv_company_snapshot(uuid,uuid) "
+            "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_inventory_nrv_period_activity(uuid,uuid,date,date) "
+            "TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -5005,6 +5013,74 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT adjustment FROM one_inventory_nrv_events "
             "WHERE tenant_id=%s AND id=%s",
             (tenant,event)).fetchone()[0],Decimal("-10"))
+
+    # 026 | Auditable company valuation schedule and period NRV movements.
+    def inventory_nrv_company(self,tenant,actor):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_inventory_nrv_company_snapshot(%s,%s)",
+                (tenant,actor)).fetchone()
+
+    def inventory_nrv_activity(self,tenant,actor,start=date(2026,1,1),
+                               end=date(2027,1,1)):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_inventory_nrv_period_activity(%s,%s,%s,%s)",
+                (tenant,actor,start,end)).fetchone()
+
+    def test_nrv_company_reconciliation_uses_net_ias2_value(self):
+        tenant=self.tenant_a
+        before=self.inventory_nrv_company(tenant,self.actor)
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        after=self.inventory_nrv_company(tenant,self.actor)
+        self.assertEqual(after[0]-before[0],1)
+        self.assertEqual(after[1]-before[1],Decimal("5"))
+        self.assertEqual(after[2]-before[2],Decimal("5"))
+        self.assertEqual(after[3]-before[3],Decimal("62.50"))
+        self.assertEqual(after[4]-before[4],Decimal("17.50"))
+        self.assertEqual(after[5]-before[5],Decimal("45.00"))
+        self.assertEqual(after[6]-before[6],Decimal("17.50"))
+        self.assertEqual(after[7]-before[7],0)
+
+    def test_nrv_period_report_recognizes_expense_and_reversal_once(self):
+        before=self.inventory_nrv_activity(self.tenant_a,self.actor)
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        self.nrv_post(tenant,admin,warehouse,product,revision=1,
+                      selling=Decimal("12"),selling_cost=Decimal("1"))
+        after=self.inventory_nrv_activity(tenant,self.actor)
+        self.assertEqual(after[0]-before[0],2)
+        self.assertEqual(after[1]-before[1],Decimal("17.50"))
+        self.assertEqual(after[2]-before[2],Decimal("10.00"))
+        self.assertEqual(after[3]-before[3],Decimal("7.50"))
+        self.assertEqual(after[4],date(2026,10,15))
+        day=self.inventory_nrv_activity(
+            tenant,self.actor,start=date(2026,10,16),end=date(2026,11,1))
+        self.assertEqual(day[:4],(0,Decimal("0"),Decimal("0"),Decimal("0")))
+
+    def test_nrv_company_reader_refuses_wrong_actor_tenant_and_period(self):
+        tenant=self.tenant_a
+        for statement,values in (
+            ("SELECT * FROM one_inventory_nrv_company_snapshot(%s,%s)",
+             (tenant,uuid4())),
+            ("SELECT * FROM one_inventory_nrv_period_activity(%s,%s,%s,%s)",
+             (tenant,self.actor,date(2027,1,1),date(2026,1,1))),
+            ("SELECT * FROM one_inventory_nrv_company_snapshot(%s,%s)",
+             (self.tenant_b,self.actor)),
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(tenant,self.actor,statement,values)
 
 if __name__ == "__main__":
     unittest.main()
