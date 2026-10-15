@@ -204,6 +204,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "one_link_goods_vendor_bill(uuid,uuid,uuid,text,integer[],uuid) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_inventory_finance_reconciliation(uuid,uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -3661,6 +3666,118 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT count(*) FROM one_invoice_docs WHERE tenant_id=%s "
             "AND id IN (%s,%s)",
             (tenant,docs[0].id,docs[1].id)).fetchone()[0],1)
+
+
+
+    def inventory_pulse_check(self,tenant,actor,warehouse,product):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT physical_qty,reserved_qty,available_qty,valued_qty,"
+                "valued_amount,unvalued_events,grni_received_value,"
+                "grni_billed_value,grni_outstanding_value,reconciliation_ok "
+                "FROM one_inventory_finance_reconciliation(%s,%s,%s,%s)",
+                (tenant,warehouse,product,actor)).fetchone()
+
+    def test_inventory_finance_pulse_reconciles_stock_cogs_and_vendor_grni(self):
+        tenant,admin,product,warehouse,purchase,sale,received=(
+            self.valued_receipt_for_vendor_bill(Decimal("5")))
+        bill=self.sample_goods_vendor_bill(tenant,Decimal("3"))
+        self.post_matched_vendor_goods(tenant,self.actor,purchase,bill)
+        self.commerce_execute(
+            tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,admin))
+        sent=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,sent,admin))
+        self.value_stock_event(tenant,admin,sent,"cogs")
+        row=self.inventory_pulse_check(tenant,self.actor,warehouse,product)
+        self.assertEqual(row,(
+            Decimal("3"),Decimal("0"),Decimal("3"),
+            Decimal("3"),Decimal("37.50"),0,Decimal("62.50"),
+            Decimal("37.50"),Decimal("25.00"),True
+        ))
+
+    def test_unvalued_stock_detected_and_not_reported_as_book_value(self):
+        tenant,admin,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,admin))
+        evt=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,purchase,evt,admin))
+        before=self.inventory_pulse_check(tenant,admin,warehouse,product)
+        self.assertEqual(before[0:6],(
+            Decimal("2"),Decimal("0"),Decimal("2"),
+            Decimal("0"),Decimal("0"),1))
+        self.assertFalse(before[-1])
+        self.value_stock_event(tenant,admin,evt,"grni")
+        after=self.inventory_pulse_check(tenant,admin,warehouse,product)
+        self.assertEqual(after[0:6],(
+            Decimal("2"),Decimal("0"),Decimal("2"),
+            Decimal("2"),Decimal("25.00"),0))
+        self.assertEqual(after[6:9],(
+            Decimal("25.00"),Decimal("0"),Decimal("25.00")))
+        self.assertTrue(after[-1])
+
+    def test_inventory_pulse_denies_tenant_and_actor_impersonation(self):
+        tenant,admin,product,warehouse,purchase,sale,received=(
+            self.valued_receipt_for_vendor_bill(Decimal("1")))
+        with self.assertRaises(self.psycopg.Error):
+            self.inventory_pulse_check(tenant,uuid4(),warehouse,product)
+        with self.assertRaises(self.psycopg.Error):
+            self.inventory_pulse_check(self.tenant_b,admin,warehouse,product)
+        self.assertTrue(self.inventory_pulse_check(
+            tenant,self.actor,warehouse,product)[-1])
+
+    def test_weighted_average_across_two_purchase_prices_is_booked_not_guessed(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill(Decimal("2")))
+        other_order=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_commercial_orders"
+            "(tenant_id,id,kind,number,partner_id,currency) "
+            "VALUES (%s,%s,'purchase',%s,'TEST-PARTNER','SAR')",
+            (tenant,other_order,"PO-"+other_order.hex))
+        self.admin.execute(
+            "INSERT INTO one_commercial_order_lines "
+            "(tenant_id,order_id,line_no,product_id,warehouse_id,"
+            "ordered_qty,unit_price) VALUES (%s,%s,1,%s,%s,3,20)",
+            (tenant,other_order,product,warehouse))
+        self.commerce_execute(
+            tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,other_order,admin))
+        r2=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,other_order,r2,admin))
+        self.value_stock_event(tenant,admin,r2,"grni")
+        self.commerce_execute(
+            tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,admin))
+        shipment=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_fulfill_commercial_line(%s,%s,1,1,%s,%s)",
+            (tenant,sale,shipment,admin))
+        self.value_stock_event(tenant,admin,shipment,"cogs")
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("4"),Decimal("68.00")))
+        self.assertEqual(self.admin.execute(
+            "SELECT amount FROM one_stock_value_events "
+            "WHERE tenant_id=%s AND stock_event_id=%s",
+            (tenant,shipment)).fetchone()[0],Decimal("17.00"))
+        report=self.inventory_pulse_check(tenant,admin,warehouse,product)
+        self.assertEqual(report[6:9],(
+            Decimal("85.00"),Decimal("0"),Decimal("85.00")))
+        self.assertTrue(report[-1])
 
 
 if __name__ == "__main__":
