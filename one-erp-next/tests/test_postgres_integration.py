@@ -218,6 +218,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         ):
             cls.admin.execute("GRANT EXECUTE ON FUNCTION "+fn+
                               " TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_accept_and_value_customer_return("
+            "uuid,uuid,numeric,uuid,uuid,uuid,text,text,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -3966,6 +3972,136 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
             (tenant,warehouse,product)).fetchone(),
             (Decimal("3"),Decimal("37.50")))
+
+
+
+    def prepare_costed_customer_return(self, accepted=Decimal("2")):
+        tenant,admin,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,admin))
+        self.atomic_stock_post(tenant,admin,purchase,Decimal("4"),"purchase")
+        source,journal,_=self.atomic_stock_post(
+            tenant,admin,sale,Decimal("2"),"sale")
+        quarantine=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name,warehouse_type) "
+            "VALUES (%s,%s,%s,'Return cost quarantine','quarantine')",
+            (tenant,quarantine,"QC-"+quarantine.hex))
+        return_job=uuid4()
+        self.commerce_execute(
+            tenant,admin,
+            "SELECT one_request_return(%s,%s,%s,%s,%s,%s,'Accepted for QC')",
+            (tenant,return_job,source,accepted,quarantine,admin))
+        return tenant,admin,product,warehouse,sale,source,quarantine,return_job
+
+    def post_costed_customer_return(self,tenant,admin,job,qty,
+                                    *,event=None,journal=None,period=None):
+        event=event or uuid4()
+        journal=journal or uuid4()
+        result=self.commerce_execute(
+            tenant,admin,
+            "SELECT one_accept_and_value_customer_return("
+            "%s,%s,%s,%s,%s,%s,'inventory','cogs',%s)",
+            (tenant,job,qty,event,journal,period or self.period_id,admin))
+        return event,journal,result
+
+    def test_customer_return_restores_source_cogs_at_original_cost_not_sale_price(self):
+        tenant,admin,product,warehouse,sale,source,quarantine,job=(
+            self.prepare_costed_customer_return())
+        event,journal,result=self.post_costed_customer_return(
+            tenant,admin,job,Decimal("2"))
+        self.assertEqual(result,job)
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value,currency FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone(),
+            (Decimal("2"),Decimal("25.00"),"SAR"))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone()[0],Decimal("2"))
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,journal)).fetchall(),
+            [("inventory",Decimal("25.00"),Decimal("0")),
+             ("cogs",Decimal("0"),Decimal("25.00"))])
+        self.assertEqual(self.admin.execute(
+            "SELECT source_dispatch_event_id,quantity,amount "
+            "FROM one_customer_return_cost_links "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,job)).fetchone(),
+            (source,Decimal("2"),Decimal("25.00")))
+        self.assertEqual(self.admin.execute(
+            "SELECT movement_kind,qty,amount FROM one_stock_value_events "
+            "WHERE tenant_id=%s AND stock_event_id=%s",
+            (tenant,event)).fetchone(),
+            ("customer_return",Decimal("2"),Decimal("25.00")))
+        self.assertTrue(self.inventory_pulse_check(
+            tenant,admin,quarantine,product)[-1])
+        self.assertEqual(self.read_unified_return_case(tenant,admin,job)[1],
+                         "quarantine")
+
+    def test_accepted_return_costing_rolls_back_stock_on_invalid_gl_period(self):
+        tenant,admin,product,warehouse,sale,source,quarantine,job=(
+            self.prepare_costed_customer_return())
+        event,journal=uuid4(),uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.post_costed_customer_return(
+                tenant,admin,job,Decimal("2"),
+                event=event,journal=journal,period=uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT status,processed_event_id FROM one_return_jobs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,job)).fetchone(),
+            ("requested",None))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone()[0],0)
+        for table,column,key in (
+            ("one_stock_events","id",event),
+            ("one_stock_value_events","stock_event_id",event),
+            ("one_journal_entries","id",journal),
+            ("one_customer_return_cost_links","return_job_id",job),
+        ):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+" WHERE tenant_id=%s AND "+
+                column+"=%s",(tenant,key)).fetchone()[0],0)
+        self.post_costed_customer_return(
+            tenant,admin,job,Decimal("2"),
+            event=event,journal=journal)
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_return_jobs WHERE tenant_id=%s AND id=%s",
+            (tenant,job)).fetchone()[0],"completed")
+
+    def test_customer_return_cost_repeated_acceptance_is_rejected(self):
+        tenant,admin,product,warehouse,sale,source,quarantine,job=(
+            self.prepare_costed_customer_return())
+        self.post_costed_customer_return(tenant,admin,job,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_costed_customer_return(tenant,admin,job,Decimal("1"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_customer_return_cost_links "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,job)).fetchone()[0],1)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone()[0],Decimal("1"))
+
+    def test_customer_return_cost_denies_forged_tenant_and_wrong_role(self):
+        tenant,admin,product,warehouse,sale,source,quarantine,job=(
+            self.prepare_costed_customer_return())
+        with self.assertRaises(self.psycopg.Error):
+            self.post_costed_customer_return(tenant,self.actor,job,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_costed_customer_return(
+                self.tenant_b,admin,job,Decimal("1"))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_return_jobs WHERE tenant_id=%s AND id=%s",
+            (tenant,job)).fetchone()[0],"requested")
 
 
 if __name__ == "__main__":
