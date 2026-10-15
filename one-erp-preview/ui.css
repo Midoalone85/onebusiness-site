@@ -14,3 +14,117 @@
 
 [hidden]{display:none!important}
 .flylink[aria-current=page]{background:#eaf3ff;color:#1256bc}
+
+
+/* ONE ERP COMPACT INTERFACE v2
+   Dense professional layouts on handsets without tiny touch targets.
+   Replaces four oversized KPI cards with one concise 2x2 stats surface. */
+@media(max-width:710px){
+  .topinner{min-height:55px;padding:7px 13px;gap:8px}
+  .brand{gap:9px}
+  .brand-square{width:36px;height:36px;border-radius:10px;font-size:12px;flex:none}
+  .brand-name{font-size:17px;line-height:1.1;letter-spacing:-.35px}
+  .brand-caption{display:none}
+  .header-tools{gap:5px}
+  .head-ghost{padding:7px 9px;min-height:34px;font-size:11px;border-radius:8px}
+  .head-ghost svg{width:14px;height:14px}
+  .navinner{padding:0 9px}
+  .navrail{gap:0}
+  .navitem{padding:10px 10px;min-height:45px;border-bottom-width:2px;font-size:11px;gap:6px}
+  .navitem svg.navicon{width:17px;height:17px}
+  .navitem .chev{width:10px;height:10px}
+  .wrap{padding:12px 12px 20px}
+  .demo-alert{padding:7px 9px;border-radius:9px;margin-bottom:12px;gap:5px;font-size:10px;line-height:1.45}
+  .demo-alert>span:first-child{min-width:0}
+  .demo-alert .demo-pill{display:none}
+  .demo-alert svg{width:13px;height:13px}
+  .crumbs{font-size:10px;gap:5px;margin-bottom:8px}
+  .crumbs svg{width:12px;height:12px}
+  .workspace-back{font-size:11px;padding:3px 0;margin-bottom:6px}
+  .workspace-back svg{width:14px;height:14px}
+  .work-header{min-height:0;flex-direction:row;align-items:center;gap:9px;padding:12px 13px;margin-bottom:11px;border-radius:13px}
+  .work-identity{gap:10px;align-items:center}
+  .work-emblem{width:38px;height:38px;border-radius:11px}
+  .work-emblem svg{width:19px;height:19px}
+  .work-header h1{font-size:20px;letter-spacing:-.4px;line-height:1.2;margin:3px 0 2px}
+  .work-header .eyebrow{font-size:9px;letter-spacing:.45px}
+  .work-header p{font-size:10px;line-height:1.55}
+  .work-header .hside{display:none}
+  .context{background:transparent;box-shadow:none;border:0;padding:0;margin-bottom:12px;border-radius:0}
+  .context-heading{display:none}
+  .context-strip{gap:6px;padding:0 0 3px}
+  .context-item{min-height:36px;border:1px solid #dce7f5;background:white;border-radius:9px;padding:8px 10px;font-size:10px}
+  .context-item.current{background:#155ddd;border-color:#155ddd}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;background:#fff;border:1px solid #dce7f4;border-radius:13px;overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow)}
+  .kpi{min-width:0;min-height:76px;padding:11px 12px;border:0;border-radius:0;background:transparent;box-shadow:none;border-inline-end:1px solid #eaf0f7;border-bottom:1px solid #eaf0f7}
+  .kpi:nth-child(2n){border-inline-end:0}
+  .kpi:nth-last-child(-n+2){border-bottom:0}
+  .kpi-head{gap:5px}
+  .kpi-label{font-size:10px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .kpi-icon{width:27px;height:27px;border-radius:8px;flex:none}
+  .kpi-icon svg{width:15px;height:15px}
+  .kpi-value{font-size:clamp(16px,4.2vw,21px);line-height:1.2;letter-spacing:-.35px;margin:7px 0 0;white-space:nowrap}
+  .kpi-value .ltr{white-space:nowrap}
+  .kpi-note{display:none}
+  .panel{padding:13px;border-radius:13px;margin-bottom:12px}
+  .panel-title{margin-bottom:10px;align-items:start}
+  .panel-title h2{font-size:13px}
+  .panel-title small{font-size:9px}
+  .work-tools{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-inline:contain;margin:2px 0 10px;padding-bottom:5px}
+  .work-tools .btn{flex:none;min-height:37px;padding:8px 10px;font-size:10px;gap:5px}
+  .work-tools .btn svg{width:15px;height:15px}
+  .table-tools{flex-wrap:nowrap;gap:6px;margin-bottom:10px}
+  .table-tools label{min-width:0;gap:6px!important}
+  .table-tools label svg{width:16px;height:16px;flex:none}
+  .filter{min-width:0;max-width:100%;padding:9px 10px;border-radius:9px;font-size:11px}
+  .table-tools .demo-pill{font-size:9px;padding:5px 6px}
+  .tablewrap{border-radius:10px}
+  table{min-width:0}
+  thead{display:none}
+  tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;padding:11px 10px;border-bottom:1px solid #edf2f8;align-items:baseline}
+  tbody tr:last-child{border-bottom:0}
+  td{min-width:0;padding:0;border:0;font-size:11px;overflow-wrap:anywhere}
+  td:first-child{grid-column:1;grid-row:1;font-weight:900;color:#135bc1}
+  td:nth-child(2){grid-column:2;grid-row:1;text-align:end;color:#7185a0;font-size:10px;white-space:normal}
+  td:nth-child(3){grid-column:1;grid-row:2;color:#435d79}
+  td:nth-child(4){grid-column:2;grid-row:2;text-align:end;font-weight:850}
+  td:nth-child(5){grid-column:2;grid-row:3;text-align:end}
+  td .tag{font-size:9px;padding:4px 6px}
+  .table-foot{font-size:9px;margin-top:9px}
+  .module-sections{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .module-link{min-width:0;min-height:67px;padding:10px;gap:9px;align-items:center;border-radius:11px}
+  .module-link .bubble{width:27px;height:27px;border-radius:8px}
+  .module-link .bubble svg{width:15px;height:15px}
+  .module-link strong{font-size:11px;margin:0}
+  .module-link small{display:none}
+  .notice{font-size:10px;padding:10px 11px;margin:7px 0}
+  .footer{font-size:9px;padding:11px 0 16px}
+  .home-head{margin-bottom:13px!important}
+  .home-head h1{font-size:25px;margin:4px 0}
+  .home-head p{font-size:11px}
+  .home-head .btn{min-height:35px;font-size:11px}
+  .grid{gap:10px}
+  .linegraph{max-height:150px}
+  .activity li{padding:9px 0}
+  .appgrid{gap:8px}
+  .appcard{min-height:113px;gap:6px;padding:12px;border-radius:12px}
+  .appcard .big{width:35px;height:35px;border-radius:10px}
+  .appcard .big svg{width:19px;height:19px}
+  .appcard strong{font-size:12px}
+  .appcard span{font-size:9px}
+  .flyout{max-height:calc(100dvh - 111px);padding:8px;width:min(295px,calc(100vw - 20px))}
+  .flyout-head{padding:9px}
+  .flygroup{padding:9px 10px 4px}
+  .flylink{padding:10px;min-height:41px;font-size:11px}
+}
+@media(max-width:380px){
+  .work-header h1{font-size:18px}
+  .kpi{padding:10px;min-height:74px}
+  .kpi-value{font-size:16px}
+  .kpi-label{font-size:9px}
+  .navitem{font-size:10px}
+}
+@media(min-width:711px) and (max-width:1160px){
+  .kpi{min-height:125px}
+  .work-header{min-height:135px}
+}
