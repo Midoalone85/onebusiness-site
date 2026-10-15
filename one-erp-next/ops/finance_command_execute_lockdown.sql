@@ -10,10 +10,11 @@ BEGIN;
 -- PostgreSQL grants EXECUTE on newly created FUNCTIONS to PUBLIC by default.
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 
--- Affect newly created routines owned by the role applying this script.
--- Other owners / migration identities need their own DEFAULT PRIVILEGES
--- set individually. Production deployment must restrict function ownership.
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
+-- GLOBAL default privileges are necessary here: per-schema REVOKE cannot
+-- negate PostgreSQL's global default function EXECUTE grant to PUBLIC.
+-- This applies only to FUTURE functions created by the invoking owner;
+-- every other function-creating migration role needs its own review.
+ALTER DEFAULT PRIVILEGES
  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 
 -- Fail closed if an unrelated function is STILL callable by the restricted
