@@ -274,6 +274,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "TO one_erp_runtime_ci")
         cls.admin.execute("GRANT EXECUTE ON FUNCTION "
           "one_nrv_qa_return_check(uuid,uuid,uuid) TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_issue_reviewed_nrv_customer_credit("
+            "uuid,uuid,uuid,uuid,text,uuid,text,text,uuid,date) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -5668,6 +5674,129 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.commerce_execute(self.tenant_b,admin,
                 "SELECT * FROM one_nrv_qa_return_check(%s,%s,%s)",
                 (self.tenant_b,admin,rma))
+
+    # 032 | Internal, non-taxable customer refund liability/AR credit pilot.
+    # The 030 acceptance, gross recovery and fresh IAS 2 review are separate
+    # already committed transactions. This action atomically credits AR,
+    # debits original revenue and links the immutable reviewed RMA.
+    def nrv_credit_fixture(self,qty=Decimal("2")):
+        tenant,admin,product,warehouse,qa,sold,rma=(
+            self.make_nrv_customer_return(qty))
+        order=self.admin.execute(
+            "SELECT order_id FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s",(tenant,sold)).fetchone()[0]
+        invoice=self.sale_source_invoice(tenant,Decimal("2"))
+        self.post_dispatched_sale_invoice(order,admin,invoice)
+        self.reassess_nrv_return(tenant,admin,rma,qty)
+        return tenant,admin,product,warehouse,qa,rma,invoice
+
+    def issue_reviewed_nrv_credit(self,tenant,actor,rma,invoice,*,
+                                  credit=None,period=None,ar="ar",revenue="sales",
+                                  number=None,issued_on=date(2026,10,15)):
+        credit=credit or uuid4()
+        number=number or ("NRC-"+credit.hex)
+        return credit,self.commerce_execute(
+          tenant,actor,"SELECT one_issue_reviewed_nrv_customer_credit("
+          "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+          (tenant,rma,invoice.id,credit,number,period or self.period_id,
+           ar,revenue,actor,issued_on))
+
+    def test_nrv_reviewed_customer_credit_posts_ar_and_source_revenue_once(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        credit,posted=self.issue_reviewed_nrv_credit(tenant,admin,rma,invoice)
+        self.assertEqual(credit,posted)
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,credit)).fetchall(),[
+               ("sales",Decimal("25"),Decimal("0")),
+               ("ar",Decimal("0"),Decimal("25"))])
+        self.assertEqual(self.admin.execute(
+            "SELECT kind,status,source_invoice_id,net_total,tax_total "
+            "FROM one_invoice_docs WHERE tenant_id=%s AND id=%s",
+            (tenant,credit)).fetchone(),(
+                "customer_credit","issued",invoice.id,Decimal("25"),Decimal("0")))
+        self.assertEqual(self.admin.execute(
+            "SELECT approved_qty,issued_net FROM "
+            "one_nrv_customer_return_credit_links "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,rma)).fetchone(),(Decimal("2"),Decimal("25")))
+        self.assertEqual(self.admin.execute(
+            "SELECT quantity FROM one_customer_return_credits "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,rma)).fetchone()[0],Decimal("2"))
+        self.assertEqual(self.nrv_report(tenant,admin,qa,product),(
+            Decimal("2"),Decimal("2"),Decimal("25"),Decimal("9"),
+            Decimal("16"),Decimal("9"),True))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_audit "
+            "WHERE tenant_id=%s AND doc_id=%s",(tenant,credit)).fetchone()[0],1)
+        for event_type in ("finance.invoice_issued","finance.customer_return_credited"):
+            self.assertEqual(self.admin.execute(
+               "SELECT count(*) FROM one_operation_outbox "
+               "WHERE tenant_id=%s AND event_type=%s AND source_id=%s",
+               (tenant,event_type,credit)).fetchone()[0],1)
+
+    def test_nrv_customer_credit_one_partially_accepted_unit(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=(
+            self.nrv_credit_fixture(Decimal("1")))
+        credit,posted=self.issue_reviewed_nrv_credit(tenant,admin,rma,invoice)
+        self.assertEqual(credit,posted)
+        self.assertEqual(self.admin.execute(
+            "SELECT gross_total FROM one_invoice_docs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,credit)).fetchone()[0],
+            Decimal("12.50"))
+
+    def test_nrv_customer_credit_duplicate_cannot_move_revenue_twice(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        credit,_=self.issue_reviewed_nrv_credit(tenant,admin,rma,invoice)
+        attempted=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.issue_reviewed_nrv_credit(
+                tenant,admin,rma,invoice,credit=attempted)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries "
+            "WHERE tenant_id=%s AND id=%s",(tenant,attempted)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_nrv_customer_return_credit_links "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,rma)).fetchone()[0],1)
+
+    def test_nrv_customer_credit_invalid_period_and_gl_roll_back_every_row(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        for overrides in ({"period":uuid4()},{"revenue":"expense"},{"ar":"grni"}):
+            attempt=uuid4()
+            with self.assertRaises(self.psycopg.Error):
+                self.issue_reviewed_nrv_credit(
+                    tenant,admin,rma,invoice,credit=attempt,**overrides)
+            for table,column in (
+                ("one_invoice_docs","id"),("one_journal_entries","id"),
+                ("one_invoice_audit","doc_id"),
+                ("one_customer_return_credits","credit_invoice_id"),
+                ("one_nrv_customer_return_credit_links","credit_invoice_id")
+            ):
+                self.assertEqual(self.admin.execute(
+                    f"SELECT count(*) FROM {table} "
+                    f"WHERE tenant_id=%s AND {column}=%s",
+                    (tenant,attempt)).fetchone()[0],0)
+        good,_=self.issue_reviewed_nrv_credit(tenant,admin,rma,invoice)
+        self.assertIsNotNone(good)
+
+    def test_nrv_customer_credit_denies_wrong_company_actor_or_source(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        another=self.invoice()
+        self.post_invoice(another)
+        for dest,actor,doc in (
+            (self.tenant_b,admin,invoice),
+            (tenant,uuid4(),invoice),
+            (tenant,admin,another)
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.issue_reviewed_nrv_credit(dest,actor,rma,doc)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_nrv_customer_return_credit_links "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,rma)).fetchone()[0],0)
 
 if __name__ == "__main__":
     unittest.main()
