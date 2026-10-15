@@ -6027,6 +6027,49 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,rma)).fetchone(),
             (Decimal("25"),Decimal("15"),Decimal("10")))
 
+    def test_nrv_concurrent_refund_claim_has_exactly_one_posted_journal(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        barrier=Barrier(2)
+        def recognize():
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True,
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(tenant),))
+                        conn.execute("SELECT set_config('one.actor_id',%s,true)",
+                                     (str(admin),))
+                        barrier.wait(timeout=10)
+                        conn.execute(
+                            "SELECT one_recognize_nrv_customer_refund("
+                            "%s,%s,%s,%s,%s,'ar','sales','refunddue',%s,%s,%s)",
+                            (tenant,rma,invoice.id,uuid4(),self.period_id,admin,
+                             date(2026,10,17),"RMA payment refund claim review"))
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first=pool.submit(recognize)
+            second=pool.submit(recognize)
+            results=(first.result(timeout=35),second.result(timeout=35))
+        self.assertEqual(sorted(results),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*),coalesce(sum(refund_liability),0) "
+            "FROM one_nrv_refund_claims WHERE tenant_id=%s "
+            "AND return_job_id=%s",(tenant,rma)).fetchone(),
+            (1,Decimal("10")))
+        self.assertEqual(self.nrv_refund_exposure(
+            tenant,admin,rma,invoice)[-1],"refund_liability_recognized")
+
     def test_nrv_full_paid_refund_does_not_make_receivable_negative(self):
         tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
         self.post_payment(self.make_payment(invoice,Decimal("25")),
