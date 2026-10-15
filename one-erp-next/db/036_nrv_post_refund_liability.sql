@@ -179,6 +179,45 @@ REVOKE ALL ON one_nrv_refund_claims FROM PUBLIC;
 REVOKE ALL ON FUNCTION one_recognize_nrv_customer_refund(
  uuid,uuid,uuid,uuid,uuid,text,text,text,uuid,date,text) FROM PUBLIC;
 
+-- Payment allocations after a refund claim cannot collect the original
+-- receivable already reversed by the posted claim journal. This is separate
+-- from the previous 004 "paid + issued credits" ceiling guard.
+CREATE FUNCTION one_refund_claim_block_later_receipt()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER AS $
+DECLARE item record; paid numeric(24,3); credited numeric(24,3);
+        reversed_ar numeric(24,3); ceiling numeric(24,3);
+BEGIN
+ IF OLD.status='draft' AND NEW.status='applied'
+    AND NEW.direction='customer_receipt' THEN
+  FOR item IN SELECT a.invoice_id FROM one_payment_allocations a
+      WHERE a.tenant_id=NEW.tenant_id AND a.payment_id=NEW.id
+  LOOP
+   SELECT gross_total INTO ceiling FROM one_invoice_docs
+    WHERE tenant_id=NEW.tenant_id AND id=item.invoice_id;
+   SELECT coalesce(sum(a.amount),0) INTO paid
+    FROM one_payment_allocations a JOIN one_payment_docs p
+      ON p.tenant_id=a.tenant_id AND p.id=a.payment_id
+    WHERE a.tenant_id=NEW.tenant_id AND a.invoice_id=item.invoice_id
+      AND p.status='applied';
+   -- NEW row is already applied by this AFTER UPDATE trigger.
+   SELECT coalesce(sum(c.gross_total),0) INTO credited
+      FROM one_invoice_docs c WHERE c.tenant_id=NEW.tenant_id
+       AND c.source_invoice_id=item.invoice_id AND c.status='issued'
+       AND c.kind='customer_credit';
+   SELECT coalesce(sum(c.ar_reduction),0) INTO reversed_ar
+      FROM one_nrv_refund_claims c WHERE c.tenant_id=NEW.tenant_id
+       AND c.original_invoice_id=item.invoice_id;
+   IF paid+credited+reversed_ar>ceiling THEN
+     RAISE EXCEPTION 'Customer receipt would overpay AR already reduced by return refund claim';
+   END IF;
+  END LOOP;
+ END IF;
+ RETURN NEW;
+END $;
+CREATE TRIGGER refund_claim_later_payment_guard AFTER UPDATE
+ ON one_payment_docs FOR EACH ROW
+ EXECUTE FUNCTION one_refund_claim_block_later_receipt();
+
 -- Read model 034 now includes recognized internal claims and refuses
 -- to propose the same refund after recognition.
 CREATE OR REPLACE FUNCTION one_nrv_return_settlement_exposure(
