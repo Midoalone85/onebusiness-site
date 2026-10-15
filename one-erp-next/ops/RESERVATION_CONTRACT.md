@@ -1,61 +1,67 @@
-# ONE ERP Next | Stock reservation boundary (design and unit-tested policy)
+# ONE ERP Next | Commercial inventory reservation boundary
 
-**Status: draft only.** The original independent commerce prototype now has
-`src/one_erp_core/reservations.py` and `tests/test_reservations.py`.
-These are **pure calculation and authorization proposals**, NOT persisted
-reservations, user-facing actions, or live Oracle features.
+**State: independent prototype, NOT deployed.** Python pure-domain proposals,
+PostgreSQL 14 reservation migration and repeatable CI tests exist on the draft
+finance branch. No Oracle application/server/customer data was changed.
 
-## Stock invariants
+## Domain and storage
 
-For each tenant, warehouse, and product, maintain:
+- `src/one_erp_core/reservations.py`: side-effect-free hold/release plans
+  requiring active company stock-admin membership, a confirmed sale, tenant /
+  location match, finite Decimal quantities with three-place precision, and a
+  new event ID.
+- `db/006_stock_reservations.sql`: per-sales-line `reserved_qty`, immutable
+  `one_reservation_events`, RLS, plus security-invoker SQL functions
+  `one_reserve_sale_line`, `one_release_sale_line` and
+  `one_dispatch_reserved_sale_line`.
+- `tests/test_reservations.py`, `tests/test_postgres_integration.py`:
+  pure-domain and disposable PostgreSQL integration tests, including competing
+  reservation transactions.
 
-- `0 <= reserved <= on_hand`
+## Invariants
+
+- `0 <= warehouse reserved <= on_hand`
 - `available = on_hand - reserved`
-- For each confirmed sales-order line:
-  `fulfilled + line_reserved <= ordered`
-- `line_reserved <= warehouse/product reserved`; all line-held quantities
-  sharing that stock bucket must sum to the persisted `reserved`.
+- `0 <= line fulfilled + line reserved <= ordered`
+- A reservation for sale order A must not be released or consumed on order B.
+- Reservation events cannot be edited/deleted; a repeated event UUID is rejected.
+- Hold, release and reserved dispatch each lock their commercial order and
+  line, update the stock bucket conditionally, and persist the event in one SQL
+  transaction. Failed writes roll back the whole transaction.
 
-Only active company stock administrators may propose holds or releases.
-Accounting-only membership does not grant stock-processing privileges.
-Cross-tenant, cross-warehouse and cross-product stock records are denied.
-Quantities must be positive finite Decimal values with up to three decimals.
-An event ID must be unique in the target tenant.
+The migration does **not** provide a free-form reservation cancellation,
+returns, stock valuation, FIFO/weighted-average costing, tax calculation,
+invoice issuance, actual ledger posting or authenticated HTTP endpoint.
 
-## Planned transactional write boundary (NOT IMPLEMENTED)
+## Critical trust boundary
 
-A future backend-only PostgreSQL service must:
+The new functions are `SECURITY INVOKER` and are revoked from `PUBLIC`.
+Tests deliberately grant broad access to `one_erp_runtime_ci` in an
+isolated disposable database. These grants MUST NOT be reused in production.
 
-1. Verify signed user identity and company membership from trusted sources
-   BEFORE selecting the tenant-specific database; never trust client-supplied
-   tenant or actor GUCs as authentication.
-2. Require a confirmed sales-order line; lock order line and stock balance in
-   a consistent order with `SELECT ... FOR UPDATE`, re-read the authoritative
-   values, and check product/warehouse active status.
-3. Persist a tenant-unique immutable hold/release event with a durable reference
-   to the sales order line, then adjust per-line and global reserved quantities
-   in the SAME database transaction.
-4. Enforce atomic retries: the same event ID plus identical payload must be
-   safely recognized according to the service's explicit idempotency contract;
-   a reused ID with different input must be rejected.
-5. Dispatch from this order's own reservation only, reducing BOTH on-hand
-   and that line's reserved amount. Unreserved dispatch must never consume
-   stock held for another order.
-6. On cancellation/return, write compensating immutable events instead of
-   deleting historical events. No silent overbooking or negative stock.
-7. Use a dedicated limited runtime DB role, not the intentionally overpowered
-   CI role; add concurrency tests for simultaneous competing holds, release vs
-   dispatch and transaction rollback.
+Existing `one.tenant_id`, `one.actor_id`, and `one.commerce_context`
+session variables can be set by direct SQL callers, and therefore are
+**not proof of authentication, tenant rights, or administrative approval**.
+No production-facing role should be granted unrestricted table DML or
+EXECUTE on these routines until a genuinely authenticated, narrowly
+privileged backend has been implemented and security reviewed.
 
-The existing `005_commercial_stock.sql` stores a global `reserved` balance
-but has **no durable per-sales-line reservation or reservation ledger** yet.
-Its existing dispatch path checks `on_hand - reserved`; it therefore cannot
-consume held stock and must be extended before enabling live reservations.
+Before live use:
 
-## Release blocker
+1. Verify trusted identity plus tenant entitlements **before** selecting the
+   isolated company DB; refuse impersonation, disabled users and tenants.
+2. Replace CI grants with narrowly scoped backend identities and independently
+   enforced server-side permissions.
+3. Add durable idempotency for retries: same event and identical payload must
+   return the approved outcome; conflicting reuse must fail. Current SQL
+   rejects all duplicate event IDs, including exact retries.
+4. Add cancellation, return/compensation and allocation history APIs. Do not
+   delete audit events or allow unaudited changes to reserve counters.
+5. Test under stronger concurrency, deadlock/retry scenarios, realistic loads,
+   stock valuation and invoice/journal reconciliation.
+6. Verify full encrypted backup + restore, HTTPS, certificate, role/network
+   boundaries and tenant provisioning; independent security review remains
+   mandatory.
 
-Do not expose reserve/release APIs, advertise the preview as live, merge this
-draft as a production release, or modify the Oracle production database on
-the strength of these policy tests. Financial posting, valuation, taxes,
-cancel/reversal, stock concurrency, backup/restore and authenticated UI are
-separate uncompleted integration gates.
+The standalone finance + stock system is **not yet a published commercial ERP**.
+The static browser demo is fictional and disconnected from this database.
