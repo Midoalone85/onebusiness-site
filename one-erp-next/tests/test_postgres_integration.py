@@ -123,6 +123,16 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_apply_payment(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        # ONE ERP commercial test permissions are broad only in disposable CI.
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_confirm_commercial_order(uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_fulfill_commercial_line(uuid,uuid,integer,numeric,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -1311,6 +1321,156 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(len(audit), 4)
         self.assertIn("revoke_jti", {r[0] for r in audit})
         self.assertTrue(all(jti not in row[1] for row in audit))
+
+
+    def commerce_fixture(self):
+        # Synthetic orders, stock and a separate admin: never live records.
+        tenant, actor = self.tenant_a, uuid4()
+        product, warehouse, incoming, outgoing = (uuid4() for _ in range(4))
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES (%s,%s,'company_admin')", (tenant,actor),
+        )
+        self.admin.execute(
+            "INSERT INTO one_products(tenant_id,id,sku,name) "
+            "VALUES (%s,%s,%s,%s)",
+            (tenant,product,"SKU-"+product.hex,"Test commercial stock"),
+        )
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) "
+            "VALUES (%s,%s,%s,%s)",
+            (tenant,warehouse,"W-"+warehouse.hex,"Test warehouse"),
+        )
+        for order,kind in ((incoming,"purchase"),(outgoing,"sale")):
+            self.admin.execute(
+                "INSERT INTO one_commercial_orders "
+                "(tenant_id,id,kind,number,partner_id,currency) "
+                "VALUES (%s,%s,%s,%s,%s,'SAR')",
+                (tenant,order,kind,"CI-"+order.hex,"TEST-PARTNER"),
+            )
+            self.admin.execute(
+                "INSERT INTO one_commercial_order_lines "
+                "(tenant_id,order_id,line_no,product_id,warehouse_id,"
+                "ordered_qty,unit_price) VALUES (%s,%s,1,%s,%s,5,12.50)",
+                (tenant,order,product,warehouse),
+            )
+        return tenant,actor,product,warehouse,incoming,outgoing
+
+    def commerce_execute(self, tenant, actor, statement, params):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(statement,params).fetchone()[0]
+
+    def test_commerce_postgres_purchase_then_sale_with_event_ledger(self):
+        tenant,actor,product,warehouse,incoming,outgoing = self.commerce_fixture()
+        for order in (incoming,outgoing):
+            self.assertEqual(self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor)), order)
+        receipt,dispatch = uuid4(),uuid4()
+        self.assertEqual(self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,incoming,receipt,actor)), receipt)
+        self.assertEqual(self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,outgoing,dispatch,actor)), dispatch)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (5-3,0))
+        self.assertEqual(self.admin.execute(
+            "SELECT movement_kind,quantity FROM one_stock_events "
+            "WHERE tenant_id=%s AND id IN (%s,%s) ORDER BY movement_kind",
+            (tenant,receipt,dispatch)).fetchall(),
+            [("purchase_receipt",5),("sale_dispatch",3)])
+        self.assertEqual(self.admin.execute(
+            "SELECT fulfilled_qty FROM one_commercial_order_lines "
+            "WHERE tenant_id=%s AND order_id=%s AND line_no=1",
+            (tenant,outgoing)).fetchone()[0],3)
+
+    def test_commerce_postgres_rejects_overselling_and_duplicate_events(self):
+        tenant,actor,product,warehouse,incoming,outgoing = self.commerce_fixture()
+        for order in (incoming,outgoing):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        receipt = uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,incoming,receipt,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+                (tenant,outgoing,uuid4(),actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,1,%s,%s)",
+                (tenant,incoming,receipt,actor))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],2)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s "
+            "AND order_id=%s",(tenant,incoming)).fetchone()[0],1)
+
+    def test_commerce_postgres_rejects_wrong_actor_tenant_and_draft(self):
+        tenant,actor,product,warehouse,incoming,outgoing = self.commerce_fixture()
+        other_actor = uuid4()
+        for who,tid in ((other_actor,tenant),(actor,self.tenant_b)):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(
+                    tid,who,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                    (tid,incoming,who))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,1,%s,%s)",
+                (tenant,incoming,uuid4(),actor))
+
+    def test_commerce_postgres_rejects_stock_tampering_and_event_mutation(self):
+        tenant,actor,product,warehouse,incoming,outgoing = self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,incoming,actor))
+        receipt=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,incoming,receipt,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"UPDATE one_stock_balances SET on_hand=999 "
+                "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s "
+                "RETURNING on_hand", (tenant,warehouse,product))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"DELETE FROM one_stock_events WHERE "
+                "tenant_id=%s AND id=%s RETURNING id", (tenant,receipt))
+
+    def test_commerce_postgres_partial_receipt_limit_and_immutable_order(self):
+        tenant,actor,product,warehouse,incoming,outgoing = self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,incoming,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,incoming,uuid4(),actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+                (tenant,incoming,uuid4(),actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"UPDATE one_commercial_orders SET "
+                "partner_id='TAMPER' WHERE tenant_id=%s AND id=%s "
+                "RETURNING id",(tenant,incoming))
+        self.assertEqual(self.admin.execute(
+            "SELECT fulfilled_qty FROM one_commercial_order_lines "
+            "WHERE tenant_id=%s AND order_id=%s AND line_no=1",
+            (tenant,incoming)).fetchone()[0],3)
 
 
 
