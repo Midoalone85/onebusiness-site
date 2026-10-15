@@ -44,6 +44,11 @@ originally billed. **No customer credit is issued merely on return request.**
   re-availability until an explicit warehouse-admin disposition; only
   previously **accepted customer returns** qualify. Available stock in the
   quarantine bucket is rechecked and locked at write time.
+- `013_quarantine_sale_guards.sql`: sale order lines may only reference
+  ACTIVE `sellable` warehouses, so on-hand returned stock inside
+  `quarantine` cannot be included in new sales or stock reservations.
+  Warehouse classification itself cannot be silently changed after creation.
+  This addresses a real gap in the earlier return prototype.
 - `one_return_case_overview(tenant,return,actor)`: read-only,
   `SECURITY INVOKER` function for PostgreSQL 14, so it does **not** expose
   cross-tenant rows through an owner-rights view. It returns physical case
