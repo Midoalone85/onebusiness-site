@@ -209,6 +209,15 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "one_inventory_finance_reconciliation(uuid,uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        # Paired movement+valuation functions are CI-only executable.
+        for fn in (
+          "one_receive_and_value_goods(uuid,uuid,integer,numeric,uuid,uuid,uuid,text,text,uuid)",
+          "one_ship_and_value_goods(uuid,uuid,integer,numeric,uuid,uuid,uuid,text,text,uuid)",
+          "one_dispatch_reserved_and_value_goods(uuid,uuid,integer,numeric,uuid,uuid,uuid,text,text,uuid)",
+          "one_dispatch_delivery_and_value(uuid,uuid,uuid,uuid,uuid,text,text,uuid)",
+        ):
+            cls.admin.execute("GRANT EXECUTE ON FUNCTION "+fn+
+                              " TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -3778,6 +3787,185 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(report[6:9],(
             Decimal("85.00"),Decimal("0"),Decimal("85.00")))
         self.assertTrue(report[-1])
+
+
+
+    def atomic_stock_post(self,tenant,admin,order,qty,kind,*,event=None,
+                          journal=None,period=None,offset=None):
+        event=event or uuid4()
+        journal=journal or uuid4()
+        fn="one_receive_and_value_goods" if kind=="purchase" else "one_ship_and_value_goods"
+        val=offset or ("grni" if kind=="purchase" else "cogs")
+        result=self.commerce_execute(
+            tenant,admin,
+            "SELECT "+fn+"(%s,%s,1,%s,%s,%s,%s,'inventory',%s,%s)",
+            (tenant,order,qty,event,journal,period or self.period_id,val,admin))
+        return event,journal,result
+
+    def test_atomic_goods_receipt_sale_value_and_audit_are_single_transaction(self):
+        tenant,admin,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,admin))
+        incoming,in_journal,value=self.atomic_stock_post(
+            tenant,admin,purchase,Decimal("5"),"purchase")
+        self.assertEqual(incoming,value)
+        outgoing,out_journal,value=self.atomic_stock_post(
+            tenant,admin,sale,Decimal("2"),"sale")
+        self.assertEqual(outgoing,value)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("3"))
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("3"),Decimal("37.50")))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_value_events WHERE tenant_id=%s "
+            "AND stock_event_id IN (%s,%s)",(tenant,incoming,outgoing)).fetchone()[0],2)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_ledger_audit WHERE tenant_id=%s "
+            "AND entry_id IN (%s,%s)",(tenant,in_journal,out_journal)).fetchone()[0],2)
+
+    def test_atomic_receipt_with_unpostable_period_does_not_receive_stock(self):
+        tenant,admin,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,admin))
+        event,journal=uuid4(),uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.atomic_stock_post(
+                tenant,admin,purchase,Decimal("3"),"purchase",
+                event=event,journal=journal,period=uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT fulfilled_qty FROM one_commercial_order_lines WHERE "
+            "tenant_id=%s AND order_id=%s AND line_no=1",
+            (tenant,purchase)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],0)
+        for table,col in (
+            ("one_stock_events","id"),
+            ("one_stock_value_events","stock_event_id"),
+            ("one_journal_entries","id"),
+        ):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+" WHERE tenant_id=%s AND "
+                +col+"=%s",(tenant,event if table!="one_journal_entries" else journal)
+            ).fetchone()[0],0)
+        self.atomic_stock_post(tenant,admin,purchase,Decimal("3"),"purchase",
+                               event=event,journal=journal)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("3"))
+
+    def test_atomic_sale_wrong_cogs_account_rolls_back_dispatched_units(self):
+        tenant,admin,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,admin))
+        self.atomic_stock_post(tenant,admin,purchase,Decimal("4"),"purchase")
+        bad=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.atomic_stock_post(
+                tenant,admin,sale,Decimal("2"),"sale",
+                event=bad,offset="grni")
+        self.assertEqual(self.admin.execute(
+            "SELECT fulfilled_qty FROM one_commercial_order_lines "
+            "WHERE tenant_id=%s AND order_id=%s AND line_no=1",
+            (tenant,sale)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("4"))
+        self.assertEqual(self.admin.execute(
+            "SELECT book_value FROM one_stock_value_positions WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("50"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s",(tenant,bad)).fetchone()[0],0)
+
+    def test_atomic_delivery_pick_pack_ship_also_posts_cogs(self):
+        tenant,admin,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,admin))
+        self.atomic_stock_post(tenant,admin,purchase,Decimal("5"),"purchase")
+        self.commerce_execute(
+            tenant,admin,"SELECT one_reserve_sale_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,uuid4(),admin))
+        job=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+            (tenant,job,sale,admin))
+        self.delivery_stage(tenant,admin,job,"picked")
+        self.delivery_stage(tenant,admin,job,"packed")
+        shipment,journal=uuid4(),uuid4()
+        result=self.commerce_execute(
+            tenant,admin,
+            "SELECT one_dispatch_delivery_and_value("
+            "%s,%s,%s,%s,%s,'inventory','cogs',%s)",
+            (tenant,job,shipment,journal,self.period_id,admin))
+        self.assertEqual(result,job)
+        self.assertEqual(self.admin.execute(
+            "SELECT status,dispatch_event_id FROM one_delivery_jobs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,job)).fetchone(),
+            ("dispatched",shipment))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("3"),Decimal("0")))
+        self.assertEqual(self.admin.execute(
+            "SELECT amount,journal_id FROM one_stock_value_events "
+            "WHERE tenant_id=%s AND stock_event_id=%s",
+            (tenant,shipment)).fetchone(),
+            (Decimal("25"),journal))
+
+    def test_atomic_reserved_dispatch_failure_does_not_consume_allocation(self):
+        tenant,admin,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,admin))
+        self.atomic_stock_post(tenant,admin,purchase,Decimal("5"),"purchase")
+        self.commerce_execute(
+            tenant,admin,"SELECT one_reserve_sale_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,uuid4(),admin))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,admin,
+                "SELECT one_dispatch_reserved_and_value_goods("
+                "%s,%s,1,2,%s,%s,%s,'inventory','grni',%s)",
+                (tenant,sale,uuid4(),uuid4(),self.period_id,admin))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("5"),Decimal("2")))
+        self.assertEqual(self.admin.execute(
+            "SELECT reserved_qty,fulfilled_qty FROM one_commercial_order_lines "
+            "WHERE tenant_id=%s AND order_id=%s AND line_no=1",
+            (tenant,sale)).fetchone(),
+            (Decimal("2"),Decimal("0")))
+        self.commerce_execute(
+            tenant,admin,
+            "SELECT one_dispatch_reserved_and_value_goods("
+            "%s,%s,1,2,%s,%s,%s,'inventory','cogs',%s)",
+            (tenant,sale,uuid4(),uuid4(),self.period_id,admin))
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("3"),Decimal("37.50")))
 
 
 if __name__ == "__main__":
