@@ -6010,6 +6010,23 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "AND d.direction='customer_receipt' AND d.status='applied'",
             (tenant,invoice.id)).fetchone()[0],1)
 
+    def test_nrv_refund_recognized_ar_cannot_collect_same_customer_balance_again(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        attempted=self.make_payment(invoice,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_payment(attempted,invoice,outstanding=Decimal("15"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_payment_docs WHERE tenant_id=%s AND id=%s",
+            (tenant,attempted.id)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT gross_return_amount,ar_reduction,refund_liability "
+            "FROM one_nrv_refund_claims WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,rma)).fetchone(),
+            (Decimal("25"),Decimal("15"),Decimal("10")))
+
     def test_nrv_full_paid_refund_does_not_make_receivable_negative(self):
         tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
         self.post_payment(self.make_payment(invoice,Decimal("25")),
