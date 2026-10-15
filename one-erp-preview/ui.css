@@ -11,3 +11,6 @@
 @media(max-width:380px){.kpis{gap:9px}.kpi{padding:12px;min-height:125px}.kpi-value{font-size:19px}.head-ghost.hide-small{display:none}.brand{gap:8px}.appcard{min-height:130px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.appcard:hover{transform:none}.flyout{animation:none}}
 @media print{.site-head,.demo-alert,.work-tools,.context,.workspace-back,.footer,.table-tools,.hside,.appgrid{display:none!important}body{background:white}.wrap{padding:0}.panel,.kpi,.work-header{box-shadow:none;break-inside:avoid}table{min-width:0}}
+
+[hidden]{display:none!important}
+.flylink[aria-current=page]{background:#eaf3ff;color:#1256bc}
