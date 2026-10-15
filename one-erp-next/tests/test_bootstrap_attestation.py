@@ -8,6 +8,7 @@ import unittest
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
+from unittest.mock import patch
 from uuid import uuid4
 
 from cryptography.hazmat.primitives import serialization
@@ -15,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from one_erp_core.bootstrap_attestation import (
     InvalidBootstrapEvidence, verify_bootstrap_attestation,
+    _decode_unpadded,
 )
 
 
@@ -166,6 +168,30 @@ class TenantBootstrapAttestationTests(unittest.TestCase):
         signed["expected_issuer"] = "https://arbitrary.example/"
         with self.assertRaises(InvalidBootstrapEvidence):
             verify_bootstrap_attestation(**signed)
+
+    def test_oversized_attestation_rejected_before_base64_decode(self):
+        # Huge attacker-controlled text must not trigger full-input regex or
+        # decoder allocation, even before the Ed25519 signature is checked.
+        with patch(
+            "one_erp_core.bootstrap_attestation.base64.urlsafe_b64decode",
+            side_effect=AssertionError("decoder must never see huge input"),
+        ):
+            with self.assertRaises(InvalidBootstrapEvidence):
+                _decode_unpadded("A" * 100_000, max_bytes=1400)
+            with self.assertRaises(InvalidBootstrapEvidence):
+                _decode_unpadded("A" * 100_000, max_bytes=64)
+
+    def test_attestation_payload_and_signature_bounds(self):
+        valid = self.args()
+        valid["claims_b64"] = "A" * 100_000
+        with self.assertRaises(InvalidBootstrapEvidence):
+            verify_bootstrap_attestation(**valid)
+        valid = self.args()
+        valid["signature_b64"] = "A" * 100_000
+        with self.assertRaises(InvalidBootstrapEvidence):
+            verify_bootstrap_attestation(**valid)
+        # A signed, otherwise valid checkpoint still works after tightening.
+        self.assertEqual(verify_bootstrap_attestation(**self.args()).job_id, self.job)
 
 
 if __name__ == "__main__":
