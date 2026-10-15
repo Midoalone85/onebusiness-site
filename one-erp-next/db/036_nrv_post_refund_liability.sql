@@ -137,7 +137,7 @@ BEGIN
   INTO prev_gross,prev_ar,prev_refund FROM one_nrv_refund_claims
   WHERE tenant_id=p_tenant AND original_invoice_id=p_original;
  gross=exposure.estimated_credit_gross;
- available_ar=exposure.open_receivable-prev_ar;
+ available_ar=exposure.open_receivable;
  IF available_ar<0 OR
     prev_gross+gross+exposure.issued_customer_credits >
        exposure.original_invoice_gross THEN
@@ -146,7 +146,7 @@ BEGIN
  ar=least(gross,available_ar);
  due=gross-ar;
  IF due<=0 OR due+prev_refund>exposure.applied_customer_receipts
-   OR ar+prev_ar>exposure.open_receivable THEN
+   OR ar>exposure.open_receivable THEN
    RAISE EXCEPTION 'No paid amount available for backed refund liability';
  END IF;
  INSERT INTO one_journal_entries
