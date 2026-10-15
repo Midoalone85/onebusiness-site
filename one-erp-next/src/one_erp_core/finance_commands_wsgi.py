@@ -39,18 +39,18 @@ _ALLOWED_FIELDS = {
     "post_soft_adjustment": frozenset({"action", "tenant", "journal_id"}),
 }
 _SQL = {
-    "request_soft_close": "SELECT one_request_period_soft_close(%s,%s,%s)",
-    "approve_soft_close": "SELECT one_approve_period_soft_close(%s,%s,%s)",
+    "request_soft_close": "SELECT public.one_request_period_soft_close(%s,%s,%s)",
+    "approve_soft_close": "SELECT public.one_approve_period_soft_close(%s,%s,%s)",
     "request_soft_adjustment": (
-        "SELECT one_request_soft_adjustment_lines("
+        "SELECT public.one_request_soft_adjustment_lines("
         "%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s)"
     ),
-    "approve_soft_adjustment": "SELECT one_approve_soft_adjustment(%s,%s,%s)",
-    "post_soft_adjustment": "SELECT one_post_journal(%s,%s,%s)",
+    "approve_soft_adjustment": "SELECT public.one_approve_soft_adjustment(%s,%s,%s)",
+    "post_soft_adjustment": "SELECT public.one_post_journal(%s,%s,%s)",
 }
 _POST_CHECK = (
-    "SELECT 1 FROM one_soft_adjustment_requests r "
-    "JOIN one_soft_adjustment_approvals a ON "
+    "SELECT 1 FROM public.one_soft_adjustment_requests r "
+    "JOIN public.one_soft_adjustment_approvals a ON "
     "a.tenant_id=r.tenant_id AND a.request_id=r.id "
     "WHERE r.tenant_id=%s AND r.journal_id=%s AND r.requested_by=%s"
 )
@@ -193,6 +193,10 @@ def execute_verified_finance_command(connection, *, identity, command: dict):
     operation = command["action"]
     with connection.transaction():
         with connection.cursor() as cur:
+            # Never trust a pooled connection's or role's inherited
+            # search_path. Pin PG builtins first, app schema explicitly,
+            # and pg_temp last (otherwise it may shadow relation names).
+            cur.execute("SET LOCAL search_path = pg_catalog, public, pg_temp")
             # PostgreSQL SET LOCAL tied to this transaction, not a retained
             # pooled session or anything received from client JSON.
             cur.execute("SELECT set_config('one.tenant_id',%s,true)",
