@@ -4433,5 +4433,55 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (Decimal("5"),Decimal("85")))
 
 
+
+    def test_grni_report_nets_costed_supplier_returns_and_matched_bills(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill(Decimal("5")))
+        job=self.request_costed_vendor_return(
+            tenant,admin,receipt,Decimal("2"))
+        returned,journal,_=self.complete_costed_vendor_return(
+            tenant,admin,job)
+        pending=self.inventory_pulse_check(tenant,admin,warehouse,product)
+        self.assertEqual(pending[0:6],(
+            Decimal("3"),Decimal("0"),Decimal("3"),Decimal("3"),
+            Decimal("37.50"),0
+        ))
+        self.assertEqual(pending[6:9],(
+            Decimal("62.50"),Decimal("0"),Decimal("37.50")
+        ))
+        self.assertTrue(pending[-1])
+        bill=self.sample_goods_vendor_bill(tenant,Decimal("3"))
+        self.post_matched_vendor_goods(
+            tenant,self.actor,purchase,bill)
+        posted=self.inventory_pulse_check(tenant,admin,warehouse,product)
+        self.assertEqual(posted[6:9],(
+            Decimal("62.50"),Decimal("37.50"),Decimal("0")
+        ))
+        self.assertTrue(posted[-1])
+        trace=self.fetch_return_timeline(tenant,admin,job)
+        self.assertIn(
+            ("finance.journal_posted",journal),
+            {(event,source) for _,event,source in trace}
+        )
+        self.assertIn(
+            ("stock.vendor_returned",returned),
+            {(event,source) for _,event,source in trace}
+        )
+
+    def test_vendor_return_legacy_unvalued_is_flagged_as_reconciliation_error(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill(Decimal("5")))
+        job=self.request_costed_vendor_return(
+            tenant,admin,receipt,Decimal("1"))
+        self.commerce_execute(
+            tenant,admin,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+            (tenant,job,uuid4(),admin))
+        report=self.inventory_pulse_check(tenant,admin,warehouse,product)
+        self.assertEqual(report[0],Decimal("4"))
+        self.assertEqual(report[3],Decimal("5"))
+        self.assertEqual(report[5],1)
+        self.assertFalse(report[-1])
+
+
 if __name__ == "__main__":
     unittest.main()
