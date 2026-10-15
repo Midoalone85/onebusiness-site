@@ -53,3 +53,13 @@ The pipeline `.github/workflows/one-erp-next-finance-tests.yml` runs Python test
 - Database custom transaction settings for tenant, actor and function context flags can be set by any account with raw SQL access. They are NOT unspoofable security principals. No untrusted user may receive a SQL connection, direct table DML, or function execution. Before production, implement trusted backend authentication, per-tenant DB credentials, table-level least privilege, secure stored procedures or a hardened service-only role, and external audit.
 - Dedicated database per tenant remains the planned production security boundary; shared-tenant RLS and broad CI fixture grants are for prototype testing only. Do NOT deploy these test privileges.
 - The development branch and GitHub test runner do not establish that the system is deployed or that any invoice is legally valid in Saudi Arabia.
+
+
+## Read-only finance reports and presentation (current prototype)
+
+- The balance sheet derives assets, liabilities, equity and *all remaining unclosed revenue/expense* from original posted journals, with source journal IDs for investigation. This is not yet a formal fiscal-year-close or audited-report engine.
+- Account-by-account general ledger detail provides opening balance, chronological debit/credit movement, running balance, closing balance and original journal references. Debit-minus-credit is a signed GL convention, not a bank statement representation.
+- Finance report domain access uses membership checks and refuses mixed tenants, currencies, duplicate or imbalanced posted source entries. Trusted identity and complete database snapshots are REQUIRED; client-supplied memberships are not authentication.
+- The presentation module creates escaped, responsive Arabic RTL and English LTR HTML with print-oriented A4 layout and a visible accounting-equation discrepancy indicator. No PDF server, reporting endpoint or final graphical web dashboard is deployed.
+- Comparative P&L inspects adjacent equal-duration periods and highlights expense growth, revenue decline and loss based on caller-chosen Decimal thresholds. These are rule-based explanatory flags, NOT fraud accusations, forecasts or AI certainties.
+- Publishing production financial statements requires legal entity name/identity, reporting currency rules, opening/closing balances, treatment of prior-year earnings and equity, consolidation, audit approvals, backups, user-role security and end-to-end browser tests.
