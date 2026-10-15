@@ -4629,9 +4629,15 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(pulse[7],Decimal("62.50"))
         self.assertEqual(pulse[8],Decimal("0"))
         self.assertTrue(pulse[-1])
-        events=self.commerce_execute(
-            tenant,admin,"SELECT event_type,source_id FROM "
-            "one_return_case_timeline(%s,%s,%s)",(tenant,job,admin),fetchall=True)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(admin),))
+            events=self.db.execute(
+                "SELECT event_type,source_id FROM "
+                "one_return_case_timeline(%s,%s,%s)",
+                (tenant,job,admin)).fetchall()
         self.assertIn(("finance.invoice_issued",credit),events)
         self.assertIn(("finance.journal_posted",credit),events)
 
