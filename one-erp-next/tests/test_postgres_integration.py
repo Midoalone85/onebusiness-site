@@ -8445,5 +8445,258 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "'one_erp_finance_command_executor',%s,'EXECUTE')",
             (signature,)).fetchone()[0])
 
+
+    # Stage-specific tenant fixture: never contaminate the shared tenant_a
+    # bookkeeping used by prior-period-close and reporting tests.
+    def commerce_fixture_055(self):
+        tenant,owner,product,warehouse,purchase,sale=(
+            uuid4(),uuid4(),uuid4(),uuid4(),uuid4(),uuid4())
+        self.admin.execute(
+            "INSERT INTO one_tenants(id,company_name) "
+            "VALUES(%s,'Isolated stage 055 tenant')",(tenant,))
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'company_admin')",(tenant,owner))
+        self.admin.execute(
+            "INSERT INTO one_products(tenant_id,id,sku,name) "
+            "VALUES(%s,%s,%s,'Warehouse 055 test product')",
+            (tenant,product,'SKU-'+product.hex))
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) "
+            "VALUES(%s,%s,%s,'Warehouse 055')",
+            (tenant,warehouse,'WH-'+warehouse.hex))
+        for order,kind in ((purchase,'purchase'),(sale,'sale')):
+            self.admin.execute(
+                "INSERT INTO one_commercial_orders "
+                "(tenant_id,id,kind,number,partner_id,currency) "
+                "VALUES(%s,%s,%s,%s,'CI-PARTNER','SAR')",
+                (tenant,order,kind,'CI-'+order.hex))
+            self.admin.execute(
+                "INSERT INTO one_commercial_order_lines "
+                "(tenant_id,order_id,line_no,product_id,warehouse_id,"
+                "ordered_qty,unit_price) VALUES(%s,%s,1,%s,%s,5,12.50)",
+                (tenant,order,product,warehouse))
+        return tenant,owner,product,warehouse,purchase,sale
+
+    def prepare_outbound_delivery_055(self):
+        tenant,owner,product,warehouse,purchase,sale=(
+            self.commerce_fixture_055())
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,owner))
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,uuid4(),owner))
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_reserve_sale_line(%s,%s,1,4,%s,%s)",
+            (tenant,sale,uuid4(),owner))
+        return tenant,owner,product,warehouse,purchase,sale
+
+    # 055 | Source-event permission gates protect old commerce APIs and their
+    # accounting/physical stock side effects; existing admin-only checks
+    # remain, so new ALLOW does not yet delegate through those legacy paths.
+    def source_permission_055(self,tenant,owner,reviewer,permission,decision):
+        proposal=self.propose_permission_048(
+            tenant,owner,permission,decision,target_user=owner)
+        self.assertEqual(self.approve_permission_048(
+            tenant,reviewer,proposal),proposal)
+        return proposal
+
+    def commerce_055_reviewers(self,tenant):
+        reviewer=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'accountant')",(tenant,reviewer))
+        return reviewer
+
+    def test_055_sales_purchase_confirmation_are_separate_user_rights(self):
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        reviewer=self.commerce_055_reviewers(tenant)
+        self.source_permission_055(
+            tenant,owner,reviewer,'sales.order.confirm','deny')
+        self.assertFalse(self.has_permission_048(
+            tenant,owner,'sales.order.confirm'))
+        self.assertTrue(self.has_permission_048(
+            tenant,owner,'purchase.order.confirm'))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,sale,owner))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_commercial_orders "
+            "WHERE tenant_id=%s AND id=%s",(tenant,sale)
+        ).fetchone()[0],"draft")
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,owner)),purchase)
+        self.source_permission_055(
+            tenant,owner,reviewer,'sales.order.confirm','allow')
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,owner)),sale)
+        self.assertFalse(self.commerce_execute(
+            self.tenant_b,owner,
+            "SELECT one_source_actor_permitted(%s,%s,%s)",
+            (tenant,owner,'sales.order.confirm')))
+
+    def test_055_receipt_and_dispatch_denials_roll_back_stock_and_order(self):
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        reviewer=self.commerce_055_reviewers(tenant)
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,owner))
+        deny_receipt=self.source_permission_055(
+            tenant,owner,reviewer,'inventory.purchase.receive','deny')
+        receipt=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+                (tenant,purchase,receipt,owner))
+        self.assertEqual(self.admin.execute(
+            "SELECT fulfilled_qty FROM one_commercial_order_lines "
+            "WHERE tenant_id=%s AND order_id=%s AND line_no=1",
+            (tenant,purchase)).fetchone()[0],Decimal("0"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s",(tenant,receipt)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],0)
+        self.source_permission_055(
+            tenant,owner,reviewer,'inventory.purchase.receive','allow')
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,purchase,receipt,owner)),receipt)
+        self.source_permission_055(
+            tenant,owner,reviewer,'inventory.sale.dispatch','deny')
+        dispatch=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+                (tenant,sale,dispatch,owner))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("3"))
+        self.assertEqual(self.admin.execute(
+            "SELECT fulfilled_qty FROM one_commercial_order_lines "
+            "WHERE tenant_id=%s AND order_id=%s AND line_no=1",
+            (tenant,sale)).fetchone()[0],Decimal("0"))
+        self.assertFalse(self.admin.execute(
+            "SELECT EXISTS(SELECT 1 FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s)",
+            (tenant,dispatch)).fetchone()[0])
+        self.source_permission_055(
+            tenant,owner,reviewer,'inventory.sale.dispatch','allow')
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,dispatch,owner)),dispatch)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("1"))
+
+    def test_055_warehouse_reservation_permission_separate_from_dispatch(self):
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        reviewer=self.commerce_055_reviewers(tenant)
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,owner))
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,4,%s,%s)",
+            (tenant,purchase,uuid4(),owner))
+        self.source_permission_055(
+            tenant,owner,reviewer,'inventory.sale.reserve','deny')
+        reservation=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "SELECT one_reserve_sale_line(%s,%s,1,2,%s,%s)",
+                (tenant,sale,reservation,owner))
+        self.assertEqual(self.admin.execute(
+            "SELECT reserved FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("0"))
+        self.assertEqual(self.admin.execute(
+            "SELECT reserved_qty FROM one_commercial_order_lines WHERE "
+            "tenant_id=%s AND order_id=%s AND line_no=1",
+            (tenant,sale)).fetchone()[0],Decimal("0"))
+        self.source_permission_055(
+            tenant,owner,reviewer,'inventory.sale.reserve','allow')
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,
+            "SELECT one_reserve_sale_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,reservation,owner)),reservation)
+
+    def test_055_customer_return_request_and_review_separately_restrict(self):
+        tenant,owner,product,warehouse,purchase,sale=(
+            self.prepare_outbound_delivery_055())
+        reviewer=self.commerce_055_reviewers(tenant)
+        delivery,dispatch,quarantine=uuid4(),uuid4(),uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses("
+            "tenant_id,id,code,name,warehouse_type) "
+            "VALUES(%s,%s,%s,'QA storage','quarantine')",
+            (tenant,quarantine,"Q-"+quarantine.hex))
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+            (tenant,delivery,sale,owner))
+        for stage in ("picked","packed"):
+            self.delivery_stage(tenant,owner,delivery,stage)
+        self.delivery_stage(tenant,owner,delivery,"dispatched",dispatch)
+        request=uuid4()
+        self.source_permission_055(
+            tenant,owner,reviewer,'sales.return.request','deny')
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "SELECT one_request_return(%s,%s,%s,1,%s,%s,%s)",
+                (tenant,request,dispatch,quarantine,owner,"Checked item"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_return_jobs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,request)).fetchone()[0],0)
+        self.source_permission_055(
+            tenant,owner,reviewer,'sales.return.request','allow')
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_request_return(%s,%s,%s,1,%s,%s,%s)",
+            (tenant,request,dispatch,quarantine,owner,"Checked item"))
+        self.source_permission_055(
+            tenant,owner,reviewer,'inventory.customer_return.review','deny')
+        accepted_event=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+                (tenant,request,accepted_event,owner))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_return_jobs WHERE "
+            "tenant_id=%s AND id=%s",(tenant,request)).fetchone()[0],
+            "requested")
+        self.assertFalse(self.admin.execute(
+            "SELECT EXISTS(SELECT 1 FROM one_stock_events WHERE "
+            "tenant_id=%s AND id=%s)",
+            (tenant,accepted_event)).fetchone()[0])
+        self.source_permission_055(
+            tenant,owner,reviewer,'inventory.customer_return.review','allow')
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+            (tenant,request,accepted_event,owner)),request)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone()[0],Decimal("1"))
+
 if __name__ == "__main__":
     unittest.main()
