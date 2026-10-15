@@ -94,3 +94,21 @@ Correct double-entry and locally passing CI tests are **necessary but not
 sufficient** to claim full IFRS/SOCPA compliance. External reporting requires
 appropriate accounting-policy elections, completeness, judgement, verified
 numbers, reconciliations, disclosures, tax law and professional sign-off.
+
+
+## IAS 2 NRV preliminary control, added 2026-10-15
+
+Pure-policy module: src/one_erp_core/inventory_nrv_policy.py
+Tests: tests/test_inventory_nrv_policy.py
+
+Given trusted tenant/item/warehouse original inventory cost, current
+carrying amount, independent source-evidenced expected selling price and
+the necessary completion and selling costs, the engine compares original
+cost to estimated NRV. It proposes an expense/write-down entry or an
+expense reversal capped by the original cost (never revalue inventory
+above the unreduced original cost). Exact monetary precision, reporting
+period, company, currency and approved GL accounts are validated.
+A proposal does NOT post, alter balances, assert external market values,
+or prove approval. Inventory item grouping, FIFO/specific-id source cost,
+zero-NRV carrying buckets, write-down ledgers, accounting-policy change
+controls, disclosure and actual atomic ledger posting remain prerequisites.
