@@ -80,3 +80,33 @@ CI runs the 003 state machine in a disposable shared control-plane
 database and physical database readiness preflight against separately
 created disposable finance databases. **All infrastructure stages in
 the state-machine tests use explicitly synthetic CI digests**.
+
+
+## Signed independent stage attestations (new experimental verifier)
+
+`src/one_erp_core/bootstrap_attestation.py` accepts **only pinned Ed25519
+public keys and exact trusted backend scope**. It rejects altered signatures,
+foreign tenants/jobs/operators/events, wrong stages, malformed or duplicate
+JSON claims, noncanonical encoding, missing evidence digests and timestamps
+outside a strictly limited freshness window of ten minutes.
+
+`src/one_erp_core/attested_bootstrap_service.py` demonstrates a **trusted
+backend-only** transition from independently signed evidence to the existing
+audit-journal procedure, in one control-plane database transaction.
+It does not create databases, route HTTPS, grant users, or generate any
+private signing keys. Test signer keys exist only in temporary CI memory.
+
+**Critical remaining limitation:** the signature verifies that a pinned
+authority signed a claim, NOT that a real physical customer database,
+a backup restore or a TLS route passed verification. A genuine evidence
+signing service, its key custody/rotation, audited approval workflow,
+reliable evidence collection and authorization separation are all missing.
+The underlying SQL procedure still accepts arbitrary 32-byte digests from
+anyone granted its backend-only provisioning role. A production deployment
+must close that bypass with restricted grants and an enforced server-side
+signed-evidence path before enabling real tenants.
+
+A direct automatic database CREATE/DROP runtime or production-side runner
+is not included here. The disposable PostgreSQL database separation tests
+remain the only infrastructure exercise. The user-facing site remains a
+fictional-data preview.
