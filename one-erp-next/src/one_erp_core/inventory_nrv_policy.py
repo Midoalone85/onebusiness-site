@@ -97,7 +97,7 @@ def propose_inventory_nrv_adjustment(
     price = _safe_decimal(estimate.per_unit_sale_price)
     completion = _safe_decimal(estimate.per_unit_completion_cost)
     sell = _safe_decimal(estimate.per_unit_selling_cost)
-    if qty <= 0 or original <= 0 or carried > original or carried <= 0:
+    if qty <= 0 or original <= 0 or carried > original:
         raise AccountingError("Valued positive inventory with valid prior write-down required")
     per_unit_nrv = price - completion - sell
     if per_unit_nrv < 0:
