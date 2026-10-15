@@ -14,9 +14,9 @@ const workspace=fs.readFileSync(path.join(root,'workspace','index.html'),'utf8')
 
 const moduleViews={
  accounting:['overview','journals','invoices','bills','payments','bank','accounts','tax','statements'],
- sales:['overview','quotes','orders','invoices','customers'],
- purchasing:['overview','requests','orders','bills','suppliers'],
- inventory:['overview','products','receipts','transfers','warehouses','valuation'],
+ sales:['overview','quotes','orders','invoices','deliveries','proof','customers'],
+ purchasing:['overview','requests','orders','receiving','bills','suppliers'],
+ inventory:['overview','products','receipts','picking','deliveries','quality','transfers','warehouses','valuation'],
  crm:['overview','leads','pipeline','activities','contacts'],
  healthcare:['overview','rooms','patients','appointments','doctors','lab','radiology','pharmacy','meals'],
  hr:['overview','employees','attendance','payroll','leaves','contracts'],
@@ -92,7 +92,7 @@ test('every module page renders top modules, own page, back and contextual links
    }
   }
  }
- assert.equal(cases,102);
+ assert.equal(cases,114);
 });
 
 test('homepage shows all eight horizontal modules and navigable links',()=>{
@@ -214,4 +214,42 @@ test('search empty result never counts placeholder as a record and keeps live co
  fire('');
  assert.equal(rows.every(x=>!x.hidden),true);
  assert.match(counter.textContent,/2 \/ 2/);
+});
+
+test('delivery and receiving routes share stable fictional references across modules',()=>{
+ for(const lang of ['ar','en']){
+  const sale=setup({page:'workspace',module:'sales',view:'deliveries',lang});
+  const stock=setup({page:'workspace',module:'inventory',view:'deliveries',lang});
+  const receiving=setup({page:'workspace',module:'purchasing',view:'receiving',lang});
+  const incoming=setup({page:'workspace',module:'inventory',view:'quality',lang});
+  for(const m of [sale,stock]){
+   assert.match(m.main,/DEL-2026-006/);
+   assert.match(m.main,/SO-2026-024/);
+   assert.match(m.main,/class="related-workflow"/);
+  }
+  for(const m of [receiving,incoming]){
+   assert.match(m.main,/REC-2026-003/);
+   assert.match(m.main,/PO-2026-011/);
+   assert.match(m.main,/class="related-workflow"/);
+  }
+  assert.match(sale.main,/module=inventory&view=picking/);
+  assert.match(stock.main,/module=sales&view=proof/);
+  assert.match(receiving.main,/module=accounting&view=bills/);
+  assert.match(incoming.main,/module=purchasing&view=receiving/);
+  assert.match(receiving.main,/DEMO DATA/);
+ }
+});
+test('stage-specific modules preserve separate URLs, bilingual titles and demo actions',()=>{
+ for(const lang of ['ar','en']){
+  for(const [module,view] of [
+    ['sales','proof'],['inventory','picking'],['inventory','quality'],
+    ['purchasing','receiving']
+  ]){
+    const r=setup({page:'workspace',module,view,lang});
+    assert.ok(r.main.includes('module='+module+'&view='+view));
+    assert.match(r.main,/id="backBtn"/);
+    assert.match(r.main,/data-action="demo"/);
+    assert.match(r.main,/id="recordSearch"/);
+  }
+ }
 });
