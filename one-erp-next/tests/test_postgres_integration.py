@@ -44,6 +44,17 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         migration_dir = Path(__file__).resolve().parents[1] / "db"
         for migration in sorted(migration_dir.glob("[0-9][0-9][0-9]_*.sql")):
             cls.admin.execute(migration.read_text(encoding="utf-8"), prepare=False)
+        cls.admin.execute(
+            (migration_dir.parent / "ops" / "report_reader_privileges.sql").read_text(encoding="utf-8"),
+            prepare=False,
+        )
+        cls.admin.execute(
+            "CREATE ROLE one_erp_report_ci LOGIN PASSWORD 'ci_report_only' "
+            "NOSUPERUSER NOBYPASSRLS"
+        )
+        cls.admin.execute(
+            "GRANT one_erp_finance_report_reader TO one_erp_report_ci"
+        )
         # Ephemeral CI-only role. The broad DML grants below allow tests to
         # verify RLS and triggers; never copy them into production grants.
         cls.admin.execute(
@@ -74,6 +85,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
             dbname=os.environ.get("ONE_TEST_PG_DB", "one_erp_test"),
             user="one_erp_runtime_ci", password="ci_only_password", autocommit=True,
+        )
+        cls.reporting_db = psycopg.connect(
+            host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
+            port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
+            dbname=os.environ.get("ONE_TEST_PG_DB", "one_erp_test"),
+            user="one_erp_report_ci", password="ci_report_only", autocommit=True,
         )
         cls.tenant_a, cls.tenant_b, cls.actor = uuid4(), uuid4(), uuid4()
         cls.period_id = uuid4()
@@ -121,6 +138,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        if hasattr(cls, "reporting_db"):
+            cls.reporting_db.close()
         if hasattr(cls, "db"):
             cls.db.close()
         if hasattr(cls, "admin"):
@@ -565,6 +584,47 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertIn("ONE ERP",response.body)
         self.assertIn(str(report_entry.id),response.body)
         self.assertNotIn("test-session",response.body)
+
+
+
+    def test_restricted_reporting_role_reads_and_never_writes(self):
+        self.post(self.fresh_entry())
+        snapshot = load_finance_snapshot(
+            self.reporting_db, tenant_id=self.tenant_a, actor_id=self.actor,
+            as_of=date(2026,10,15),
+        )
+        self.assertTrue(snapshot.entries)
+        self.assertEqual(snapshot.company_name,"Test Tenant")
+        with self.reporting_db.transaction():
+            self.reporting_db.execute(
+                "SELECT set_config('one.tenant_id',%s,true)",
+                (str(self.tenant_a),),
+            )
+            privileges = self.reporting_db.execute(
+                """SELECT has_table_privilege(current_user,'one_accounts','SELECT'),
+                          has_table_privilege(current_user,'one_accounts','UPDATE'),
+                          has_table_privilege(current_user,'one_invoice_docs','SELECT'),
+                          has_function_privilege(current_user,
+                            'one_post_journal(uuid,uuid,uuid)','EXECUTE')"""
+            ).fetchone()
+            self.assertEqual(privileges,(True,False,False,False))
+        with self.assertRaises(self.psycopg.Error):
+            with self.reporting_db.transaction():
+                self.reporting_db.execute(
+                    "SELECT set_config('one.tenant_id',%s,true)",
+                    (str(self.tenant_a),),
+                )
+                self.reporting_db.execute(
+                    "UPDATE one_accounts SET name='Illegal write' WHERE tenant_id=%s",
+                    (self.tenant_a,),
+                )
+
+    def test_report_role_still_requires_active_db_membership(self):
+        with self.assertRaises(Exception):
+            load_finance_snapshot(
+                self.reporting_db, tenant_id=self.tenant_b,
+                actor_id=self.actor, as_of=date(2026,10,15),
+            )
 
 
 
