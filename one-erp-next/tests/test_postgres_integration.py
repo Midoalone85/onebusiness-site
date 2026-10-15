@@ -1977,7 +1977,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT event FROM one_fulfillment_audit WHERE tenant_id=%s "
             "AND delivery_id=%s ORDER BY happened_at,event",
             (tenant,job)).fetchall(),
-            [("created",),("delivered",),("dispatched",),("packed",),("picked",)])
+            [("created",),("picked",),("packed",),("dispatched",),("delivered",)])
         self.assertEqual(self.admin.execute(
             "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s "
             "AND id=%s AND movement_kind='sale_dispatch'",
