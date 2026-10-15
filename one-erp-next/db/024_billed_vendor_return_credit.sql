@@ -187,7 +187,7 @@ BEGIN
   FROM one_goods_bill_allocations
   WHERE tenant_id=p_tenant AND order_id=rec.order_id
     AND order_line_no=rec.line_no;
- SELECT coalesce(sum(quantity),0) INTO source_used_qty
+ SELECT coalesce(sum(l.quantity),0) INTO source_used_qty
   FROM one_billed_vendor_return_credit_links l
    JOIN one_stock_events ev ON ev.tenant_id=l.tenant_id
      AND ev.id=l.source_receipt_id
