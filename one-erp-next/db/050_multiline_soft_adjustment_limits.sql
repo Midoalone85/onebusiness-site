@@ -148,7 +148,8 @@ BEGIN
  END IF;
  SELECT * INTO request FROM one_soft_adjust_limit_requests
  WHERE tenant_id=p_tenant AND id=p_request FOR UPDATE;
- IF NOT FOUND OR request.requested_by=p_actor OR NOT EXISTS(
+ IF NOT FOUND OR request.requested_by=p_actor OR
+    request.target_actor_id=p_actor OR NOT EXISTS(
    SELECT 1 FROM one_memberships m WHERE m.tenant_id=p_tenant
     AND m.actor_id=request.requested_by AND m.active
     AND m.role='company_admin') THEN
