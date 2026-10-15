@@ -1861,5 +1861,66 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,doc.id)).fetchone()[0],0)
 
 
+
+    def test_two_competing_invoices_cannot_bill_same_dispatched_stock_twice(self):
+        """Only one of two invoice writers may bill the remaining two units."""
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,purchase,uuid4(),actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,uuid4(),actor))
+        docs=[self.sale_source_invoice(tenant,Decimal("2")) for _ in range(2)]
+        barrier=Barrier(2)
+        def attempt(doc):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB", "one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True,
+            ) as conn:
+                try:
+                    barrier.wait(timeout=10)
+                    persist_dispatch_backed_sales_invoice(
+                        conn,order_id=sale,order_line_numbers=(1,),
+                        document=doc,accounts=self.invoice_accounts,
+                        chart=self.chart,period=self.period,
+                        period_id=self.period_id,actor_id=actor,
+                        memberships=(
+                            Membership(actor,tenant,Role.COMPANY_ADMIN),
+                        ),
+                    )
+                    return True
+                except self.psycopg.Error:
+                    return False
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first=pool.submit(attempt,docs[0])
+            second=pool.submit(attempt,docs[1])
+            outcomes=(first.result(timeout=20),second.result(timeout=20))
+        self.assertEqual(sorted(outcomes),[False,True])
+        ids=tuple(d.id for d in docs)
+        self.assertEqual(self.admin.execute(
+            "SELECT coalesce(sum(billed_qty),0) "
+            "FROM one_sales_invoice_allocations WHERE tenant_id=%s "
+            "AND order_id=%s",(tenant,sale)).fetchone()[0],Decimal("2"))
+        for table,ident in (
+            ("one_invoice_docs","id"),
+            ("one_journal_entries","id"),
+            ("one_invoice_audit","doc_id"),
+        ):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+" WHERE tenant_id=%s AND "
+                +ident+" IN (%s,%s)",(tenant,*ids)).fetchone()[0],1)
+
+
 if __name__ == "__main__":
     unittest.main()
