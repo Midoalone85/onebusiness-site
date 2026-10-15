@@ -126,6 +126,18 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_apply_payment(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        # 050: limits and multi-line preview functions granted ONLY in disposable CI.
+        for func in (
+            "one_actor_soft_adjust_limit(uuid,uuid,text)",
+            "one_request_soft_adjust_limit("
+            "uuid,uuid,uuid,text,numeric,date,date,uuid)",
+            "one_approve_soft_adjust_limit(uuid,uuid,uuid)",
+            "one_request_soft_adjustment_lines("
+            "uuid,uuid,uuid,uuid,date,text,jsonb,text,uuid)",
+            "one_soft_adjustment_impact_preview(uuid,uuid,uuid)",
+        ):
+            cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
+                              " TO one_erp_runtime_ci")
         # 049: disposable CI-only soft review and two-person adjustment calls.
         for func in (
             "one_request_period_soft_close(uuid,uuid,uuid)",
@@ -7681,6 +7693,200 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT count(*) FROM one_period_soft_close_requests "
             "WHERE tenant_id=%s AND period_id=%s",
             (tenant,period)).fetchone()[0],0)
+
+
+    # 050 | Costed multi-line adjustments and per-person, per-currency caps.
+    def multi_request_050(self,tenant,actor,period,lines,*,currency="SAR"):
+        import json
+        request,journal=uuid4(),uuid4()
+        result=self.commerce_execute(
+            tenant,actor,
+            "SELECT one_request_soft_adjustment_lines("
+            "%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s)",
+            (tenant,request,period,journal,date.today(),currency,
+             json.dumps(lines),
+             "Four-line accrued services late adjusting entry",actor))
+        self.assertEqual(result,request)
+        return request,journal
+
+    def preview_050(self,tenant,actor,request):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_soft_adjustment_impact_preview(%s,%s,%s)",
+                (tenant,request,actor)).fetchall()
+
+    def propose_limit_050(self,tenant,author,target,amount,currency="SAR"):
+        request=uuid4()
+        result=self.commerce_execute(
+            tenant,author,
+            "SELECT one_request_soft_adjust_limit("
+            "%s,%s,%s,%s,%s,%s,%s,%s)",
+            (tenant,request,target,currency,Decimal(str(amount)),
+             date.today(),None,author))
+        self.assertEqual(result,request)
+        return request
+
+    def approve_limit_050(self,tenant,actor,request):
+        return self.commerce_execute(
+            tenant,actor,
+            "SELECT one_approve_soft_adjust_limit(%s,%s,%s)",
+            (tenant,request,actor))
+
+    def test_050_multi_line_approval_evidence_and_per_account_preview(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.soft_request_049(tenant,owner,period)
+        self.soft_approve_049(tenant,reviewer,period)
+        lines=[
+            {"account_id":"cogs","debit":30,"credit":0},
+            {"account_id":"inventory","debit":20,"credit":0},
+            {"account_id":"grni","debit":0,"credit":40},
+            {"account_id":"inventory","debit":0,"credit":10},
+        ]
+        request,journal=self.multi_request_050(tenant,owner,period,lines)
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,
+            "SELECT one_actor_soft_adjust_limit(%s,%s,'SAR')",
+            (tenant,owner)),Decimal("100000"))
+        preview=self.preview_050(tenant,reviewer,request)
+        self.assertEqual(len(preview),3)
+        self.assertEqual({r[0]:r[6] for r in preview},
+                         {"cogs":Decimal("30"),"grni":Decimal("-40"),
+                          "inventory":Decimal("10")})
+        self.assertTrue(all(not r[7] for r in preview))
+        with self.assertRaises(self.psycopg.Error):
+            self.preview_050(tenant,uuid4(),request)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+                (tenant,journal,owner))
+        self.assertEqual(self.commerce_execute(
+            tenant,reviewer,"SELECT one_approve_soft_adjustment(%s,%s,%s)",
+            (tenant,request,reviewer)),request)
+        sealed=self.admin.execute(
+            "SELECT journal_lines,total_debit,total_credit,ledger_fingerprint "
+            "FROM one_soft_adjustment_approval_evidence "
+            "WHERE tenant_id=%s AND request_id=%s",
+            (tenant,request)).fetchone()
+        self.assertEqual(sealed[:3],(4,Decimal("50"),Decimal("50")))
+        self.assertEqual(len(sealed[3]),32)
+        self.assertTrue(all(r[7] for r in
+                            self.preview_050(tenant,owner,request)))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "UPDATE one_soft_adjustment_approval_evidence "
+                "SET total_debit=1 WHERE tenant_id=%s AND request_id=%s "
+                "RETURNING request_id",
+                (tenant,request))
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+            (tenant,journal,owner)),journal)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_soft_adjustment_post_audit "
+            "WHERE tenant_id=%s AND request_id=%s",
+            (tenant,request)).fetchone()[0],1)
+
+    def test_050_multiline_rejects_invalid_accounts_unbalanced_and_bad_shape(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.soft_request_049(tenant,owner,period)
+        self.soft_approve_049(tenant,reviewer,period)
+        valid=[{"account_id":"cogs","debit":10,"credit":0},
+               {"account_id":"inventory","debit":0,"credit":10}]
+        invalid_cases=[
+            [{"account_id":"cogs","debit":10,"credit":0},
+             {"account_id":"inventory","debit":0,"credit":9}],
+            [{"account_id":"missing","debit":10,"credit":0},
+             {"account_id":"inventory","debit":0,"credit":10}],
+            [{"account_id":"cogs","debit":1.234,"credit":0},
+             {"account_id":"inventory","debit":0,"credit":1.234}],
+            [{"account_id":"cogs","debit":"10","credit":0},
+             {"account_id":"inventory","debit":0,"credit":10}],
+            [dict(valid[0],extra_field=0),valid[1]],
+            valid[:1],
+        ]
+        for payload in invalid_cases:
+            before=self.admin.execute(
+                "SELECT count(*) FROM one_soft_adjustment_requests "
+                "WHERE tenant_id=%s",(tenant,)).fetchone()[0]
+            with self.assertRaises(self.psycopg.Error):
+                self.multi_request_050(tenant,owner,period,payload)
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM one_soft_adjustment_requests "
+                "WHERE tenant_id=%s",(tenant,)).fetchone()[0],before)
+        # Non-SAR currencies cannot silently reuse SAR-denominated limits.
+        with self.assertRaises(self.psycopg.Error):
+            self.multi_request_050(tenant,owner,period,valid,currency="USD")
+
+    def test_050_reviewer_amount_cap_and_changed_requester_cap_at_post(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        second=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'accountant')",(tenant,second))
+        self.soft_request_049(tenant,owner,period)
+        self.soft_approve_049(tenant,reviewer,period)
+        lines=[{"account_id":"cogs","debit":30000,"credit":0},
+               {"account_id":"grni","debit":0,"credit":30000}]
+        request,journal=self.multi_request_050(tenant,owner,period,lines)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,reviewer,
+                "SELECT one_approve_soft_adjustment(%s,%s,%s)",
+                (tenant,request,reviewer))
+        raise_reviewer=self.propose_limit_050(tenant,owner,reviewer,50000)
+        with self.assertRaises(self.psycopg.Error):
+            self.approve_limit_050(tenant,owner,raise_reviewer)
+        with self.assertRaises(self.psycopg.Error):
+            self.approve_limit_050(tenant,reviewer,raise_reviewer)
+        self.assertEqual(self.approve_limit_050(
+            tenant,second,raise_reviewer),raise_reviewer)
+        self.assertEqual(self.commerce_execute(
+            tenant,reviewer,"SELECT one_actor_soft_adjust_limit(%s,%s,'SAR')",
+            (tenant,reviewer)),Decimal("50000"))
+        self.commerce_execute(
+            tenant,reviewer,"SELECT one_approve_soft_adjustment(%s,%s,%s)",
+            (tenant,request,reviewer))
+        lower_owner=self.propose_limit_050(tenant,owner,owner,10000)
+        self.approve_limit_050(tenant,reviewer,lower_owner)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+                (tenant,journal,owner))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_journal_entries "
+            "WHERE tenant_id=%s AND id=%s",(tenant,journal)).fetchone()[0],
+            "draft")
+        restore_owner=self.propose_limit_050(tenant,owner,owner,100000)
+        self.approve_limit_050(tenant,reviewer,restore_owner)
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+            (tenant,journal,owner)),journal)
+
+    def test_050_original_two_line_adjustments_also_obey_amount_gate(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.soft_request_049(tenant,owner,period)
+        self.soft_approve_049(tenant,reviewer,period)
+        request,journal=self.adjust_request_049(
+            tenant,owner,period,amount="20000.00")
+        self.assertEqual(self.commerce_execute(
+            tenant,reviewer,"SELECT one_approve_soft_adjustment(%s,%s,%s)",
+            (tenant,request,reviewer)),request)
+        self.assertEqual(self.admin.execute(
+            "SELECT journal_lines,total_debit "
+            "FROM one_soft_adjustment_approval_evidence "
+            "WHERE tenant_id=%s AND request_id=%s",
+            (tenant,request)).fetchone(),(2,Decimal("20000")))
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+            (tenant,journal,owner)),journal)
 
 if __name__ == "__main__":
     unittest.main()
