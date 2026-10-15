@@ -9,9 +9,9 @@ try{lang=localStorage.getItem('one_erp_preview_lang')==='en'?'en':'ar'}catch(e){
 var MODS=[
 {id:'accounting',ar:'المحاسبة',en:'Accounting',icon:'ledger',arSub:'الإدارة المالية والقيود والتقارير',enSub:'Financial management and reports',views:[
 ['overview','نظرة عامة','Overview'],['journals','القيود اليومية','Journal entries'],['invoices','فواتير العملاء','Customer invoices'],['bills','فواتير الموردين','Vendor bills'],['payments','القبض والصرف','Receipts & payments'],['bank','البنوك والتسويات','Banking & reconciliation'],['accounts','دليل الحسابات','Chart of accounts'],['tax','الضرائب والزكاة','VAT & Zakat'],['statements','القوائم المالية','Financial statements']]},
-{id:'sales',ar:'المبيعات',en:'Sales',icon:'cart',arSub:'من عروض الأسعار حتى التحصيل',enSub:'Quotes, orders and billing',views:[['overview','نظرة عامة','Overview'],['quotes','عروض الأسعار','Quotations'],['orders','أوامر البيع','Sales orders'],['invoices','فواتير المبيعات','Sales invoices'],['customers','العملاء','Customers']]},
-{id:'purchasing',ar:'المشتريات',en:'Purchasing',icon:'bag',arSub:'من طلب الشراء حتى فاتورة المورد',enSub:'Requisitions to vendor bills',views:[['overview','نظرة عامة','Overview'],['requests','طلبات عروض الأسعار','Requests for quotation'],['orders','أوامر الشراء','Purchase orders'],['bills','فواتير الموردين','Vendor bills'],['suppliers','الموردون','Suppliers']]},
-{id:'inventory',ar:'المخزون',en:'Inventory',icon:'package',arSub:'الأصناف والمستودعات وحركة المخزون',enSub:'Products, warehouses and transfers',views:[['overview','نظرة عامة','Overview'],['products','الأصناف','Products'],['receipts','الاستلامات','Receipts'],['transfers','حركات المخزون','Transfers'],['warehouses','المستودعات','Warehouses'],['valuation','تقييم المخزون','Stock valuation']]},
+{id:'sales',ar:'المبيعات',en:'Sales',icon:'cart',arSub:'من عروض الأسعار حتى التحصيل',enSub:'Quotes, orders and billing',views:[['overview','نظرة عامة','Overview'],['quotes','عروض الأسعار','Quotations'],['orders','أوامر البيع','Sales orders'],['invoices','فواتير المبيعات','Sales invoices'],['deliveries','أوامر التسليم','Delivery orders'],['proof','إثبات تسليم العميل','Proof of delivery'],['returns','مرتجعات العملاء','Customer returns'],['return_case','ملف المرتجع الموحد','Return case'],['customers','العملاء','Customers']]},
+{id:'purchasing',ar:'المشتريات',en:'Purchasing',icon:'bag',arSub:'من طلب الشراء حتى فاتورة المورد',enSub:'Requisitions to vendor bills',views:[['overview','نظرة عامة','Overview'],['requests','طلبات عروض الأسعار','Requests for quotation'],['orders','أوامر الشراء','Purchase orders'],['receiving','فحص استلام المورد','Supplier receiving inspection'],['returns','مرتجعات الموردين','Vendor returns'],['return_case','ملف مرتجع المورد','Vendor return case'],['bills','فواتير الموردين','Vendor bills'],['three_way','مطابقة المشتريات الثلاثية','Three-way match'],['suppliers','الموردون','Suppliers']]},
+{id:'inventory',ar:'المخزون',en:'Inventory',icon:'package',arSub:'الأصناف والمستودعات وحركة المخزون',enSub:'Products, warehouses and transfers',views:[['overview','نظرة عامة','Overview'],['products','الأصناف','Products'],['receipts','الاستلامات','Receipts'],['picking','التجهيز والتعبئة','Pick & pack'],['deliveries','أوامر التسليم','Delivery orders'],['quality','فحص الوارد','Incoming quality checks'],['returns','المرتجعات','Returns'],['quarantine','مخزن الحجر والفحص','Quarantine warehouse'],['return_case','ملف المرتجع الموحد','Return case'],['transfers','حركات المخزون','Transfers'],['warehouses','المستودعات','Warehouses'],['valuation','تقييم المخزون','Stock valuation'],['reconciliation','مطابقة المخزون والمالية','Stock finance reconciliation']]},
 {id:'crm',ar:'علاقات العملاء',en:'CRM',icon:'users',arSub:'العملاء المحتملون وفرص المبيعات',enSub:'Leads, pipeline and follow-ups',views:[['overview','نظرة عامة','Overview'],['leads','العملاء المحتملون','Leads'],['pipeline','الفرص التجارية','Pipeline'],['activities','المتابعات','Activities'],['contacts','جهات الاتصال','Contacts']]},
 {id:'healthcare',ar:'القطاع الطبي',en:'Healthcare',icon:'medical',arSub:'المستشفيات والعيادات والمختبرات',enSub:'Hospitals, clinics and labs',views:[['overview','نظرة عامة','Overview'],['rooms','الغرف والأسرة','Rooms & beds'],['patients','ملفات المرضى','Patient records'],['appointments','الحجوزات والعيادات','Appointments'],['doctors','الأطباء والتمريض','Doctors & nursing'],['lab','التحاليل الطبية','Lab tests'],['radiology','الأشعة','Radiology'],['pharmacy','الصيدلية والأدوية','Pharmacy'],['meals','وجبات المرضى','Patient meals']]},
 {id:'hr',ar:'الموارد البشرية',en:'Human resources',icon:'people',arSub:'الموظفون والحضور والرواتب',enSub:'People, attendance and payroll',views:[['overview','نظرة عامة','Overview'],['employees','الموظفون','Employees'],['attendance','الحضور والانصراف','Attendance'],['payroll','الرواتب ومسيرات الأجور','Payroll'],['leaves','الإجازات','Leave requests'],['contracts','العقود','Contracts']]},
@@ -59,7 +59,7 @@ function getStorage(){try{return localStorage.getItem('one_erp_preview_lang')}ca
 function setStorage(v){try{localStorage.setItem('one_erp_preview_lang',v)}catch(e){}}
 function toolbarNav(active){
 return '<header class="site-head"><div class="toprow"><div class="topinner"><a class="brand" href="'+homeUrl()+'"><span class="brand-square">ONE</span><span><span class="brand-name">ONE ERP</span><span class="brand-caption">BUSINESS OPERATING SYSTEM</span></span></a><div class="header-tools"><button class="head-ghost hide-small" type="button" data-action="one-ai">'+ico('spark')+' ONE AI</button><button class="head-ghost" type="button" data-action="language" aria-label="Switch language">'+(lang==='ar'?'English':'العربية')+'</button><span class="operator"><span class="bubble">DE</span>'+t('fictional')+'</span></div></div></div>'+
-'<div class="navrow"><nav class="navinner" aria-label="'+t('applications')+'"><div class="navrail"><a class="navitem '+(PAGE==='home'?'active':'')+'" href="'+homeUrl()+'">'+ico('home','navicon')+t('home')+'</a>'+MODS.map(function(m){return '<button type="button" class="navitem '+(active&&active.id===m.id?'active':'')+'" data-menu-trigger="'+m.id+'" aria-expanded="false" aria-haspopup="true" aria-label="'+name(m)+'">'+ico(m.icon,'navicon')+norm(name(m))+' '+ico('chevron','chev')+'</button>'}).join('')+'</div><span class="navinfo">'+t('preview')+'</span></nav></div></header><div id="flyout" class="flyout hidden" role="menu" aria-label="'+t('applications')+'"></div>'
+'<div class="navrow"><nav class="navinner" aria-label="'+t('applications')+'"><div class="navrail"><a class="navitem '+(PAGE==='home'?'active':'')+'" href="'+homeUrl()+'">'+ico('home','navicon')+t('home')+'</a>'+MODS.map(function(m){return '<button type="button" class="navitem '+(active&&active.id===m.id?'active':'')+'" data-menu-trigger="'+m.id+'" aria-expanded="false" aria-haspopup="menu" aria-controls="flyout" aria-label="'+name(m)+'">'+ico(m.icon,'navicon')+norm(name(m))+' '+ico('chevron','chev')+'</button>'}).join('')+'</div><span class="navinfo">'+t('preview')+'</span></nav></div></header><div id="flyout" class="flyout hidden" role="menu" aria-label="'+t('applications')+'"></div>'
 }
 function demoAlert(){return '<div class="demo-alert"><span>'+ico('shield')+' &nbsp;'+t('demo')+'</span><span class="demo-pill">DEMO DATA</span></div>'}
 function foot(){return '<footer class="footer">ONE ERP NEXT · '+t('preview')+' · '+t('secure')+' · © ONE Business</footer>'}
@@ -155,6 +155,138 @@ rows=[row('ITM-1001','2026-10-15',tx('محرك صناعي تجريبي','Sample 
 actions=[[tx('صنف جديد','New product'),'plus'],[tx('حركة مخزون','Stock transfer'),'package']];
 metrics=[[tx('الأصناف','Products'),'117','package'],[tx('المستودعات','Warehouses'),'3','home'],[tx('القيمة التقديرية','Estimated value'),money(670000),'chart'],[tx('عمليات معلقة','Pending movements'),'6','calendar']];
 }
+// Fictional cross-module fulfillment records share references, never separate copies.
+if((kind==='sales' && (view==='deliveries'||view==='proof')) ||
+   (kind==='inventory' && (view==='picking'||view==='deliveries'))){
+rows=[
+row('DEL-2026-006','2026-10-15',tx('SO-2026-024 · تم التسليم بتأكيد افتراضي','SO-2026-024 · fictional delivery confirmation'),3,'posted'),
+row('DEL-2026-007','2026-10-15',tx('SO-2026-023 · تجهيز وتعبئة','SO-2026-023 · pick and pack'),2,'pending'),
+row('DEL-2026-008','2026-10-14',tx('SO-2026-023 · حجز وتجهيز لاحق','SO-2026-023 · reserved for next pick'),1,'draft')
+];
+metrics=[[tx('أوامر التسليم','Delivery orders'),'3','package'],
+[tx('تم التسليم','Delivered'),'1','shield'],
+[tx('تحت التجهيز','Being prepared'),'1','cart'],
+[tx('في الانتظار','Awaiting pick'),'1','calendar']];
+actions=[[tx('مهمة تسليم تجريبية','Sample delivery job'),'package'],
+[tx('عرض مرجع التسليم','View delivery reference'),'file']];
+}
+if((kind==='purchasing' && view==='receiving') ||
+   (kind==='inventory' && (view==='receipts'||view==='quality'))){
+rows=[
+row('REC-2026-003','2026-10-15',tx('PO-2026-011 · مقبول 3 / مرفوض 2','PO-2026-011 · accepted 3 / rejected 2'),3,'posted'),
+row('REC-2026-004','2026-10-15',tx('PO-2026-010 · في انتظار الفحص','PO-2026-010 · quality inspection pending'),5,'pending'),
+row('REC-2026-005','2026-10-14',tx('PO-2026-010 · طلب فحص جديد','PO-2026-010 · inspection draft'),2,'draft')
+];
+metrics=[[tx('فحوص الاستلام','Receiving inspections'),'3','package'],
+[tx('المقبول','Accepted'),'3','shield'],
+[tx('المرفوض','Rejected'),'2','file'],
+[tx('بانتظار الفحص','Pending inspection'),'5','calendar']];
+actions=[[tx('فحص استلام تجريبي','Sample receiving inspection'),'package'],
+[tx('عرض أمر الشراء','View purchase order'),'bag']];
+}
+// Unified fictional return references, scoped views. Never live customer data.
+if((kind==='sales' && view==='returns') ||
+   (kind==='inventory' && (view==='returns'||view==='quarantine'))){
+rows=[
+row('RMA-C-2026-006','2026-10-15',
+  tx('DEL-2026-006 · مستلم بالحجر وفحصه التجريبي مكتمل',
+     'DEL-2026-006 · fictional accepted customer return in quarantine'),1,'posted'),
+row('RMA-C-2026-007','2026-10-15',
+  tx('DEL-2026-007 · طلب مرتجع قيد الفحص','DEL-2026-007 · pending return inspection'),2,'pending'),
+row('RMA-C-2026-008','2026-10-14',
+  tx('طلب مرتجع مرفوض تجريبياً','Fictional declined return'),1,'draft')
+];
+metrics=[[tx('مرتجعات العملاء','Customer returns'),'3','package'],
+[tx('محجوز بالفحص','In quarantine'),'1','shield'],
+[tx('تحت الفحص','Under review'),'2','calendar'],
+[tx('متاح للبيع بعد الفحص','Sellable after review'),'0','home']];
+actions=[[tx('طلب مرتجع تجريبي','Sample return request'),'plus'],
+[tx('فتح مخزن الحجر','View quarantine warehouse'),'package']];
+}
+if(kind==='purchasing' && view==='returns'){
+rows=[
+row('RMA-V-2026-004','2026-10-15',
+  tx('REC-2026-003 · إعادة كمية غير محجوزة للمورد',
+     'REC-2026-003 · returned unreserved stock to vendor'),2,'posted'),
+row('RMA-V-2026-005','2026-10-14',
+  tx('REC-2026-004 · مراجعة مرتجع المورد','REC-2026-004 · return pending review'),1,'pending')
+];
+metrics=[[tx('مرتجعات المورد','Supplier returns'),'2','package'],
+[tx('تم إرجاعه','Returned'),'2','shield'],
+[tx('محجوز لعميل آخر','Customer-reserved'),'0','home'],
+[tx('بانتظار الاعتماد','Awaiting approval'),'1','calendar']];
+actions=[[tx('إنشاء مرتجع تجريبي للمورد','Sample vendor return'),'plus'],
+[tx('فتح سجل الاستلام','View receipt history'),'file']];
+}
+// Unified return workspaces are static blueprints. The DB is intentionally disconnected.
+if(view==='return_case' && ['sales','purchasing','inventory'].includes(kind)){
+var vendor=kind==='purchasing';
+rows=vendor?[
+row('RMA-V-2026-004','2026-10-15',
+ tx('المخزون: أعيد للمورد · المالية: مطابقة فاتورة المورد لم تكتمل',
+    'Stock: sent to vendor · Finance: vendor bill matching not ready'),2,'pending')
+]:[
+row('RMA-C-2026-006','2026-10-15',
+ tx('المخزون: فحص وحجر · المالية: إشعار دائن جزئي',
+    'Stock: QA quarantine · Finance: partial credit'),1,'pending'),
+row('RMA-C-2026-007','2026-10-14',
+ tx('المخزون: بانتظار الفحص · المالية: بانتظار الاستلام',
+    'Stock: inspection pending · Finance: awaits inspection'),2,'draft')
+];
+metrics=vendor?[
+[tx('المرتجع الأصلي','Return case'),'RMA-V-2026-004','package'],
+[tx('حالة المخزون','Stock'),'2','shield'],
+[tx('مطابقة فاتورة المورد','Vendor bill match'),tx('غير مكتملة','Not ready'),'file'],
+[tx('حركات قابلة للتتبع','Traceable movements'),'1','chart']
+]:[
+[tx('رقم المرتجع','Return case'),'RMA-C-2026-006','package'],
+[tx('في الحجر','Quarantined'),'1','shield'],
+[tx('تم إصدار إشعار دائن','Credited'),'1','ledger'],
+[tx('قرار الفحص','QA decision'),tx('معاينة','Preview'),'file']
+];
+actions=[[tx('تاريخ حركة المرتجع','Return activity history'),'file'],
+[tx('قرار الفحص التجريبي','Sample QA decision'),'shield']];
+}
+// Fictitious ONE PULSE demonstration; real PostgreSQL metrics are not wired.
+if(kind==='inventory' && ['valuation','reconciliation'].includes(view)){
+rows=[
+row('STK-2026-015','2026-10-15',
+tx('5 واردة، 2 مصروفة، 3 باقية · مقيمة','5 received, 2 shipped, 3 valued remain'),
+37.50,'posted'),
+row('COGS-2026-015','2026-10-15',
+tx('تكلفة قطعتين منصرفتين من نفس حركة المخزون',
+   'COGS for two dispatched items from traceable source'),25.00,'posted'),
+row('GRNI-2026-015','2026-10-15',
+tx('5 واردة، 3 مفوترة، 2 في انتظار فاتورة المورد',
+   '5 received, 3 billed, 2 awaiting vendor bill'),25.00,'pending')
+];
+metrics=[
+[tx('المخزون المقيم','Valued inventory'),money(37.50),'ledger'],
+[tx('التكلفة المصروفة','COGS'),money(25.00),'file'],
+[tx('الوارد غير المفوتر','GRNI outstanding'),money(25.00),'bag'],
+[tx('حركات غير مقيمة','Unvalued events'),'0','shield']
+];
+actions=[[tx('فتح تقرير تجريبي','View sample reconciliation'),'file'],
+[tx('مراجعة سجل المخزون','View stock movements'),'package']];
+}
+if(kind==='purchasing' && view==='three_way'){
+rows=[
+row('PO-2026-015','2026-10-15',
+tx('أمر شراء: 5 قطع بقيمة 62.50','Purchase order: 5 units / 62.50'),62.50,'posted'),
+row('REC-2026-015','2026-10-15',
+tx('استلام مقيم: 5 قطع','Accepted and valued receipt: 5 units'),62.50,'posted'),
+row('VB-2026-015','2026-10-15',
+tx('فاتورة مورد مطابقة: 3 قطع، متبقي 2','Matched supplier bill: 3 units, 2 open'),37.50,'pending')
+];
+metrics=[
+[tx('أوامر الشراء','Purchase order'),money(62.50),'bag'],
+[tx('المستلم المقيم','Valued receipt'),money(62.50),'package'],
+[tx('فاتورة المورد','Matched bill'),money(37.50),'ledger'],
+[tx('GRNI المتبقي','Remaining GRNI'),money(25.00),'shield']
+];
+actions=[[tx('مراجعة المطابقة التجريبية','View sample goods match'),'file'],
+[tx('سجل فواتير الموردين','Vendor bill history'),'bag']];
+}
 if(kind==='crm'){
 rows=[row('CRM-2026-014','2026-10-15',tx('فرصة تجريبية لشركة النخبة','Sample Elite opportunity'),85000,'pending'),row('CRM-2026-013','2026-10-14',tx('متابعة عميل محتمل','Sample lead follow-up'),44000,'draft')];
 actions=[[tx('عميل محتمل','New lead'),'plus'],[tx('تسجيل نشاط','Log activity'),'calendar']];
@@ -179,6 +311,22 @@ return{rows:rows,metrics:metrics,actions:actions,columns:columns};
 }
 function tag(s){return '<span class="tag '+(s==='pending'?'warn':s==='draft'?'bad':'')+'">'+t(s)+'</span>'}
 function panelTitle(str,meta){return '<div class="panel-title"><h2>'+norm(str)+'</h2><small>'+norm(meta||t('sample'))+'</small></div>'}
+function returnCaseSummary(m,v){
+if(v[0]!=='return_case')return '';
+var vendor=m.id==='purchasing';
+var physical=vendor?tx('أعيد للمورد','Shipped to vendor'):tx('فحص وحجر / قرار إعادة تخزين','QA quarantine / restock decision');
+var finance=vendor?tx('مطابقة فاتورة المورد: لم تُنفذ','Vendor bill match: not implemented'):
+tx('إشعار دائن جزئي مرتبط بالمقبول','Partial credit linked to accepted units');
+return '<section class="return-dual-state" aria-label="'+
+norm(tx('ملف المرتجع الموحد','Unified return case'))+'">'+
+'<div><small>'+norm(tx('مرجع المرتجع','Return case'))+'</small>'+
+'<strong>'+(vendor?'RMA-V-2026-004':'RMA-C-2026-006')+'</strong></div>'+
+'<div><small>'+norm(tx('حالة المخزون','Warehouse status'))+'</small>'+
+'<strong>'+norm(physical)+'</strong></div>'+
+'<div><small>'+norm(tx('حالة المالية','Finance status'))+'</small>'+
+'<strong>'+norm(finance)+'</strong></div>'+
+'</section>';
+}
 function workspaceMarkup(){
 var m=currentModule,v=currentView,data=demoData(m,v);
 document.title=label(v)+' | '+name(m)+' | ONE ERP Next Preview';
@@ -189,20 +337,62 @@ return isLink?'<a class="btn '+(i===0?'primary':'')+'" href="'+linkTo(m,viewById
 '<button type="button" data-action="demo" class="btn '+(i===0?'primary':'')+'">'+ico(item[1])+' '+norm(item[0])+'</button>';
 }).join('');
 var rows=data.rows.map(function(r){return '<tr>'+r.map(function(x,i){return '<td data-label="'+norm(data.columns[i]||'')+'">'+(i===0?'<span class="row-id">'+norm(x)+'</span>':typeof x==='number'?money(x):i===r.length-1&&['posted','pending','draft'].includes(x)?tag(x):norm(x))+'</td>'}).join('')+'</tr>'}).join('');
+var related=[];
+if(m.id==='sales' && ['orders','deliveries','proof'].includes(v[0]))
+related=[['inventory','picking'],['inventory','deliveries'],['accounting','invoices']];
+if(m.id==='inventory' && ['picking','deliveries'].includes(v[0]))
+related=[['sales','orders'],['sales','deliveries'],['sales','proof']];
+if(m.id==='purchasing' && ['orders','receiving'].includes(v[0]))
+related=[['inventory','receipts'],['inventory','quality'],['accounting','bills']];
+if(m.id==='inventory' && ['receipts','quality'].includes(v[0]))
+related=[['purchasing','orders'],['purchasing','receiving'],['accounting','bills']];
+if(m.id==='sales' && v[0]==='returns')
+related=[['sales','return_case'],['inventory','quarantine'],['accounting','invoices']];
+if(m.id==='purchasing' && v[0]==='returns')
+related=[['purchasing','return_case'],['purchasing','receiving'],['accounting','bills']];
+if(m.id==='inventory' && v[0]==='returns')
+related=[['inventory','return_case'],['purchasing','returns'],['inventory','quarantine']];
+if(m.id==='inventory' && v[0]==='quarantine')
+related=[['sales','returns'],['inventory','returns'],['inventory','quality']];
+if(['sales','inventory'].includes(m.id) && v[0]==='return_case')
+related=[['sales','returns'],['inventory','quarantine'],['accounting','invoices']];
+if(m.id==='purchasing' && v[0]==='return_case')
+related=[['purchasing','returns'],['inventory','returns'],['accounting','bills']];
+if(m.id==='purchasing' && v[0]==='three_way')
+related=[['purchasing','receiving'],['inventory','reconciliation'],['accounting','journals']];
+if(m.id==='inventory' && ['reconciliation','valuation'].includes(v[0]))
+related=[['purchasing','three_way'],['inventory','receipts'],['accounting','journals']];
+if(m.id==='purchasing' && v[0]==='bills')
+related=[['purchasing','three_way'],['purchasing','receiving'],['accounting','bills']];
+var relatedMarkup=related.length?
+'<div class="related-workflow" aria-label="'+norm(tx('مسارات مرتبطة للمعاينة','Related preview workflows'))+'">'+
+'<strong>'+norm(tx('مسارات مرتبطة','Related workflows'))+'</strong>'+
+related.map(function(pair){var other=moduleById(pair[0]),route=viewById(other,pair[1]);
+return '<a href="'+linkTo(other,route)+'">'+norm(name(other))+' · '+norm(label(route))+'</a>'}).join('')+
+'</div>':'';
 var contexts=m.views.map(function(item){return '<a class="context-item '+(item[0]===v[0]?'current':'')+'" href="'+linkTo(m,item)+'" '+(item[0]===v[0]?'aria-current="page"':'')+'>'+norm(label(item))+'</a>'}).join('');
 return toolbarNav(m)+'<main class="wrap">'+demoAlert()+
 '<a href="'+homeUrl()+'" class="workspace-back" id="backBtn">'+ico('arrow')+' '+t('back')+'</a>'+breadcrumb+
 '<header class="work-header"><div class="work-identity"><div class="work-emblem">'+ico(m.icon)+'</div><div><div class="eyebrow">ONE ERP NEXT / '+norm(name(m))+'</div><h1>'+norm(label(v))+'</h1><p>'+norm(tx(m.arSub,m.enSub))+' · '+t('highlight')+'</p></div></div><div class="hside"><span class="demo-pill">'+t('preview')+'</span><a class="btn" href="'+linkTo(m,m.views[0])+'">'+ico('home')+' '+t('applications')+'</a></div></header>'+
 '<section class="context"><div class="context-heading"><strong>'+t('context')+'</strong><small>'+t('workspace')+' / '+norm(name(m))+'</small></div><nav class="context-strip" aria-label="'+norm(name(m))+'">'+contexts+'</nav></section>'+
+relatedMarkup+returnCaseSummary(m,v)+
 '<div class="kpis">'+data.metrics.map(function(k){return kpi(k[0],k[1],k[2],t('sample'))}).join('')+'</div>'+
 '<div class="panel">'+panelTitle(label(v),t('period'))+'<div class="work-tools">'+actionMarkup+'<button class="btn" type="button" data-action="export">'+ico('download')+' '+t('export')+'</button><button class="btn" type="button" data-action="print">'+ico('printer')+' '+t('print')+'</button><button class="btn" type="button" data-action="demo" aria-label="'+t('refresh')+'">'+ico('filter')+' '+t('refresh')+'</button></div>'+
 '<div class="table-tools"><label style="display:flex;flex:1;gap:10px;align-items:center">'+ico('search')+' <input class="filter" type="search" id="recordSearch" placeholder="'+t('search')+'" aria-label="'+t('search')+'"></label><span class="demo-pill">'+t('fictional')+'</span></div>'+
 '<div class="tablewrap"><table><thead><tr>'+data.columns.map(function(c){return '<th>'+norm(c)+'</th>'}).join('')+'</tr></thead><tbody id="dataRows">'+rows+'</tbody></table></div>'+
-'<div class="table-foot"><span>'+t('recordCount')+': '+data.rows.length+'</span><span>🔒 '+t('noReal')+'</span></div></div>'+
+'<div class="table-foot"><span id="recordCount" role="status" aria-live="polite">'+t('recordCount')+': '+data.rows.length+'</span><span>🔒 '+t('noReal')+'</span></div></div>'+
 '<section class="panel">'+panelTitle(t('quick'),t('more'))+'<div class="module-sections">'+m.views.filter(function(x){return x[0]!==v[0]}).slice(0,6).map(function(x){return '<a class="module-link" href="'+linkTo(m,x)+'"><span class="bubble">'+ico(m.icon)+'</span><span><strong>'+norm(label(x))+'</strong><small>'+norm(tx(m.arSub,m.enSub))+'</small></span></a>'}).join('')+'</div></section>'+
 '<div class="notice">'+ico('shield')+' '+t('pageNote')+' '+t('noReal')+'</div>'+foot()+'</main>'+dialog();
 }
 var opened=null,lastTrigger=null;
+function menuItems(){
+ var menu=document.getElementById('flyout');
+ return menu?Array.prototype.slice.call(menu.querySelectorAll('a[role="menuitem"]')):[];
+}
+function focusMenuItem(index){
+ var items=menuItems();
+ if(items.length)items[index<0?items.length-1:Math.min(index,items.length-1)].focus();
+}
 function hideMenu(){var el=document.getElementById('flyout');if(el)el.classList.add('hidden');document.querySelectorAll('[data-menu-trigger]').forEach(function(b){b.setAttribute('aria-expanded','false')});opened=null}
 function showMenu(id,b){var m=moduleById(id),menu=document.getElementById('flyout');if(!menu||!b)return;
 if(opened===id){hideMenu();return}
@@ -235,9 +425,20 @@ setTimeout(function(){URL.revokeObjectURL(obj)},1000);
 function modal(){document.getElementById('dialog').classList.remove('hidden');document.getElementById('dialogTitle').textContent=t('preview');document.getElementById('dialogText').innerHTML='<p>'+t('notLive')+'</p><p>'+t('demoAnswer')+'</p>'}
 function closeDialog(){document.getElementById('dialog').classList.add('hidden')}
 function showAI(){document.getElementById('dialog').classList.remove('hidden');document.getElementById('dialogTitle').textContent=t('ask');document.getElementById('dialogText').innerHTML='<p>'+t('aiExplain')+'</p><input id="askText" maxlength="110" class="filter" style="max-width:none;width:100%" placeholder="'+norm(t('aiPlaceholder'))+'"><button class="btn primary" type="button" data-action="answer" style="margin-top:12px">'+t('askGo')+'</button><div id="aiResult"></div>'}
-function filterTable(value){var rows=document.querySelectorAll('#dataRows tr'),count=0;rows.forEach(function(r){var visible=r.textContent.toLocaleLowerCase().includes(value.toLocaleLowerCase());r.hidden=!visible;if(visible)count++});var tbody=document.getElementById('dataRows'),oldEmpty=document.getElementById('noMatchRow');
-if(oldEmpty)oldEmpty.remove();
-if(!count&&rows.length){var tr=document.createElement('tr');tr.id='noMatchRow';var td=document.createElement('td');td.colSpan=rows[0].cells.length;td.textContent=t('noRows');td.style.textAlign='center';td.style.padding='25px';tr.appendChild(td);tbody.appendChild(tr)}
+function filterTable(value){
+ var tbody=document.getElementById('dataRows'),oldEmpty=document.getElementById('noMatchRow');
+ if(oldEmpty)oldEmpty.remove();
+ var rows=document.querySelectorAll('#dataRows tr'),count=0;
+ var term=value.toLocaleLowerCase().trim();
+ rows.forEach(function(r){var visible=r.textContent.toLocaleLowerCase().includes(term);r.hidden=!visible;if(visible)count++});
+ var counter=document.getElementById('recordCount');
+ if(counter)counter.textContent=t('recordCount')+': '+count+' / '+rows.length;
+ if(!count&&rows.length){
+  var tr=document.createElement('tr');tr.id='noMatchRow';
+  var td=document.createElement('td');td.colSpan=rows[0].cells.length;
+  td.textContent=t('noRows');td.style.textAlign='center';td.style.padding='25px';
+  tr.appendChild(td);tbody.appendChild(tr);
+ }
 }
 function setupEvents(){
 document.addEventListener('click',function(e){var trigger=e.target.closest('[data-menu-trigger]');if(trigger){showMenu(trigger.dataset.menuTrigger,trigger);return}
@@ -251,7 +452,31 @@ if(b.dataset.action==='export'){downloadSampleCSV();return}
 if(b.dataset.action==='close-dialog'){closeDialog();return}
 if(b.dataset.action==='answer'){var q=document.getElementById('askText').value||'';var answer=/ربح|profit/i.test(q)?t('profit')+': '+money(235000):/مبيع|sales/i.test(q)?t('revenue')+': '+money(980000):/فاتور|invoice/i.test(q)?t('invoices')+': 18':t('demoAnswer');document.getElementById('aiResult').innerHTML='<div class="notice">'+answer+'<br>'+t('demoAnswer')+'</div>';return}
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){hideMenu();closeDialog()}});
+document.addEventListener('keydown',function(e){
+ if(e.key==='Escape'){
+  var wasOpen=!!opened;hideMenu();closeDialog();
+  if(wasOpen&&lastTrigger&&typeof lastTrigger.focus==='function')lastTrigger.focus();
+  return;
+ }
+ var trigger=e.target.closest&&e.target.closest('[data-menu-trigger]');
+ if(trigger&&(e.key==='ArrowDown'||e.key==='ArrowUp')){
+  e.preventDefault();
+  if(opened!==trigger.dataset.menuTrigger)showMenu(trigger.dataset.menuTrigger,trigger);
+  focusMenuItem(e.key==='ArrowUp'?-1:0);
+  return;
+ }
+ if(!opened||!e.target.closest||!e.target.closest('#flyout'))return;
+ var items=menuItems(),index=items.indexOf(document.activeElement);
+ if(index<0)index=items.indexOf(e.target);
+ if(!items.length)return;
+ if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='Home'||e.key==='End'){
+  e.preventDefault();
+  if(e.key==='Home')index=0;
+  else if(e.key==='End')index=items.length-1;
+  else index=(index+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;
+  items[index].focus();
+ }
+});
 document.addEventListener('input',function(e){if(e.target.id==='recordSearch')filterTable(e.target.value)});
 document.addEventListener('click',function(e){if(e.target.id==='dialog')closeDialog()});
 window.addEventListener('resize',function(){if(opened&&lastTrigger){var menu=document.getElementById('flyout');if(menu)positionMenu(lastTrigger,menu)}});

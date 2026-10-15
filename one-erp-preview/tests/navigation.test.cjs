@@ -14,9 +14,9 @@ const workspace=fs.readFileSync(path.join(root,'workspace','index.html'),'utf8')
 
 const moduleViews={
  accounting:['overview','journals','invoices','bills','payments','bank','accounts','tax','statements'],
- sales:['overview','quotes','orders','invoices','customers'],
- purchasing:['overview','requests','orders','bills','suppliers'],
- inventory:['overview','products','receipts','transfers','warehouses','valuation'],
+ sales:['overview','quotes','orders','invoices','deliveries','proof','returns','return_case','customers'],
+ purchasing:['overview','requests','orders','receiving','returns','return_case','bills','three_way','suppliers'],
+ inventory:['overview','products','receipts','picking','deliveries','quality','returns','quarantine','return_case','transfers','warehouses','valuation','reconciliation'],
  crm:['overview','leads','pipeline','activities','contacts'],
  healthcare:['overview','rooms','patients','appointments','doctors','lab','radiology','pharmacy','meals'],
  hr:['overview','employees','attendance','payroll','leaves','contracts'],
@@ -31,6 +31,7 @@ function setup({page='home',module='accounting',view='overview',lang='ar'}={}){
     classList:{ add(){},remove(){} },
     appendChild(){},remove(){},setAttribute(){},
     addEventListener(type,fn){(listeners['element:'+id+':'+type]??=[]).push(fn)},
+    focus(){document.activeElement=this},
  });
  const el=id=>elements.get(id)||((elements.set(id,fakeElem(id))),elements.get(id));
  const document={
@@ -54,6 +55,7 @@ function setup({page='home',module='accounting',view='overview',lang='ar'}={}){
  vm.runInNewContext(js,ctx,{filename:'ui.js',timeout:4000});
  return {document,window,location,elements,listeners,el,main:el('app').innerHTML,
    emit(type,target){(listeners[type]||[]).forEach(fn=>fn({target,key:''}))},
+   fire(type,event){(listeners[type]||[]).forEach(fn=>fn(event))},
  };
 }
 
@@ -90,7 +92,7 @@ test('every module page renders top modules, own page, back and contextual links
    }
   }
  }
- assert.equal(cases,102);
+ assert.equal(cases,132);
 });
 
 test('homepage shows all eight horizontal modules and navigable links',()=>{
@@ -159,4 +161,169 @@ test('compact mobile hierarchy preserves data density and readable labels',()=>{
  const en=setup({page:'workspace',module:'accounting',view:'invoices',lang:'en'});
  assert.match(en.main,/data-label="Amount"/);
  assert.match(en.main,/data-label="Date"/);
+});
+
+test('module flyout opens from arrow keys, cycles links, and returns focus on Escape',()=>{
+ const r=setup({page:'workspace',module:'accounting',view:'invoices'});
+ assert.match(r.main,/aria-haspopup="menu" aria-controls="flyout"/);
+ const trigger={dataset:{menuTrigger:'accounting'},getBoundingClientRect(){return {left:50,right:200,bottom:120}},
+   closest(sel){return sel==='[data-menu-trigger]'?this:null},
+   setAttribute(){},focus(){r.document.activeElement=this}};
+ const items=Array.from({length:9},(_,i)=>({
+   focus(){r.document.activeElement=this},
+   closest(sel){return sel==='#flyout'?r.el('flyout'):null}
+ }));
+ r.el('flyout').querySelectorAll=()=>items;
+ const event=(key,target)=>({key,target,preventDefault(){this.prevented=true}});
+ r.fire('keydown',event('ArrowDown',trigger));
+ assert.equal(r.document.activeElement,items[0]);
+ r.fire('keydown',event('ArrowUp',items[0]));
+ assert.equal(r.document.activeElement,items[8]);
+ r.fire('keydown',event('Home',items[8]));
+ assert.equal(r.document.activeElement,items[0]);
+ r.fire('keydown',event('End',items[0]));
+ assert.equal(r.document.activeElement,items[8]);
+ r.fire('keydown',event('Escape',items[8]));
+ assert.equal(r.document.activeElement,trigger);
+});
+
+test('search empty result never counts placeholder as a record and keeps live count',()=>{
+ const r=setup({page:'workspace',module:'accounting',view:'invoices'});
+ assert.match(r.main,/id="recordCount" role="status" aria-live="polite"/);
+ const tbody=r.el('dataRows'),counter=r.el('recordCount');
+ const rows=[{textContent:'Invoice A',hidden:false,cells:[1,2,3,4,5]},{textContent:'Invoice B',hidden:false,cells:[1,2,3,4,5]}];
+ const placeholders=[];
+ tbody.appendChild=x=>{placeholders.push(x);return x};
+ r.document.querySelectorAll=selector=>selector==='#dataRows tr'?rows.concat(placeholders.filter(x=>!x.removed)):[];
+ r.document.getElementById=id=>{
+  if(id==='noMatchRow')return placeholders.find(x=>!x.removed)||null;
+  return r.el(id);
+ };
+ // Simulate browser tr.remove() by removing it from the current DOM result.
+ r.document.createElement=tag=>({id:'',style:{},cells:[],appendChild(){},remove(){this.removed=true}});
+ const fire=value=>r.fire('input',{target:{id:'recordSearch',value}});
+ fire('absent');
+ assert.equal(rows.every(x=>x.hidden),true);
+ assert.match(counter.textContent,/0 \/ 2/);
+ assert.equal(placeholders.length,1);
+ fire('invoice a');
+ assert.equal(rows[0].hidden,false);
+ assert.equal(rows[1].hidden,true);
+ assert.equal(placeholders[0].removed,true);
+ assert.match(counter.textContent,/1 \/ 2/);
+ fire('');
+ assert.equal(rows.every(x=>!x.hidden),true);
+ assert.match(counter.textContent,/2 \/ 2/);
+});
+
+test('delivery and receiving routes share stable fictional references across modules',()=>{
+ for(const lang of ['ar','en']){
+  const sale=setup({page:'workspace',module:'sales',view:'deliveries',lang});
+  const stock=setup({page:'workspace',module:'inventory',view:'deliveries',lang});
+  const receiving=setup({page:'workspace',module:'purchasing',view:'receiving',lang});
+  const incoming=setup({page:'workspace',module:'inventory',view:'quality',lang});
+  for(const m of [sale,stock]){
+   assert.match(m.main,/DEL-2026-006/);
+   assert.match(m.main,/SO-2026-024/);
+   assert.match(m.main,/class="related-workflow"/);
+  }
+  for(const m of [receiving,incoming]){
+   assert.match(m.main,/REC-2026-003/);
+   assert.match(m.main,/PO-2026-011/);
+   assert.match(m.main,/class="related-workflow"/);
+  }
+  assert.match(sale.main,/module=inventory&view=picking/);
+  assert.match(stock.main,/module=sales&view=proof/);
+  assert.match(receiving.main,/module=accounting&view=bills/);
+  assert.match(incoming.main,/module=purchasing&view=receiving/);
+  assert.match(receiving.main,/DEMO DATA/);
+ }
+});
+test('stage-specific modules preserve separate URLs, bilingual titles and demo actions',()=>{
+ for(const lang of ['ar','en']){
+  for(const [module,view] of [
+    ['sales','proof'],['inventory','picking'],['inventory','quality'],
+    ['purchasing','receiving']
+  ]){
+    const r=setup({page:'workspace',module,view,lang});
+    assert.ok(r.main.includes('module='+module+'&view='+view));
+    assert.match(r.main,/id="backBtn"/);
+    assert.match(r.main,/data-action="demo"/);
+    assert.match(r.main,/id="recordSearch"/);
+  }
+ }
+});
+
+test('returns and quarantine show consistent immutable sample references',()=>{
+ for(const lang of ['ar','en']){
+   const customer=setup({page:'workspace',module:'sales',view:'returns',lang});
+   const vendor=setup({page:'workspace',module:'purchasing',view:'returns',lang});
+   const inventory=setup({page:'workspace',module:'inventory',view:'returns',lang});
+   const quarantine=setup({page:'workspace',module:'inventory',view:'quarantine',lang});
+   for(const r of [customer,inventory,quarantine]){
+     assert.match(r.main,/RMA-C-2026-006/);
+     assert.match(r.main,/DEL-2026-006/);
+     assert.match(r.main,/DEMO DATA/);
+     assert.match(r.main,/class="related-workflow"/);
+   }
+   assert.match(vendor.main,/RMA-V-2026-004/);
+   assert.match(vendor.main,/REC-2026-003/);
+   assert.match(customer.main,/module=inventory&view=quarantine/);
+   assert.match(vendor.main,/module=purchasing&view=return_case/);
+   assert.match(inventory.main,/module=inventory&view=return_case/);
+   assert.match(quarantine.main,/module=sales&view=returns/);
+   for(const r of [customer,vendor,inventory,quarantine]){
+     assert.match(r.main,/id="backBtn"/);
+     assert.match(r.main,/data-action="demo"/);
+     assert.match(r.main,/role="status"/);
+   }
+ }
+});
+
+
+test('unified returns display separate stock and finance status across business modules',()=>{
+ for(const lang of ['ar','en']){
+   for(const module of ['sales','purchasing','inventory']){
+     const r=setup({page:'workspace',module,view:'return_case',lang});
+     assert.match(r.main,/class="return-dual-state"/);
+     assert.match(r.main,/id="backBtn"/);
+     assert.match(r.main,/id="recordCount"/);
+     assert.match(r.main,/DEMO DATA/);
+     assert.ok(r.main.includes('module='+module+'&view=return_case'));
+     assert.match(r.main,/class="related-workflow"/);
+     if(module==='purchasing'){
+       assert.match(r.main,/RMA-V-2026-004/);
+       assert.match(r.main,/accounting&view=bills/);
+     }else{
+       assert.match(r.main,/RMA-C-2026-006/);
+       assert.match(r.main,/inventory&view=quarantine/);
+       assert.match(r.main,/accounting&view=invoices/);
+     }
+     assert.equal(r.document.documentElement.dir,lang==='ar'?'rtl':'ltr');
+   }
+ }
+});
+
+test('source-backed finance stock and vendor match sample pages cross-navigate',()=>{
+ for(const lang of ['ar','en']){
+  const valued=setup({page:'workspace',module:'inventory',view:'reconciliation',lang});
+  const stock=setup({page:'workspace',module:'inventory',view:'valuation',lang});
+  const buyer=setup({page:'workspace',module:'purchasing',view:'three_way',lang});
+  assert.match(valued.main,/STK-2026-015/);
+  assert.match(stock.main,/COGS-2026-015/);
+  assert.match(valued.main,/GRNI-2026-015/);
+  assert.match(buyer.main,/PO-2026-015/);
+  assert.match(buyer.main,/REC-2026-015/);
+  assert.match(buyer.main,/VB-2026-015/);
+  assert.match(valued.main,/module=purchasing&view=three_way/);
+  assert.match(buyer.main,/module=inventory&view=reconciliation/);
+  assert.match(buyer.main,/module=accounting&view=journals/);
+  for(const r of [valued,stock,buyer]){
+    assert.match(r.main,/DEMO DATA/);
+    assert.match(r.main,/id="backBtn"/);
+    assert.match(r.main,/id="recordSearch"/);
+    assert.match(r.main,/class="related-workflow"/);
+    assert.equal(r.document.documentElement.dir,lang==='ar'?'rtl':'ltr');
+  }
+ }
 });
