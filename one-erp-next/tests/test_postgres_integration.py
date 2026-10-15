@@ -2750,8 +2750,9 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         with self.assertRaises(self.psycopg.Error):
             self.issue_accepted_return_credit(credit,job,actor)
         another=self.credit_for_source_return(source,Decimal("1"))
-        from one_erp_core.accounting import AccountingError
-        with self.assertRaises(AccountingError):
+        # Policy fixture claims an admin membership, but PostgreSQL independently
+        # rechecks the real role and rejects the absent actor.
+        with self.assertRaises(self.psycopg.Error):
             self.issue_accepted_return_credit(another,job,uuid4())
         self.assertEqual(self.admin.execute(
             "SELECT count(*) FROM one_customer_return_credits WHERE "
