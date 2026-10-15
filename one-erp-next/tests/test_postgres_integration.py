@@ -309,6 +309,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION "
             "one_approve_customer_refund_order(uuid,uuid,uuid,text) "
             "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_customer_refund_approval_overview(uuid,uuid,date,date) "
+            "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_refund_approved_instruction_preview(uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -6324,6 +6332,70 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.commerce_execute(tenant,admin,
                 "UPDATE one_customer_refund_orders SET status='requested' "
                 "WHERE tenant_id=%s AND id=%s RETURNING status",(tenant,order))
+
+    # 039 | Finance dashboard: approved means UNPAID, not cash settled.
+    def refund_approvals_overview(self,tenant,actor, *,
+                                  start=date(2026,1,1),
+                                  end=date(2027,1,1)):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_customer_refund_approval_overview("
+                "%s,%s,%s,%s)",(tenant,actor,start,end)).fetchone()
+
+    def refund_preview(self,tenant,actor,order):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_refund_approved_instruction_preview(%s,%s,%s)",
+                (tenant,actor,order)).fetchone()
+
+    def test_refund_approval_report_separates_unpaid_instructions_from_claims(self):
+        before=self.refund_approvals_overview(self.tenant_a,self.actor)
+        tenant,admin,rma,invoice,reviewer=self.prepare_refund_approval()
+        recognized=self.refund_approvals_overview(tenant,self.actor)
+        self.assertEqual(recognized[4]-before[4],1)
+        order,_=self.nrv_request_approval(tenant,admin,rma)
+        pending=self.refund_approvals_overview(tenant,self.actor)
+        self.assertEqual(pending[0]-before[0],1)
+        self.assertEqual(pending[2]-before[2],Decimal("10"))
+        self.assertEqual(pending[4],before[4])
+        self.assertEqual(pending[5],before[5])
+        self.assertIsNone(self.refund_preview(tenant,admin,order))
+        self.nrv_approve_request(tenant,reviewer,order)
+        approved=self.refund_approvals_overview(tenant,self.actor)
+        self.assertEqual(approved[0],before[0])
+        self.assertEqual(approved[1]-before[1],1)
+        self.assertEqual(approved[3]-before[3],Decimal("10"))
+        self.assertEqual(approved[5],before[5])
+        self.assertTrue(approved[6])
+        self.assertEqual(self.refund_preview(tenant,admin,order),(
+            order,invoice.id,invoice.partner_id,"SAR",Decimal("10"),
+            "BENEFICIARY-REVIEW-CI","INDEPENDENT-REVIEW-CI",
+            "approved_not_disbursed"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_payment_docs WHERE tenant_id=%s "
+            "AND direction='vendor_disbursement'",(tenant,)).fetchone()[0],0)
+
+    def test_refund_approval_reports_refuse_cross_tenant_and_untrusted_actor(self):
+        tenant,admin,rma,invoice,reviewer=self.prepare_refund_approval()
+        order,_=self.nrv_request_approval(tenant,admin,rma)
+        self.nrv_approve_request(tenant,reviewer,order)
+        for tid,who in ((self.tenant_b,admin),(tenant,uuid4())):
+            with self.assertRaises(self.psycopg.Error):
+                self.refund_approvals_overview(tid,who)
+            with self.assertRaises(self.psycopg.Error):
+                self.refund_preview(tid,who,order)
+        with self.assertRaises(self.psycopg.Error):
+            self.refund_approvals_overview(
+                tenant,self.actor,start=date(2027,1,1),
+                end=date(2026,1,1))
 
 if __name__ == "__main__":
     unittest.main()
