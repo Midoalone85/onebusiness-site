@@ -106,7 +106,7 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Subject already belongs to another actor';
     END IF;
-END $;
+END $$;
 
 CREATE FUNCTION one_auth.disable_subject(
     p_issuer text, p_subject text, p_operator uuid, p_request uuid
