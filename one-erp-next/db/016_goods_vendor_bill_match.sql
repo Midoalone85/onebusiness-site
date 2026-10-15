@@ -69,7 +69,7 @@ BEGIN
  END IF;
  SELECT * INTO v_bill FROM one_invoice_docs
    WHERE tenant_id=p_tenant AND id=p_bill FOR UPDATE;
- IF NOT FOUND OR v_bill.kind<>'vendor_bill' OR v_bill.status<>'issued'
+ IF NOT FOUND OR v_bill.kind<>'vendor_bill' OR v_bill.status<>'draft'
     OR v_bill.partner_id<>v_order.partner_id OR
        v_bill.currency<>v_order.currency THEN
   RAISE EXCEPTION 'Issued vendor bill does not match PO supplier/currency';
@@ -120,6 +120,131 @@ BEGIN
  END LOOP;
  RETURN p_bill;
 END $$;
+-- The invoice issuer permits a GRNI-liability line ONLY IF its authoritative
+-- physical + PO allocation already exists at the point of issuing. This is a
+-- real DB invariant, not a spoofable SQL session flag.
+CREATE OR REPLACE FUNCTION one_issue_invoice(p_tenant uuid,p_doc uuid,p_actor uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER AS $
+DECLARE
+    d one_invoice_docs%ROWTYPE;
+    j one_journal_entries%ROWTYPE;
+    source_doc one_invoice_docs%ROWTYPE;
+    n integer;
+    bases numeric(24,3);
+    taxes numeric(24,3);
+    scale smallint;
+    prior_credited numeric(24,3);
+    control_count integer;
+    expected_kind text;
+BEGIN
+    IF current_setting('one.tenant_id',true) IS DISTINCT FROM p_tenant::text
+       OR current_setting('one.actor_id',true) IS DISTINCT FROM p_actor::text
+       OR NOT EXISTS (
+         SELECT 1 FROM one_memberships
+         WHERE tenant_id=p_tenant AND actor_id=p_actor AND active
+           AND role IN ('accountant','company_admin')
+       ) THEN
+        RAISE EXCEPTION 'Authorized accounting user required';
+    END IF;
+    SELECT * INTO d FROM one_invoice_docs
+      WHERE tenant_id=p_tenant AND id=p_doc FOR UPDATE;
+    IF NOT FOUND OR d.status<>'draft' THEN
+        RAISE EXCEPTION 'Invoice missing or already issued';
+    END IF;
+    SELECT * INTO j FROM one_journal_entries
+      WHERE tenant_id=p_tenant AND id=d.journal_id FOR UPDATE;
+    IF NOT FOUND OR j.status<>'posted' OR j.currency<>d.currency OR
+       j.occurred_on<>d.issued_on OR
+       j.reference<>d.kind||':'||d.number OR
+       j.idempotency_key<>'invoice:'||d.id::text THEN
+        RAISE EXCEPTION 'Linked posted journal must match invoice identity';
+    END IF;
+    SELECT minor_units INTO scale FROM one_currency_precision WHERE code=d.currency;
+    SELECT count(*),coalesce(sum(base_total),0),coalesce(sum(tax_total),0)
+      INTO n,bases,taxes FROM one_invoice_lines
+      WHERE tenant_id=p_tenant AND doc_id=d.id;
+    IF n<1 OR bases<>d.net_total OR taxes<>d.tax_total OR
+       EXISTS (SELECT 1 FROM one_invoice_lines l
+               WHERE l.tenant_id=p_tenant AND l.doc_id=d.id AND (
+                   l.base_total<>round(l.quantity*l.unit_price-l.discount_amount,scale)
+                   OR l.tax_total<>round(l.base_total*l.tax_rate,scale)
+                   OR l.unit_price<>round(l.unit_price,scale)
+                   OR l.discount_amount<>round(l.discount_amount,scale)
+                   OR (l.tax_category='standard' AND l.tax_code='NONE')
+                   OR (d.kind IN ('customer_invoice','customer_credit')
+                       AND l.input_tax_recoverable)
+               )) OR
+       EXISTS (SELECT 1 FROM one_invoice_lines l JOIN one_accounts a
+               ON a.tenant_id=l.tenant_id AND a.id=l.account_id
+               WHERE l.tenant_id=p_tenant AND l.doc_id=d.id AND
+                  (NOT a.active OR NOT a.posting_allowed OR
+                   (a.kind<>CASE WHEN d.kind IN
+                     ('customer_invoice','customer_credit') THEN 'revenue'
+                     ELSE 'expense' END
+                   AND NOT (d.kind='vendor_bill'
+                     AND a.kind='liability'
+                     AND EXISTS(SELECT 1 FROM one_goods_bill_allocations alloc
+                       WHERE alloc.tenant_id=l.tenant_id
+                         AND alloc.bill_id=l.doc_id
+                         AND alloc.bill_line_no=l.line_number))))) OR
+       EXISTS (SELECT 1 FROM one_journal_lines l WHERE l.tenant_id=p_tenant
+               AND l.entry_id=d.journal_id AND
+               (l.debit<>round(l.debit,scale) OR l.credit<>round(l.credit,scale)))
+    THEN
+        RAISE EXCEPTION 'Invoice line and tax snapshot mismatch';
+    END IF;
+    IF (SELECT coalesce(sum(debit),0) FROM one_journal_lines
+         WHERE tenant_id=p_tenant AND entry_id=d.journal_id)<>d.gross_total THEN
+        RAISE EXCEPTION 'Journal posting total differs from invoice';
+    END IF;
+    expected_kind := CASE WHEN d.kind IN ('customer_invoice','customer_credit')
+                          THEN 'asset' ELSE 'liability' END;
+    IF NOT EXISTS (
+        SELECT 1 FROM one_accounts a WHERE a.tenant_id=p_tenant
+          AND a.id=d.control_account_id AND a.kind=expected_kind
+          AND a.active AND a.posting_allowed
+    ) THEN
+        RAISE EXCEPTION 'Invalid invoice control account';
+    END IF;
+    SELECT count(*) INTO control_count FROM one_journal_lines l
+       WHERE l.tenant_id=p_tenant AND l.entry_id=d.journal_id
+         AND l.account_id=d.control_account_id
+         AND CASE WHEN d.kind IN ('customer_invoice','vendor_credit')
+             THEN l.debit=d.gross_total AND l.credit=0
+             ELSE l.credit=d.gross_total AND l.debit=0 END;
+    IF control_count<>1 THEN
+        RAISE EXCEPTION 'Invoice control balance absent or incorrect';
+    END IF;
+    IF d.source_invoice_id IS NOT NULL THEN
+        -- Lock original to serialize partial-credit issuance across sessions.
+        SELECT * INTO source_doc FROM one_invoice_docs
+          WHERE tenant_id=p_tenant AND id=d.source_invoice_id FOR UPDATE;
+        IF NOT FOUND OR source_doc.status<>'issued' OR
+           source_doc.partner_id<>d.partner_id OR
+           source_doc.currency<>d.currency OR
+           source_doc.issued_on>d.issued_on OR
+           (d.kind='customer_credit' AND source_doc.kind<>'customer_invoice') OR
+           (d.kind='vendor_credit' AND source_doc.kind<>'vendor_bill') THEN
+            RAISE EXCEPTION 'Credit note must reference issued compatible source';
+        END IF;
+        SELECT coalesce(sum(gross_total),0) INTO prior_credited
+          FROM one_invoice_docs
+          WHERE tenant_id=p_tenant AND source_invoice_id=d.source_invoice_id
+            AND status='issued';
+        IF prior_credited+d.gross_total>source_doc.gross_total THEN
+            RAISE EXCEPTION 'Total issued credits exceed original invoice';
+        END IF;
+    END IF;
+    PERFORM set_config('one.invoice_context','yes',true);
+    UPDATE one_invoice_docs SET status='issued',
+        approved_at=transaction_timestamp(),approved_by=p_actor
+      WHERE tenant_id=p_tenant AND id=p_doc;
+    PERFORM set_config('one.invoice_context','',true);
+    INSERT INTO one_invoice_audit(tenant_id,doc_id,actor_id)
+      VALUES (p_tenant,p_doc,p_actor);
+    RETURN p_doc;
+END $;
+
 REVOKE ALL ON one_goods_bill_allocations FROM PUBLIC;
 REVOKE ALL ON FUNCTION
  one_link_goods_vendor_bill(uuid,uuid,uuid,text,integer[],uuid) FROM PUBLIC;
