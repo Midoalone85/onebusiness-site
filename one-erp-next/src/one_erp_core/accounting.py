@@ -76,6 +76,7 @@ class JournalEntry:
     idempotency_key: str
     lines: tuple[JournalLine, ...]
     status: EntryStatus = EntryStatus.DRAFT
+    reversal_of: UUID | None = None
 
 
 def _money(value: Decimal, *, minor_units: int) -> Decimal:
@@ -98,6 +99,8 @@ def validate_entry(
         raise AccountingError("Specify a supported currency minor-unit precision")
     if entry.status != EntryStatus.DRAFT:
         raise AccountingError("Only draft entries may be posted")
+    if entry.reversal_of == entry.id:
+        raise AccountingError("An entry cannot reverse itself")
     if entry.tenant_id != period.tenant_id:
         raise AccountingError("Period belongs to a different tenant")
     if period.closed or not period.begins <= entry.occurred_on < period.ends_exclusive:
