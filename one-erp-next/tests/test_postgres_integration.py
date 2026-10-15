@@ -5,6 +5,7 @@ Never point these destructive fixture/setup checks at production.
 """
 import os
 import unittest
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -13,7 +14,8 @@ from uuid import uuid4
 from one_erp_core.accounting import (
     Account, AccountKind, AccountingPeriod, JournalEntry, JournalLine,
 )
-from one_erp_core.postgresql import persist_and_post
+from one_erp_core.postgresql import persist_and_post, close_accounting_period
+from one_erp_core.reversals import make_reversal
 from one_erp_core.tenancy import Membership, Role
 
 DSN = os.environ.get("ONE_TEST_PG_DSN")
@@ -25,8 +27,9 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         import psycopg
         cls.psycopg = psycopg
         cls.admin = psycopg.connect(DSN, autocommit=True)
-        migration = Path(__file__).resolve().parents[1] / "db" / "001_ledger.sql"
-        cls.admin.execute(migration.read_text(encoding="utf-8"), prepare=False)
+        migration_dir = Path(__file__).resolve().parents[1] / "db"
+        for migration in sorted(migration_dir.glob("[0-9][0-9][0-9]_*.sql")):
+            cls.admin.execute(migration.read_text(encoding="utf-8"), prepare=False)
         # Ephemeral CI-only role. The broad DML grants below allow tests to
         # verify RLS and triggers; never copy them into production grants.
         cls.admin.execute(
@@ -38,6 +41,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         cls.admin.execute("GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO one_erp_runtime_ci")
         cls.admin.execute(
             "GRANT EXECUTE ON FUNCTION one_post_journal(uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_close_period(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
         cls.db = psycopg.connect(
@@ -168,6 +175,74 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     "SELECT one_post_journal(%s,%s,%s)",
                     (bad.tenant_id,bad.id,self.actor),
                 )
+
+
+    def test_post_source_and_exact_reversal(self):
+        source = self.post(self.fresh_entry())
+        reversal = make_reversal(source, reversal_on=date(2026,10,16),reason="Invoice correction")
+        result = self.post(reversal)
+        self.assertEqual(result.reversal_of, source.id)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)", (str(self.tenant_a),))
+            src_count = self.db.execute(
+                "SELECT count(*) FROM one_journal_entries WHERE id=%s AND status='posted'",
+                (source.id,),
+            ).fetchone()[0]
+            rev_count = self.db.execute(
+                "SELECT count(*) FROM one_journal_entries WHERE reversal_of=%s AND status='posted'",
+                (source.id,),
+            ).fetchone()[0]
+        self.assertEqual((src_count,rev_count), (1,1))
+        with self.assertRaises(self.psycopg.Error):
+            self.post(make_reversal(source,reversal_on=date(2026,10,17),reason="Again"))
+
+    def test_db_refuses_balanced_but_inexact_reversal(self):
+        source = self.post(self.fresh_entry())
+        reversal = make_reversal(source, reversal_on=date(2026,10,16),reason="Correct")
+        wrong_lines = (
+            JournalLine("cash",credit=Decimal("9.00")),
+            JournalLine("sales",debit=Decimal("9.00")),
+        )
+        with self.assertRaises(self.psycopg.Error):
+            self.post(replace(reversal,lines=wrong_lines))
+
+    def test_admin_closes_period_with_audit_and_future_post_denied(self):
+        period_id, admin_actor = uuid4(), uuid4()
+        self.admin.execute(
+            """INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive)
+               VALUES (%s,%s,%s,%s)""",
+            (self.tenant_a,period_id,date(2027,1,1),date(2028,1,1)),
+        )
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) VALUES (%s,%s,%s)",
+            (self.tenant_a,admin_actor,"company_admin"),
+        )
+        self.assertEqual(close_accounting_period(
+            self.db,tenant_id=self.tenant_a,period_id=period_id,actor_id=admin_actor,
+        ),period_id)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)", (str(self.tenant_a),))
+            audit=self.db.execute(
+                "SELECT count(*) FROM one_period_close_audit WHERE tenant_id=%s AND period_id=%s",
+                (self.tenant_a,period_id),
+            ).fetchone()[0]
+        self.assertEqual(audit,1)
+        with self.assertRaises(self.psycopg.Error):
+            close_accounting_period(self.db,tenant_id=self.tenant_a,
+                                    period_id=period_id,actor_id=admin_actor)
+        late=replace(self.fresh_entry(),occurred_on=date(2027,1,2))
+        with self.assertRaises(self.psycopg.Error):
+            persist_and_post(
+                self.db,entry=late,period_id=period_id,
+                period=AccountingPeriod(self.tenant_a,date(2027,1,1),date(2028,1,1)),
+                chart=self.chart,actor_id=self.actor,memberships=self.memberships,
+            )
+
+    def test_accountant_cannot_close_period(self):
+        with self.assertRaises(self.psycopg.Error):
+            close_accounting_period(self.db,tenant_id=self.tenant_a,
+                                    period_id=self.period_id,actor_id=self.actor)
+
 
 
 if __name__ == "__main__":
