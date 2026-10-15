@@ -229,6 +229,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "uuid,uuid,uuid,text,numeric,uuid,uuid,uuid,uuid,text,text,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_complete_unbilled_vendor_return(uuid,uuid,uuid,uuid,uuid,text,text,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -4275,6 +4280,157 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(report[3],Decimal("0"))
         self.assertEqual(report[5],1)
         self.assertFalse(report[-1])
+
+
+
+    def request_costed_vendor_return(self,tenant,admin,source,quantity):
+        job=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_request_return(%s,%s,%s,%s,NULL,%s,'Vendor RMA')",
+            (tenant,job,source,quantity,admin))
+        return job
+
+    def complete_costed_vendor_return(self,tenant,admin,job,*,event=None,
+                                       journal=None,period=None):
+        event=event or uuid4()
+        journal=journal or uuid4()
+        result=self.commerce_execute(
+            tenant,admin,"SELECT one_complete_unbilled_vendor_return("
+            "%s,%s,%s,%s,%s,'inventory','grni',%s)",
+            (tenant,job,event,journal,period or self.period_id,admin))
+        return event,journal,result
+
+    def test_unbilled_vendor_return_restores_grni_and_reduces_stock_value(self):
+        tenant,admin,product,warehouse,purchase,sale,source=(
+            self.valued_receipt_for_vendor_bill(Decimal("5")))
+        job=self.request_costed_vendor_return(
+            tenant,admin,source,Decimal("2"))
+        event,journal,result=self.complete_costed_vendor_return(
+            tenant,admin,job)
+        self.assertEqual(result,job)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("3"),Decimal("0")))
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("3"),Decimal("37.50")))
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,journal)).fetchall(),[
+                ("grni",Decimal("25"),Decimal("0")),
+                ("inventory",Decimal("0"),Decimal("25"))
+            ])
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,amount FROM one_vendor_return_cost_links "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,job)).fetchone(),(Decimal("2"),Decimal("25")))
+        self.assertEqual(self.admin.execute(
+            "SELECT movement_kind,qty,amount FROM one_stock_value_events "
+            "WHERE tenant_id=%s AND stock_event_id=%s",
+            (tenant,event)).fetchone(),
+            ("vendor_return",Decimal("2"),Decimal("25")))
+        self.assertTrue(self.inventory_pulse_check(
+            tenant,admin,warehouse,product)[-1])
+
+    def test_vendor_bill_cannot_rebill_units_already_returned_to_supplier(self):
+        tenant,admin,product,warehouse,purchase,sale,source=(
+            self.valued_receipt_for_vendor_bill(Decimal("5")))
+        job=self.request_costed_vendor_return(tenant,admin,source,Decimal("2"))
+        self.complete_costed_vendor_return(tenant,admin,job)
+        over=self.sample_goods_vendor_bill(tenant,Decimal("4"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_matched_vendor_goods(tenant,self.actor,purchase,over)
+        acceptable=self.sample_goods_vendor_bill(tenant,Decimal("3"))
+        self.post_matched_vendor_goods(
+            tenant,self.actor,purchase,acceptable)
+        self.assertEqual(self.admin.execute(
+            "SELECT coalesce(sum(billed_qty),0) FROM one_goods_bill_allocations "
+            "WHERE tenant_id=%s AND order_id=%s",
+            (tenant,purchase)).fetchone()[0],Decimal("3"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_docs "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,over.id)).fetchone()[0],0)
+
+    def test_vendor_return_already_billed_part_rejected_and_kept_requested(self):
+        tenant,admin,product,warehouse,purchase,sale,source=(
+            self.valued_receipt_for_vendor_bill(Decimal("5")))
+        bill=self.sample_goods_vendor_bill(tenant,Decimal("4"))
+        self.post_matched_vendor_goods(tenant,self.actor,purchase,bill)
+        job=self.request_costed_vendor_return(tenant,admin,source,Decimal("2"))
+        event,journal=uuid4(),uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.complete_costed_vendor_return(
+                tenant,admin,job,event=event,journal=journal)
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_return_jobs WHERE tenant_id=%s "
+            "AND id=%s",(tenant,job)).fetchone()[0],"requested")
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("5"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s "
+            "AND id=%s",(tenant,event)).fetchone()[0],0)
+
+    def test_vendor_return_wrong_accounting_period_fails_atomically(self):
+        tenant,admin,product,warehouse,purchase,sale,source=(
+            self.valued_receipt_for_vendor_bill(Decimal("5")))
+        job=self.request_costed_vendor_return(tenant,admin,source,Decimal("1"))
+        event,journal=uuid4(),uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.complete_costed_vendor_return(
+                tenant,admin,job,event=event,journal=journal,period=uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT status,processed_event_id FROM one_return_jobs "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,job)).fetchone(),("requested",None))
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("5"),Decimal("62.50")))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_vendor_return_cost_links WHERE "
+            "tenant_id=%s AND return_job_id=%s",
+            (tenant,job)).fetchone()[0],0)
+        self.complete_costed_vendor_return(
+            tenant,admin,job,event=event,journal=journal)
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_return_jobs WHERE tenant_id=%s "
+            "AND id=%s",(tenant,job)).fetchone()[0],"completed")
+
+    def test_vendor_return_mixed_cost_cannot_guess_po_source_revaluation(self):
+        tenant,admin,product,warehouse,purchase,sale,source=(
+            self.valued_receipt_for_vendor_bill(Decimal("2")))
+        other=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_commercial_orders "
+            "(tenant_id,id,kind,number,partner_id,currency) "
+            "VALUES(%s,%s,'purchase',%s,'TEST-PARTNER','SAR')",
+            (tenant,other,"PO-MIX-"+other.hex))
+        self.admin.execute(
+            "INSERT INTO one_commercial_order_lines "
+            "(tenant_id,order_id,line_no,product_id,warehouse_id,"
+            "ordered_qty,unit_price) VALUES(%s,%s,1,%s,%s,3,20)",
+            (tenant,other,product,warehouse))
+        self.commerce_execute(
+            tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,other,admin))
+        self.atomic_stock_post(tenant,admin,other,Decimal("3"),"purchase")
+        job=self.request_costed_vendor_return(tenant,admin,source,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.complete_costed_vendor_return(tenant,admin,job)
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("5"),Decimal("85")))
 
 
 if __name__ == "__main__":
