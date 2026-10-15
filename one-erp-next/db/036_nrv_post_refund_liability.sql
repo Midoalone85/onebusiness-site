@@ -95,19 +95,21 @@ BEGIN
    AND m.role IN ('company_admin','accountant')) THEN
   RAISE EXCEPTION 'Verified company accountant needed for refund liability';
  END IF;
- -- Same original invoice lock as customer receipts and source credits.
+ -- Align with the ordinary return-credit path: lock RMA first,
+ -- then original invoice. Payment allocation locks only original invoice,
+ -- so this order avoids refund/credit lock inversion and over-crediting.
+ SELECT * INTO r FROM one_return_jobs
+  WHERE tenant_id=p_tenant AND id=p_return FOR UPDATE;
+ IF NOT FOUND OR r.status<>'completed' OR r.return_kind<>'customer'
+    OR r.accepted_qty<=0 THEN
+  RAISE EXCEPTION 'Accepted RMA required';
+ END IF;
  SELECT * INTO src FROM one_invoice_docs
   WHERE tenant_id=p_tenant AND id=p_original FOR UPDATE;
  IF NOT FOUND OR src.status<>'issued' OR src.kind<>'customer_invoice'
     OR src.control_account_id<>p_ar OR src.tax_total<>0 OR
     src.issued_on>p_on THEN
   RAISE EXCEPTION 'Matching issued untaxed original invoice required';
- END IF;
- SELECT * INTO r FROM one_return_jobs
-  WHERE tenant_id=p_tenant AND id=p_return FOR UPDATE;
- IF NOT FOUND OR r.status<>'completed' OR r.return_kind<>'customer'
-    OR r.accepted_qty<=0 THEN
-  RAISE EXCEPTION 'Accepted RMA required';
  END IF;
  IF EXISTS(SELECT 1 FROM one_nrv_refund_claims c
      WHERE c.tenant_id=p_tenant AND c.return_job_id=p_return)
