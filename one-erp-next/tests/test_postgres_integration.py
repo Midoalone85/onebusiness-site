@@ -853,6 +853,139 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(reader_connections,1)
 
 
+    def provisioning_connection(self):
+        return self.psycopg.connect(
+            host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
+            port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
+            dbname=os.environ.get("ONE_TEST_PG_DB", "one_erp_test"),
+            user="one_erp_auth_provision_ci", password="ci_provision_only",
+            autocommit=True,
+        )
+
+    def test_audited_provisioning_enforces_tenant_disable_and_least_privilege(self):
+        # Run every operation as the unprivileged provisioner (not test superuser).
+        from one_erp_core.accounting import AccountingError
+        operator, actor, tenant = uuid4(), uuid4(), uuid4()
+        issuer = "https://identity.example.test"
+        subject = "new-ci-" + uuid4().hex
+        request_ids = [uuid4() for _ in range(4)]
+        with self.provisioning_connection() as conn:
+            conn.execute(
+                "SELECT one_auth.register_tenant(%s,%s,%s)",
+                (tenant, operator, request_ids[0]),
+            )
+            conn.execute(
+                "SELECT one_auth.link_subject(%s,%s,%s,%s,%s)",
+                (issuer, subject, actor, operator, request_ids[1]),
+            )
+            conn.execute(
+                "SELECT one_auth.set_entitlement(%s,%s,%s,%s,%s)",
+                (actor, tenant, True, operator, request_ids[2]),
+            )
+            # The provisioning role has EXECUTE-only access to approved
+            # procedures. It must not edit grants or audit rows directly.
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "UPDATE one_auth.tenant_entitlements SET active=false "
+                    "WHERE actor_id=%s AND tenant_id=%s",
+                    (actor, tenant),
+                )
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute("SELECT * FROM one_auth.provisioning_audit")
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.register_tenant(%s,%s,%s)",
+                    (tenant, operator, request_ids[0]),
+                )
+
+        directory = ControlPlaneIdentityDirectory(self.auth_connection)
+        identity = directory.resolve(issuer, subject)
+        self.assertEqual(identity.actor_id, actor)
+        self.assertEqual(identity.allowed_tenants, frozenset({tenant}))
+        rows = self.admin.execute(
+            """SELECT action FROM one_auth.provisioning_audit
+               WHERE request_id = ANY(%s) ORDER BY created_at""",
+            (request_ids[:3],),
+        ).fetchall()
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(set(r[0] for r in rows),
+                         {"register_tenant", "link_subject", "set_entitlement"})
+        with self.provisioning_connection() as conn:
+            conn.execute(
+                "SELECT one_auth.set_tenant_active(%s,%s,%s,%s)",
+                (tenant, False, operator, request_ids[3]),
+            )
+            # Granting a disabled company should fail with zero new audit rows.
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.set_entitlement(%s,%s,%s,%s,%s)",
+                    (actor, tenant, True, operator, uuid4()),
+                )
+        with self.assertRaises(AccountingError):
+            directory.resolve(issuer, subject)
+        count = self.admin.execute(
+            "SELECT count(*) FROM one_auth.provisioning_audit "
+            "WHERE request_id = ANY(%s)", (request_ids,),
+        ).fetchone()[0]
+        self.assertEqual(count, 4)
+
+    def test_control_plane_rejects_subject_rebinding_and_audits_revocation(self):
+        from one_erp_core.accounting import AccountingError
+        issuer = "https://identity.example.test"
+        operator, actor, other_actor, tenant = uuid4(), uuid4(), uuid4(), uuid4()
+        subject = "no-rebinding-" + uuid4().hex
+        jti = "revoked-from-admin-" + uuid4().hex
+        digest = sha256((issuer + "\0" + jti).encode("utf-8")).digest()
+        with self.provisioning_connection() as conn:
+            conn.execute(
+                "SELECT one_auth.register_tenant(%s,%s,%s)",
+                (tenant, operator, uuid4()),
+            )
+            conn.execute(
+                "SELECT one_auth.link_subject(%s,%s,%s,%s,%s)",
+                (issuer, subject, actor, operator, uuid4()),
+            )
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.link_subject(%s,%s,%s,%s,%s)",
+                    (issuer, subject, other_actor, operator, uuid4()),
+                )
+            conn.execute(
+                "SELECT one_auth.revoke_jti_digest(%s,%s,%s,%s)",
+                (digest, datetime.now(timezone.utc)+timedelta(minutes=10),
+                 operator, uuid4()),
+            )
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.revoke_jti_digest(%s,%s,%s,%s)",
+                    (digest, datetime.now(timezone.utc)-timedelta(seconds=1),
+                     operator, uuid4()),
+                )
+            conn.execute(
+                "SELECT one_auth.disable_subject(%s,%s,%s,%s)",
+                (issuer, subject, operator, uuid4()),
+            )
+        stored = self.admin.execute(
+            "SELECT actor_id,active FROM one_auth.subject_links "
+            "WHERE issuer=%s AND subject=%s",
+            (issuer, subject),
+        ).fetchone()
+        self.assertEqual(stored, (actor, False))
+        with self.assertRaises(AccountingError):
+            ControlPlaneIdentityDirectory(self.auth_connection).resolve(issuer, subject)
+        checker = ControlPlaneRevocationChecker(self.auth_connection)
+        self.assertTrue(checker.is_revoked(issuer, jti))
+        self.assertFalse(checker.is_revoked(issuer, jti+"-other"))
+        audit = self.admin.execute(
+            "SELECT action,details::text FROM one_auth.provisioning_audit "
+            "WHERE operator_id=%s", (operator,),
+        ).fetchall()
+        self.assertEqual(len(audit), 4)
+        self.assertIn("revoke_jti", {r[0] for r in audit})
+        self.assertTrue(all(jti not in row[1] for row in audit))
+
+
+
 
 if __name__ == "__main__":
     unittest.main()
