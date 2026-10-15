@@ -16,6 +16,10 @@ from one_erp_core.accounting import (
 )
 from one_erp_core.postgresql import persist_and_post, close_accounting_period
 from one_erp_core.reversals import make_reversal
+from one_erp_core.invoicing import (
+    DocumentType, TaxCategory, InvoiceLine, InvoiceDocument, InvoiceLedgerAccounts,
+)
+from one_erp_core.invoice_persistence import persist_invoice_with_journal
 from one_erp_core.tenancy import Membership, Role
 
 DSN = os.environ.get("ONE_TEST_PG_DSN")
@@ -83,6 +87,21 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                    (tenant_id,id,code,name,kind) VALUES (%s,%s,%s,%s,%s)""",
                 (item.tenant_id,item.id,item.code,item.name,item.kind.value),
             )
+        for name, code, kind in (
+            ("ar","120",AccountKind.ASSET),
+            ("ap","220",AccountKind.LIABILITY),
+            ("expense","500",AccountKind.EXPENSE),
+            ("vatout","230",AccountKind.LIABILITY),
+            ("vatin","130",AccountKind.ASSET),
+        ):
+            item = Account(name,cls.tenant_a,code,name,kind)
+            cls.chart[name] = item
+            cls.admin.execute(
+                """INSERT INTO one_accounts(tenant_id,id,code,name,kind)
+                   VALUES (%s,%s,%s,%s,%s)""",
+                (item.tenant_id,item.id,item.code,item.name,item.kind.value),
+            )
+        cls.invoice_accounts = InvoiceLedgerAccounts("ar","ap","vatout","vatin")
         cls.period = AccountingPeriod(cls.tenant_a, date(2026,1,1), date(2027,1,1))
         cls.memberships = (Membership(cls.actor, cls.tenant_a, Role.ACCOUNTANT),)
 
@@ -246,6 +265,113 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         with self.assertRaises(self.psycopg.Error):
             close_accounting_period(self.db,tenant_id=self.tenant_a,
                                     period_id=self.period_id,actor_id=self.actor)
+
+
+
+    def invoice(self, *, kind=DocumentType.CUSTOMER_INVOICE,
+                number=None, source_invoice_id=None,
+                price=Decimal("100.00")):
+        line=InvoiceLine(
+            "Example item", "sales" if kind in (
+                DocumentType.CUSTOMER_INVOICE,DocumentType.CUSTOMER_CREDIT
+            ) else "expense",
+            Decimal("1"),price,
+            tax_category=TaxCategory.STANDARD,tax_rate=Decimal("0.15"),
+            tax_code="DEMO-STANDARD",input_tax_recoverable=kind in (
+                DocumentType.VENDOR_BILL,DocumentType.VENDOR_CREDIT
+            ),
+        )
+        return InvoiceDocument(
+            uuid4(),self.tenant_a,number or str(uuid4()),"partner-ci",
+            kind,date(2026,10,15),date(2026,11,15),"SAR",(line,),
+            source_invoice_id=source_invoice_id,
+        )
+
+    def post_invoice(self, document):
+        return persist_invoice_with_journal(
+            self.db,document=document,accounts=self.invoice_accounts,
+            chart=self.chart,period=self.period,period_id=self.period_id,
+            actor_id=self.actor,memberships=self.memberships,
+        )
+
+    def test_internal_invoice_issuance_is_atomic_and_audited(self):
+        doc=self.invoice()
+        proposal=self.post_invoice(doc)
+        self.assertEqual(proposal.totals.gross,Decimal("115.00"))
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(self.tenant_a),))
+            status=self.db.execute(
+                "SELECT status FROM one_invoice_docs WHERE tenant_id=%s AND id=%s",
+                (self.tenant_a,doc.id),
+            ).fetchone()[0]
+            gl=self.db.execute(
+                "SELECT status FROM one_journal_entries WHERE tenant_id=%s AND id=%s",
+                (self.tenant_a,doc.id),
+            ).fetchone()[0]
+            audits=self.db.execute(
+                "SELECT count(*) FROM one_invoice_audit WHERE tenant_id=%s AND doc_id=%s",
+                (self.tenant_a,doc.id),
+            ).fetchone()[0]
+        self.assertEqual((status,gl,audits),("issued","posted",1))
+
+    def test_issued_invoice_and_lines_are_immutable(self):
+        doc=self.invoice()
+        self.post_invoice(doc)
+        for sql in (
+            "UPDATE one_invoice_docs SET partner_id='tampered' WHERE tenant_id=%s AND id=%s",
+            "DELETE FROM one_invoice_lines WHERE tenant_id=%s AND doc_id=%s",
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                with self.db.transaction():
+                    self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(self.tenant_a),))
+                    self.db.execute(sql,(self.tenant_a,doc.id))
+
+    def test_duplicate_invoice_number_rolls_back_new_gl(self):
+        number=str(uuid4())
+        doc=self.invoice(number=number)
+        self.post_invoice(doc)
+        other=self.invoice(number=number)
+        with self.assertRaises(self.psycopg.Error):
+            self.post_invoice(other)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(self.tenant_a),))
+            count=self.db.execute(
+                "SELECT count(*) FROM one_journal_entries WHERE tenant_id=%s AND id=%s",
+                (self.tenant_a,other.id),
+            ).fetchone()[0]
+        self.assertEqual(count,0)
+
+    def test_credit_note_is_bounded_by_issued_source(self):
+        doc=self.invoice()
+        self.post_invoice(doc)
+        partial=self.invoice(kind=DocumentType.CUSTOMER_CREDIT,
+                             source_invoice_id=doc.id,price=Decimal("40.00"))
+        self.post_invoice(partial)
+        too_much=self.invoice(kind=DocumentType.CUSTOMER_CREDIT,
+                              source_invoice_id=doc.id,price=Decimal("75.00"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_invoice(too_much)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(self.tenant_a),))
+            count=self.db.execute(
+                "SELECT count(*) FROM one_invoice_docs WHERE source_invoice_id=%s AND status='issued'",
+                (doc.id,),
+            ).fetchone()[0]
+        self.assertEqual(count,1)
+
+    def test_vendor_bill_and_vendor_credit_note_internal_issue(self):
+        bill=self.invoice(kind=DocumentType.VENDOR_BILL)
+        self.post_invoice(bill)
+        credit=self.invoice(kind=DocumentType.VENDOR_CREDIT,
+                             source_invoice_id=bill.id,price=Decimal("20.00"))
+        self.post_invoice(credit)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(self.tenant_a),))
+            count=self.db.execute(
+                "SELECT count(*) FROM one_invoice_docs WHERE id IN (%s,%s) AND status='issued'",
+                (bill.id,credit.id),
+            ).fetchone()[0]
+        self.assertEqual(count,2)
 
 
 
