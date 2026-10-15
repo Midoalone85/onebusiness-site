@@ -280,6 +280,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "uuid,uuid,uuid,uuid,text,uuid,text,text,uuid,date) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_nrv_customer_credit_case(uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -5797,6 +5802,39 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT count(*) FROM one_nrv_customer_return_credit_links "
             "WHERE tenant_id=%s AND return_job_id=%s",
             (tenant,rma)).fetchone()[0],0)
+
+    # 033 | Distinguish physically accepted RMA from actual AR credit.
+    def nrv_customer_credit_status(self,tenant,actor,rma):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_nrv_customer_credit_case(%s,%s,%s)",
+                (tenant,actor,rma)).fetchone()
+
+    def test_nrv_credit_case_exposes_qa_then_financially_posted_states(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        before=self.nrv_customer_credit_status(tenant,admin,rma)
+        self.assertEqual(before[0:5],(
+            Decimal("2"),Decimal("25"),Decimal("9"),Decimal("16"),True))
+        self.assertEqual(before[5:9],(
+            None,None,Decimal("0"),Decimal("0")))
+        self.assertEqual(before[-2:],(False,"awaiting_internal_credit"))
+        credit,_=self.issue_reviewed_nrv_credit(tenant,admin,rma,invoice)
+        after=self.nrv_customer_credit_status(tenant,admin,rma)
+        self.assertEqual(after[5:9],(
+            credit,invoice.id,Decimal("2"),Decimal("25")))
+        self.assertEqual(after[-2:],(True,"internal_credit_posted"))
+
+    def test_nrv_credit_case_rejects_wrong_actor_and_cross_company_case(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        for as_tenant,person in (
+            (tenant,uuid4()),(self.tenant_b,admin)
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.nrv_customer_credit_status(as_tenant,person,rma)
 
 if __name__ == "__main__":
     unittest.main()
