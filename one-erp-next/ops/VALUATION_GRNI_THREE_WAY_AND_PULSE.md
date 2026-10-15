@@ -78,10 +78,16 @@ not externally attested balances.
 - It only values `purchase_receipt` and `sale_dispatch` movements, exactly
   in step with their physical bucket. It **rejects** stale valuations if
   other unvalued movements have already altered the same bucket.
-- The physical goods event and subsequent valuation currently happen in
-  **separate transactions**. Production must combine them in one application
-  command/transaction or a carefully verified outbox recovery protocol so no
-  temporarily unvalued sale can cause inconsistent management reports.
+- **NEW 018 atomic operation functions** now combine physical goods receipts,
+  physical sales dispatch, reserved dispatch and picked/packed delivery dispatch
+  with stored valuation and a posted GL journal **in the SAME PostgreSQL
+  transaction**. A costing/period/account failure rolls back the stock
+  movement, delivery stage, audit and journal together.
+- Legacy individual physical movement and valuation functions still exist;
+  their direct use allows temporarily unvalued stock. Production must retire
+  or restrict them and expose ONLY authenticated application commands for
+  movement+valuation with narrowly-scoped DB permissions. No public API is
+  implemented yet.
 - Purchase valuation is derived from confirmed PO unit price; there is no
   supplier freight, tariff, landed-cost allocation, retrospective price
   variance, currency conversion, discounts, multi-price tolerances or
@@ -132,3 +138,18 @@ not externally attested balances.
 6. Pass security, VAT/ZATCA, backup/recovery, performance/load,
    trial-to-paid billing and commercial staging acceptance gates before
    enabling any live company or sector-specific pack.
+
+## October 15 extra acceptance gate: atomic physical movement
+
+`db/018_atomic_stock_accounting.sql` includes four composable business
+operations: `one_receive_and_value_goods`, `one_ship_and_value_goods`,
+`one_dispatch_reserved_and_value_goods`, and
+`one_dispatch_delivery_and_value`. All operate within one SQL function call
+and PostgreSQL transaction, calling the already validated stock and cost
+functions; one failure aborts all changes. Integration tests exercise successful
+unit/cost/journal consistency, invalid GL accounts, invalid accounting periods,
+reservation rollbacks and delivery stage+cost atomicity. No live Oracle
+deployment, no ZATCA approval or authorized REST interface is claimed.
+
+**Latest isolated CI:** 318 tests passed on each Python 3.11 and 3.13 with
+PostgreSQL 14: https://github.com/Midoalone85/onebusiness-site/actions/runs/38711334118
