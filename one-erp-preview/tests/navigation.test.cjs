@@ -167,6 +167,7 @@ test('module flyout opens from arrow keys, cycles links, and returns focus on Es
  const r=setup({page:'workspace',module:'accounting',view:'invoices'});
  assert.match(r.main,/aria-haspopup="menu" aria-controls="flyout"/);
  const trigger={dataset:{menuTrigger:'accounting'},getBoundingClientRect(){return {left:50,right:200,bottom:120}},
+   closest(sel){return sel==='[data-menu-trigger]'?this:null},
    setAttribute(){},focus(){r.document.activeElement=this}};
  const items=Array.from({length:9},(_,i)=>({
    focus(){r.document.activeElement=this},
