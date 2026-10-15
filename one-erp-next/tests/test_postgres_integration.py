@@ -189,6 +189,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "one_return_case_overview(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_return_case_timeline(uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -3076,6 +3080,131 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT warehouse_type FROM one_warehouses "
             "WHERE tenant_id=%s AND id=%s",
             (tenant,warehouse)).fetchone()[0],"sellable")
+
+
+
+    def fetch_return_timeline(self,tenant,actor,job):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT stream_position,event_type,source_id "
+                "FROM one_return_case_timeline(%s,%s,%s)",
+                (tenant,job,actor)).fetchall()
+
+    def test_return_timeline_connects_physical_decisions_and_credit(self):
+        tenant,actor,invoice,job=self.complete_customer_return_for_invoice()
+        q=self.admin.execute(
+            "SELECT s.product_id FROM one_return_jobs j JOIN one_stock_events s "
+            "ON s.tenant_id=j.tenant_id AND s.id=j.source_event_id "
+            "WHERE j.tenant_id=%s AND j.id=%s",(tenant,job)).fetchone()[0]
+        target=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) "
+            "VALUES (%s,%s,%s,'QC Released')",(tenant,target,"RL-"+target.hex))
+        d1=uuid4()
+        self.unified_return_disposition(
+            tenant,actor,job,"restock",Decimal("1"),target,uuid4(),uuid4(),
+            disposition=d1)
+        d2=uuid4()
+        self.unified_return_disposition(
+            tenant,actor,job,"dispose",Decimal("1"),None,uuid4(),
+            disposition=d2)
+        credit=self.credit_for_source_return(invoice,Decimal("1"))
+        self.issue_accepted_return_credit(credit,job,actor)
+        trace=self.fetch_return_timeline(tenant,actor,job)
+        events={ev for _,ev,_ in trace}
+        self.assertTrue({
+            "returns.requested","returns.completed",
+            "stock.customer_returned","returns.restocked","returns.disposed",
+            "stock.return_restock_in","stock.return_restock_out",
+            "stock.return_disposal","finance.customer_return_credited",
+            "finance.invoice_issued","finance.journal_posted"
+        }.issubset(events))
+        self.assertEqual({sid for _,ev,sid in trace
+                          if ev=="returns.restocked"},{d1})
+        self.assertEqual({sid for _,ev,sid in trace
+                          if ev=="returns.disposed"},{d2})
+        self.assertEqual(len(trace),len(set((e,sid) for _,e,sid in trace)))
+        positions=[x[0] for x in trace]
+        self.assertEqual(positions,sorted(positions))
+        self.assertTrue(all(pos>0 for pos in positions))
+
+    def test_return_case_timeline_denies_wrong_user_tenant_and_unknown_case(self):
+        tenant,actor,invoice,job=self.complete_customer_return_for_invoice()
+        for tid,who,case in (
+            (tenant,uuid4(),job),
+            (self.tenant_b,actor,job),
+            (tenant,actor,uuid4()),
+        ):
+            with self.subTest(tid=tid,case=case),self.assertRaises(self.psycopg.Error):
+                self.fetch_return_timeline(tid,who,case)
+        self.assertIn("returns.requested",
+                      [e for _,e,_ in self.fetch_return_timeline(tenant,actor,job)])
+
+    def test_concurrent_quarantine_qa_resolution_never_processes_same_return_twice(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,actor,invoice,job=self.complete_customer_return_for_invoice(
+            acceptance=Decimal("1"))
+        gate=Barrier(2)
+        def settle(disposition,event):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True,
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(tenant),))
+                        conn.execute("SELECT set_config('one.actor_id',%s,true)",
+                                     (str(actor),))
+                        gate.wait(timeout=12)
+                        conn.execute(
+                            "SELECT one_resolve_return_quarantine("
+                            "%s,%s,%s,'dispose',1,NULL,%s,NULL,%s)",
+                            (tenant,job,disposition,event,actor))
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first=pool.submit(settle,uuid4(),uuid4())
+            second=pool.submit(settle,uuid4(),uuid4())
+            outcomes=(first.result(timeout=28),second.result(timeout=28))
+        self.assertEqual(sorted(outcomes),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(quantity) FROM one_return_dispositions "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,job)).fetchone()[0],Decimal("1"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_operation_outbox o "
+            "WHERE o.tenant_id=%s AND o.event_type='returns.disposed' "
+            "AND o.source_id IN (SELECT id FROM one_return_dispositions "
+            "WHERE tenant_id=%s AND return_job_id=%s)",
+            (tenant,tenant,job)).fetchone()[0],1)
+        self.assertEqual(self.read_unified_return_case(tenant,actor,job)[1],
+                         "qa_resolved")
+
+    def test_failed_qa_disposition_writes_no_success_event_or_movement(self):
+        tenant,actor,invoice,job=self.complete_customer_return_for_invoice(
+            acceptance=Decimal("1"))
+        d=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.unified_return_disposition(
+                tenant,actor,job,"dispose",Decimal("2"),None,uuid4(),
+                disposition=d)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_operation_outbox "
+            "WHERE tenant_id=%s AND event_type='returns.disposed' "
+            "AND source_id=%s",(tenant,d)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_return_dispositions "
+            "WHERE tenant_id=%s AND id=%s",(tenant,d)).fetchone()[0],0)
 
 
 if __name__ == "__main__":
