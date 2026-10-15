@@ -175,6 +175,14 @@ BEGIN
  IF credit_used_qty+r.quantity>alloc.billed_qty THEN
   RAISE EXCEPTION 'Supplier credit exceeds original billed units';
  END IF;
+ -- Existing unrelated vendor credits must also count toward the original
+ -- bill's total ceiling. The locked parent bill serializes all credits.
+ IF (SELECT coalesce(sum(gross_total),0) FROM one_invoice_docs
+       WHERE tenant_id=p_tenant AND source_invoice_id=p_bill
+         AND status='issued')
+      +round(r.quantity*bill_line.unit_price,currency_digits)>b.gross_total THEN
+  RAISE EXCEPTION 'Total supplier credits exceed the original vendor bill';
+ END IF;
  SELECT coalesce(sum(billed_qty),0) INTO bill_total_qty
   FROM one_goods_bill_allocations
   WHERE tenant_id=p_tenant AND order_id=rec.order_id
