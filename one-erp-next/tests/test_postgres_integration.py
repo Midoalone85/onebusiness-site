@@ -2172,5 +2172,114 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 (tenant,ins,actor,None))
 
 
+
+    def test_parallel_delivery_allocations_never_overbook_reserved_stock(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        gate=Barrier(2)
+        def runner(job):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True,
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(tenant),))
+                        conn.execute("SELECT set_config('one.actor_id',%s,true)",
+                                     (str(actor),))
+                        gate.wait(timeout=10)
+                        conn.execute(
+                            "SELECT one_create_delivery(%s,%s,%s,1,3,%s)",
+                            (tenant,job,sale,actor))
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a=pool.submit(runner,uuid4())
+            b=pool.submit(runner,uuid4())
+            results=(a.result(timeout=25),b.result(timeout=25))
+        self.assertEqual(sorted(results),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(quantity) FROM one_delivery_jobs "
+            "WHERE tenant_id=%s AND order_id=%s AND status='draft'",
+            (tenant,sale)).fetchone()[0],Decimal("3"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_fulfillment_audit WHERE tenant_id=%s "
+            "AND event='created' AND delivery_id IN (SELECT id FROM one_delivery_jobs "
+            "WHERE tenant_id=%s AND order_id=%s)",
+            (tenant,tenant,sale)).fetchone()[0],1)
+
+    def test_parallel_inspections_prevent_double_booking_purchase_remaining(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        gate=Barrier(2)
+        def runner(inspection_id):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True,
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(tenant),))
+                        conn.execute("SELECT set_config('one.actor_id',%s,true)",
+                                     (str(actor),))
+                        gate.wait(timeout=10)
+                        conn.execute(
+                            "SELECT one_start_receiving_inspection(%s,%s,%s,1,3,%s)",
+                            (tenant,inspection_id,purchase,actor))
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a=pool.submit(runner,uuid4())
+            b=pool.submit(runner,uuid4())
+            results=(a.result(timeout=25),b.result(timeout=25))
+        self.assertEqual(sorted(results),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(expected_qty) FROM one_receiving_inspections "
+            "WHERE tenant_id=%s AND order_id=%s AND status='pending'",
+            (tenant,purchase)).fetchone()[0],Decimal("3"))
+
+    def test_delivery_stock_event_conflict_rolls_back_stage_and_audit(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+            (tenant,job,sale,actor))
+        self.delivery_stage(tenant,actor,job,"picked")
+        self.delivery_stage(tenant,actor,job,"packed")
+        existing=self.admin.execute(
+            "SELECT id FROM one_stock_events WHERE tenant_id=%s "
+            "AND order_id=%s ORDER BY created_at LIMIT 1",
+            (tenant,purchase)).fetchone()[0]
+        with self.assertRaises(self.psycopg.Error):
+            self.delivery_stage(tenant,actor,job,"dispatched",existing)
+        self.assertEqual(self.admin.execute(
+            "SELECT status,dispatch_event_id FROM one_delivery_jobs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,job)).fetchone(),
+            ("packed",None))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_fulfillment_audit "
+            "WHERE tenant_id=%s AND delivery_id=%s AND event='dispatched'",
+            (tenant,job)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT reserved FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("4"))
+
+
 if __name__ == "__main__":
     unittest.main()
