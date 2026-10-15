@@ -155,6 +155,15 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "one_link_sales_invoice(uuid,uuid,uuid,uuid,integer[]) "
             "TO one_erp_runtime_ci"
         )
+        # Fulfillment routines: disposable CI only; never use these broad grants live.
+        for func in (
+            "one_create_delivery(uuid,uuid,uuid,integer,numeric,uuid)",
+            "one_advance_delivery(uuid,uuid,text,uuid,uuid,text)",
+            "one_start_receiving_inspection(uuid,uuid,uuid,integer,numeric,uuid)",
+            "one_complete_receiving_inspection(uuid,uuid,numeric,numeric,uuid,uuid)",
+        ):
+            cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
+                              " TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -1920,6 +1929,247 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.assertEqual(self.admin.execute(
                 "SELECT count(*) FROM "+table+" WHERE tenant_id=%s AND "
                 +ident+" IN (%s,%s)",(tenant,*ids)).fetchone()[0],1)
+
+
+
+    def prepare_outbound_delivery(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,uuid4(),actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_reserve_sale_line(%s,%s,1,4,%s,%s)",
+            (tenant,sale,uuid4(),actor))
+        return tenant,actor,product,warehouse,purchase,sale
+
+    def delivery_stage(self,tenant,actor,job,status,event=None,proof=None):
+        return self.commerce_execute(
+            tenant,actor,
+            "SELECT one_advance_delivery(%s,%s,%s,%s,%s,%s)",
+            (tenant,job,status,actor,event,proof))
+
+    def test_hub_delivery_pick_pack_dispatch_and_customer_proof(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job=uuid4()
+        self.assertEqual(self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,3,%s)",
+            (tenant,job,sale,actor)),job)
+        for stage in ("picked","packed"):
+            self.assertEqual(self.delivery_stage(tenant,actor,job,stage),job)
+        ship_id=uuid4()
+        self.assertEqual(self.delivery_stage(
+            tenant,actor,job,"dispatched",ship_id),job)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),(Decimal("2"),Decimal("1")))
+        self.assertEqual(self.delivery_stage(
+            tenant,actor,job,"delivered",proof="CI-POD-REFERENCE"),job)
+        row=self.admin.execute(
+            "SELECT status,dispatch_event_id,proof_reference FROM one_delivery_jobs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,job)).fetchone()
+        self.assertEqual(row,("delivered",ship_id,"CI-POD-REFERENCE"))
+        self.assertEqual(self.admin.execute(
+            "SELECT event FROM one_fulfillment_audit WHERE tenant_id=%s "
+            "AND delivery_id=%s ORDER BY happened_at,event",
+            (tenant,job)).fetchall(),
+            [("created",),("delivered",),("dispatched",),("packed",),("picked",)])
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s "
+            "AND id=%s AND movement_kind='sale_dispatch'",
+            (tenant,ship_id)).fetchone()[0],1)
+
+    def test_delivery_guards_reject_stage_skips_and_fake_proof(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+            (tenant,job,sale,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.delivery_stage(tenant,actor,job,"dispatched",uuid4())
+        self.delivery_stage(tenant,actor,job,"picked")
+        with self.assertRaises(self.psycopg.Error):
+            self.delivery_stage(tenant,actor,job,"delivered",proof="FAKE")
+        self.delivery_stage(tenant,actor,job,"packed")
+        with self.assertRaises(self.psycopg.Error):
+            self.delivery_stage(tenant,actor,job,"dispatched")
+        event=uuid4()
+        self.delivery_stage(tenant,actor,job,"dispatched",event)
+        with self.assertRaises(self.psycopg.Error):
+            self.delivery_stage(tenant,actor,job,"delivered",proof="  ")
+        self.delivery_stage(tenant,actor,job,"delivered",proof="EXTERNAL-REF")
+        with self.assertRaises(self.psycopg.Error):
+            self.delivery_stage(tenant,actor,job,"delivered",proof="REPEATED")
+
+    def test_delivery_allocations_protect_picked_stock_from_raw_release(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,3,%s)",
+            (tenant,job,sale,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,
+                "SELECT one_release_sale_line(%s,%s,1,2,%s,%s)",
+                (tenant,sale,uuid4(),actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,
+                "SELECT one_dispatch_reserved_sale_line(%s,%s,1,2,%s,%s)",
+                (tenant,sale,uuid4(),actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+                (tenant,uuid4(),sale,actor))
+        self.delivery_stage(tenant,actor,job,"picked")
+        self.delivery_stage(tenant,actor,job,"packed")
+        self.delivery_stage(tenant,actor,job,"dispatched",uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT reserved_qty FROM one_commercial_order_lines WHERE "
+            "tenant_id=%s AND order_id=%s AND line_no=1",(tenant,sale)
+        ).fetchone()[0],1)
+
+    def test_delivery_job_and_audit_are_write_protected(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        job=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,1,%s)",
+            (tenant,job,sale,actor))
+        for query,args in (
+            ("UPDATE one_delivery_jobs SET quantity=3 WHERE tenant_id=%s "
+             "AND id=%s RETURNING id",(tenant,job)),
+            ("DELETE FROM one_delivery_jobs WHERE tenant_id=%s AND id=%s "
+             "RETURNING id",(tenant,job)),
+            ("DELETE FROM one_fulfillment_audit WHERE tenant_id=%s "
+             "AND delivery_id=%s RETURNING id",(tenant,job)),
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(tenant,actor,query,args)
+
+    def test_delivery_rejects_wrong_actor_tenant_and_direct_overallocation(self):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        for tid,person in ((tenant,uuid4()),(self.tenant_b,actor)):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(
+                    tid,person,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+                    (tenant,uuid4(),sale,person))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,5,%s)",
+                (tenant,uuid4(),sale,actor))
+
+    def test_receiving_inspection_accepts_partial_and_rejects_bad_units(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        inspection=uuid4()
+        self.assertEqual(self.commerce_execute(
+            tenant,actor,"SELECT one_start_receiving_inspection(%s,%s,%s,1,5,%s)",
+            (tenant,inspection,purchase,actor)),inspection)
+        stock_event=uuid4()
+        self.assertEqual(self.commerce_execute(
+            tenant,actor,
+            "SELECT one_complete_receiving_inspection(%s,%s,3,2,%s,%s)",
+            (tenant,inspection,actor,stock_event)),inspection)
+        self.assertEqual(self.admin.execute(
+            "SELECT accepted_qty,rejected_qty,status FROM one_receiving_inspections "
+            "WHERE tenant_id=%s AND id=%s",(tenant,inspection)).fetchone(),
+            (Decimal("3"),Decimal("2"),"completed"))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("3"))
+        self.assertEqual(self.admin.execute(
+            "SELECT fulfilled_qty FROM one_commercial_order_lines WHERE "
+            "tenant_id=%s AND order_id=%s AND line_no=1",
+            (tenant,purchase)).fetchone()[0],Decimal("3"))
+        second=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_start_receiving_inspection(%s,%s,%s,1,2,%s)",
+            (tenant,second,purchase,actor))
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_complete_receiving_inspection(%s,%s,0,2,%s,%s)",
+            (tenant,second,actor,None))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s "
+            "AND order_id=%s",(tenant,purchase)).fetchone()[0],1)
+
+    def test_pending_inspection_prevents_bypass_receipt_and_overinspection(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        inspection=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_start_receiving_inspection(%s,%s,%s,1,4,%s)",
+            (tenant,inspection,purchase,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,
+                "SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+                (tenant,purchase,uuid4(),actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_start_receiving_inspection(%s,%s,%s,1,2,%s)",
+                (tenant,uuid4(),purchase,actor))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s "
+            "AND order_id=%s",(tenant,purchase)).fetchone()[0],0)
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_complete_receiving_inspection(%s,%s,4,0,%s,%s)",
+            (tenant,inspection,actor,uuid4()))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("4"))
+
+    def test_inspection_rejects_wrong_order_actor_and_unauthorized_changes(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_start_receiving_inspection(%s,%s,%s,1,1,%s)",
+                (tenant,uuid4(),sale,actor))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,uuid4(),
+                "SELECT one_start_receiving_inspection(%s,%s,%s,1,1,%s)",
+                (tenant,uuid4(),purchase,uuid4()))
+        ins=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_start_receiving_inspection(%s,%s,%s,1,1,%s)",
+            (tenant,ins,purchase,actor))
+        for statement in (
+            "UPDATE one_receiving_inspections SET status='completed' "
+            "WHERE tenant_id=%s AND id=%s RETURNING id",
+            "DELETE FROM one_receiving_inspections "
+            "WHERE tenant_id=%s AND id=%s RETURNING id",
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(tenant,actor,statement,(tenant,ins))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,
+                "SELECT one_complete_receiving_inspection(%s,%s,0,1,%s,%s)",
+                (tenant,ins,actor,uuid4()))
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_complete_receiving_inspection(%s,%s,0,1,%s,%s)",
+            (tenant,ins,actor,None))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,actor,
+                "SELECT one_complete_receiving_inspection(%s,%s,0,1,%s,%s)",
+                (tenant,ins,actor,None))
 
 
 if __name__ == "__main__":
