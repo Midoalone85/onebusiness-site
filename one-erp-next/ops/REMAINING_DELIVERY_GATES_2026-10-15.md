@@ -35,9 +35,12 @@ Still required before real customer use:
   physical available/on-hand stock to valued quantity, book value and
   outstanding GRNI, flagging unvalued physical movements. A static
   bilingual preview page exists but is NOT connected.
-- STILL REQUIRED: atomically commit physical stock and valuation in the same
-  authenticated backend operation. Current separate transaction stages are
-  safe only for this isolated, fail-closed demonstration.
+- **New isolated proof:** `018_atomic_stock_accounting.sql` couples
+  receiving, direct/reserved dispatch and delivery dispatch to its stored
+  valuation and posted COGS/GRNI journal IN ONE SQL transaction, with
+  rollback tests. This is NOT an authenticated production API. Older
+  separate stock/valuation entry points still exist and MUST be retired or
+  restricted before any live tenant begins processing.
 - STILL REQUIRED: true lot/serial-level inventory ownership, landed cost,
   opening balances, FX, approved cost corrections, returns/QA/disposal COGS
   reversal, three-way match with tax and supplier credits, country rules,
@@ -80,8 +83,9 @@ Still required before real customer use:
   warranty and service contracts.
 
 ## Near-term next coding order (after 015-017 prototypes)
-1. Unify purchase/sale physical movement and cost journal into one trusted
-   operation and add restart, retry and concurrent consumer tests.
+1. Gate the new atomic movement+valuation operations behind signed
+   identity and minimal company roles; block legacy non-valued direct movement
+   paths. Add restart/retry/crash and concurrent consumer tests.
 2. Add lot/serial-owned warehouse balances, quarantine and approved physical
    returns; post proper reversal/disposal valuation, not only stock units.
 3. Upgrade supplier goods billing beyond zero tax: verified VAT input tax,
