@@ -320,7 +320,7 @@ class FinanceCommandsHTTPTests(unittest.TestCase):
             ({"HTTP_COOKIE":"sid=secret"},"400 Bad Request"),
             ({"HTTP_TRANSFER_ENCODING":"chunked"},"400 Bad Request"),
             ({"CONTENT_LENGTH":"-1"},"400 Bad Request"),
-            ({"CONTENT_LENGTH":"99999"},"400 Bad Request"),
+            ({"CONTENT_LENGTH":"99999"},"413 Payload Too Large"),
             ({"CONTENT_LENGTH":"500"},"400 Bad Request"),
             ({"HTTP_AUTHORIZATION":""},"401 Unauthorized"),
         ]
