@@ -886,6 +886,92 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             )
         return job
 
+    def test_signed_checkpoint_bridge_requires_independent_valid_attestation(self):
+        import base64
+        import json
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+            Ed25519PrivateKey,
+        )
+        from one_erp_core.attested_bootstrap_service import (
+            record_signed_checkpoint,
+        )
+        from one_erp_core.bootstrap_attestation import InvalidBootstrapEvidence
+
+        key = Ed25519PrivateKey.generate()  # Ephemeral CI signing identity.
+        public = key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        tenant, operator, job, event = uuid4(), uuid4(), uuid4(), uuid4()
+        now = datetime(2026, 10, 15, 2, tzinfo=timezone.utc)
+        claims = {
+            "type": "ONE_BOOTSTRAP_STAGE_V1",
+            "issuer": "one-ci-evidence",
+            "job_id": str(job),
+            "tenant_id": str(tenant),
+            "operator_id": str(operator),
+            "event_id": str(event),
+            "stage": "database_created",
+            "evidence_sha256": sha256(b"fictional isolated CI checkpoint").hexdigest(),
+            "issued_at": (now-timedelta(minutes=1)).isoformat(),
+            "expires_at": (now+timedelta(minutes=1)).isoformat(),
+        }
+        raw = json.dumps(
+            claims, sort_keys=True, ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode()
+        base = dict(
+            claims_b64=base64.urlsafe_b64encode(raw).rstrip(b"=").decode(),
+            signature_b64=base64.urlsafe_b64encode(
+                key.sign(raw)
+            ).rstrip(b"=").decode(),
+            pinned_public_key=public, pinned_issuer="one-ci-evidence",
+            trusted_job=job, trusted_tenant=tenant,
+            trusted_operator=operator, trusted_event=event,
+            trusted_stage="database_created", checked_at=now,
+        )
+        with self.provisioning_connection() as conn:
+            conn.execute(
+                "SELECT one_auth.register_tenant(%s,%s,%s)",
+                (tenant, operator, uuid4()),
+            )
+            conn.execute(
+                "SELECT one_auth.begin_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                (tenant, job, operator, "CI-EVIDENCE-123", uuid4()),
+            )
+            bad = dict(base, trusted_tenant=uuid4())
+            with self.assertRaises(InvalidBootstrapEvidence):
+                record_signed_checkpoint(connection=conn, **bad)
+            bad = dict(base, signature_b64=base["signature_b64"][:-3] + "AAA")
+            with self.assertRaises(InvalidBootstrapEvidence):
+                record_signed_checkpoint(connection=conn, **bad)
+            self.assertEqual(
+                self.admin.execute(
+                    "SELECT state FROM one_auth.tenant_bootstrap_jobs "
+                    "WHERE job_id=%s", (job,),
+                ).fetchone()[0],
+                "requested",
+            )
+            status, proof = record_signed_checkpoint(connection=conn, **base)
+            self.assertEqual(status, "database_created")
+            self.assertEqual(proof.tenant_id, tenant)
+            self.assertEqual(proof.evidence_digest,
+                             bytes.fromhex(claims["evidence_sha256"]))
+            # An exact resend is a no-op, without a duplicated audit record.
+            repeat, _ = record_signed_checkpoint(connection=conn, **base)
+            self.assertEqual(repeat, "database_created")
+        self.assertFalse(self.admin.execute(
+            "SELECT active FROM one_auth.tenant_registry WHERE tenant_id=%s",
+            (tenant,),
+        ).fetchone()[0])
+        rows = self.admin.execute(
+            "SELECT new_state FROM one_auth.tenant_bootstrap_events "
+            "WHERE job_id=%s", (job,),
+        ).fetchall()
+        self.assertEqual(len(rows), 2)
+        self.assertEqual({x[0] for x in rows}, {"requested", "database_created"})
+
     def test_staged_bootstrap_denies_access_before_ready_and_blocks_skips(self):
         from one_erp_core.accounting import AccountingError
         tenant, actor, operator, job = uuid4(), uuid4(), uuid4(), uuid4()
