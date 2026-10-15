@@ -195,7 +195,7 @@ return toolbarNav(m)+'<main class="wrap">'+demoAlert()+
 '<header class="work-header"><div class="work-identity"><div class="work-emblem">'+ico(m.icon)+'</div><div><div class="eyebrow">ONE ERP NEXT / '+norm(name(m))+'</div><h1>'+norm(label(v))+'</h1><p>'+norm(tx(m.arSub,m.enSub))+' · '+t('highlight')+'</p></div></div><div class="hside"><span class="demo-pill">'+t('preview')+'</span><a class="btn" href="'+linkTo(m,m.views[0])+'">'+ico('home')+' '+t('applications')+'</a></div></header>'+
 '<section class="context"><div class="context-heading"><strong>'+t('context')+'</strong><small>'+t('workspace')+' / '+norm(name(m))+'</small></div><nav class="context-strip" aria-label="'+norm(name(m))+'">'+contexts+'</nav></section>'+
 '<div class="kpis">'+data.metrics.map(function(k){return kpi(k[0],k[1],k[2],t('sample'))}).join('')+'</div>'+
-'<div class="panel">'+panelTitle(label(v),t('period'))+'<div class="work-tools">'+actionMarkup+'<button class="btn" type="button" data-action="demo" aria-label="'+t('refresh')+'">'+ico('filter')+' '+t('refresh')+'</button></div>'+
+'<div class="panel">'+panelTitle(label(v),t('period'))+'<div class="work-tools">'+actionMarkup+'<button class="btn" type="button" data-action="export">'+ico('download')+' '+t('export')+'</button><button class="btn" type="button" data-action="print">'+ico('printer')+' '+t('print')+'</button><button class="btn" type="button" data-action="demo" aria-label="'+t('refresh')+'">'+ico('filter')+' '+t('refresh')+'</button></div>'+
 '<div class="table-tools"><label style="display:flex;flex:1;gap:10px;align-items:center">'+ico('search')+' <input class="filter" type="search" id="recordSearch" placeholder="'+t('search')+'" aria-label="'+t('search')+'"></label><span class="demo-pill">'+t('fictional')+'</span></div>'+
 '<div class="tablewrap"><table><thead><tr>'+data.columns.map(function(c){return '<th>'+norm(c)+'</th>'}).join('')+'</tr></thead><tbody id="dataRows">'+rows+'</tbody></table></div>'+
 '<div class="table-foot"><span>'+t('recordCount')+': '+data.rows.length+'</span><span>🔒 '+t('noReal')+'</span></div></div>'+
@@ -210,11 +210,28 @@ opened=id;lastTrigger=b;
 document.querySelectorAll('[data-menu-trigger]').forEach(function(btn){btn.setAttribute('aria-expanded',String(btn===b))});
 menu.innerHTML='<div class="flyout-head"><span class="circle">'+ico(m.icon)+'</span><span><b>'+norm(name(m))+'</b><small>'+norm(tx(m.arSub,m.enSub))+'</small></span></div>'+
 '<div class="flygroup">'+t('actions')+'</div>'+
-m.views.map(function(v){return '<a role="menuitem" class="flylink" href="'+linkTo(m,v)+'">'+ico(v[0]==='overview'?'home':m.icon)+' <span>'+norm(label(v))+'</span><span class="go">'+ico('right')+'</span></a>'}).join('')+
+m.views.map(function(v){return '<a role="menuitem" class="flylink" '+(PAGE==='workspace'&&currentModule.id===m.id&&currentView[0]===v[0]?'aria-current="page"':'')+' href="'+linkTo(m,v)+'">'+ico(v[0]==='overview'?'home':m.icon)+' <span>'+norm(label(v))+'</span><span class="go">'+ico('right')+'</span></a>'}).join('')+
 '<div class="flyout-foot">'+ico('shield')+' '+t('noReal')+'</div>';
 menu.classList.remove('hidden');positionMenu(b,menu);
 }
 function positionMenu(b,menu){var rect=b.getBoundingClientRect(),width=menu.offsetWidth||310;var rtl=lang==='ar';var left=rtl?Math.max(12,Math.min(window.innerWidth-width-12,rect.right-width)):Math.max(12,Math.min(window.innerWidth-width-12,rect.left));menu.style.left=left+'px';menu.style.top=Math.min(window.innerHeight-150,rect.bottom+5)+'px'}
+function downloadSampleCSV(){
+if(PAGE!=='workspace')return;
+var d=demoData(currentModule,currentView);
+function safe(x){
+ var str=String(x).replace(/<[^>]+>/g,'').trim();
+ if(/^[=+\-@\t\r]/.test(str))str="'"+str;
+ return '"'+str.replace(/"/g,'""')+'"';
+}
+var rows=[d.columns].concat(d.rows);
+var content='\uFEFF'+rows.map(function(r){return r.map(safe).join(',')}).join('\r\n');
+var blob=new Blob([content],{type:'text/csv;charset=utf-8'});
+var obj=URL.createObjectURL(blob);
+var a=document.createElement('a');
+a.href=obj;a.download='ONE_ERP_NEXT_DEMO_'+currentModule.id+'_'+currentView[0]+'.csv';
+document.body.appendChild(a);a.click();a.remove();
+setTimeout(function(){URL.revokeObjectURL(obj)},1000);
+}
 function modal(){document.getElementById('dialog').classList.remove('hidden');document.getElementById('dialogTitle').textContent=t('preview');document.getElementById('dialogText').innerHTML='<p>'+t('notLive')+'</p><p>'+t('demoAnswer')+'</p>'}
 function closeDialog(){document.getElementById('dialog').classList.add('hidden')}
 function showAI(){document.getElementById('dialog').classList.remove('hidden');document.getElementById('dialogTitle').textContent=t('ask');document.getElementById('dialogText').innerHTML='<p>'+t('aiExplain')+'</p><input id="askText" maxlength="110" class="filter" style="max-width:none;width:100%" placeholder="'+norm(t('aiPlaceholder'))+'"><button class="btn primary" type="button" data-action="answer" style="margin-top:12px">'+t('askGo')+'</button><div id="aiResult"></div>'}
@@ -226,6 +243,8 @@ var b=e.target.closest('[data-action]');if(!b)return;
 if(b.dataset.action==='language'){setStorage(lang==='ar'?'en':'ar');var scroll=window.scrollY;location.reload();return}
 if(b.dataset.action==='one-ai'){showAI();return}
 if(b.dataset.action==='demo'){modal();return}
+if(b.dataset.action==='print'){window.print();return}
+if(b.dataset.action==='export'){downloadSampleCSV();return}
 if(b.dataset.action==='close-dialog'){closeDialog();return}
 if(b.dataset.action==='answer'){var q=document.getElementById('askText').value||'';var answer=/ربح|profit/i.test(q)?t('profit')+': '+money(235000):/مبيع|sales/i.test(q)?t('revenue')+': '+money(980000):/فاتور|invoice/i.test(q)?t('invoices')+': 18':t('demoAnswer');document.getElementById('aiResult').innerHTML='<div class="notice">'+answer+'<br>'+t('demoAnswer')+'</div>';return}
 });
