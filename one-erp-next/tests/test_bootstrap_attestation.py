@@ -118,7 +118,7 @@ class TenantBootstrapAttestationTests(unittest.TestCase):
 
     def test_short_lifetime_and_clock_skew(self):
         for issue_delta, exp_delta in [
-            (0, 0),
+            (timedelta(0), timedelta(0)),
             (timedelta(minutes=2), timedelta(minutes=4)),
             (-timedelta(minutes=2), timedelta(minutes=11)),
         ]:
