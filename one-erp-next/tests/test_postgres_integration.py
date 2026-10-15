@@ -177,6 +177,18 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "one_link_customer_return_credit(uuid,uuid,uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        # Unified return case reads and QA dispositions: throwaway CI DB only.
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_resolve_return_quarantine("
+            "uuid,uuid,uuid,text,numeric,uuid,uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_return_case_overview(uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -2823,6 +2835,202 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 "SELECT count(*) FROM "+table+" WHERE tenant_id=%s AND "
                 +column+" IN (%s,%s)",
                 (tenant,docs[0].id,docs[1].id)).fetchone()[0],1)
+
+
+
+    def read_unified_return_case(self,tenant,actor,job):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT return_kind,warehouse_status,finance_status,"
+                "requested_qty,accepted_qty,disposition_qty,in_quarantine_qty,"
+                "credited_qty,original_order_id "
+                "FROM one_return_case_overview(%s,%s,%s)",
+                (tenant,job,actor)).fetchone()
+
+    def unified_return_disposition(self,tenant,actor,job,action,qty,target,
+                                   outbound,inbound=None,disposition=None):
+        key=disposition or uuid4()
+        result=self.commerce_execute(
+            tenant,actor,
+            "SELECT one_resolve_return_quarantine(%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (tenant,job,key,action,qty,target,outbound,inbound,actor))
+        return key,result
+
+    def test_one_return_case_tracks_both_qa_and_finance_independently(self):
+        tenant,actor,invoice,job=self.complete_customer_return_for_invoice()
+        meta=self.admin.execute(
+            "SELECT r.destination_warehouse_id,s.product_id,s.warehouse_id "
+            "FROM one_return_jobs r JOIN one_stock_events s "
+            "ON s.tenant_id=r.tenant_id AND s.id=r.source_event_id "
+            "WHERE r.tenant_id=%s AND r.id=%s",(tenant,job)).fetchone()
+        quarantine,product,origin=meta
+        before=self.read_unified_return_case(tenant,actor,job)
+        self.assertEqual(before[0:3],
+                         ("customer","quarantine","credit_review_pending"))
+        self.assertEqual(before[4:8],
+                         (Decimal("2"),Decimal("0"),Decimal("2"),Decimal("0")))
+        target=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) "
+            "VALUES (%s,%s,%s,'Saleable inspection released')",
+            (tenant,target,"SALE-"+target.hex))
+        outbound,inbound=uuid4(),uuid4()
+        disposition,returned=self.unified_return_disposition(
+            tenant,actor,job,"restock",Decimal("1"),target,outbound,inbound)
+        self.assertEqual(returned,disposition)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone(),
+            (Decimal("1"),Decimal("0")))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,target,product)).fetchone(),
+            (Decimal("1"),Decimal("0")))
+        self.assertEqual(self.read_unified_return_case(tenant,actor,job)[1:3],
+                         ("qa_partially_resolved","credit_review_pending"))
+        credit=self.credit_for_source_return(invoice,Decimal("1"))
+        self.issue_accepted_return_credit(credit,job,actor)
+        mid=self.read_unified_return_case(tenant,actor,job)
+        self.assertEqual(mid[1:3],
+                         ("qa_partially_resolved","partially_credited"))
+        self.assertEqual(mid[5:8],
+                         (Decimal("1"),Decimal("1"),Decimal("1")))
+        other=uuid4()
+        self.unified_return_disposition(
+            tenant,actor,job,"dispose",Decimal("1"),None,other)
+        final=self.read_unified_return_case(tenant,actor,job)
+        self.assertEqual(final[1:3],("qa_resolved","partially_credited"))
+        self.assertEqual(final[5:8],
+                         (Decimal("2"),Decimal("0"),Decimal("1")))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone()[0],0)
+        self.assertEqual(set(self.admin.execute(
+            "SELECT event_type FROM one_operation_outbox "
+            "WHERE tenant_id=%s AND source_id IN (%s,%s,%s)",
+            (tenant,outbound,inbound,other)).fetchall()),{
+            ("stock.return_restock_out",),
+            ("stock.return_restock_in",),
+            ("stock.return_disposal",),
+        })
+        self.assertEqual(self.admin.execute(
+            "SELECT action FROM one_return_dispositions "
+            "WHERE tenant_id=%s AND return_job_id=%s ORDER BY action",
+            (tenant,job)).fetchall(),[("dispose",),("restock",)])
+
+    def test_qa_disposition_rejects_overprocess_bad_target_and_replay(self):
+        tenant,actor,invoice,job=self.complete_customer_return_for_invoice(
+            acceptance=Decimal("1"))
+        source=self.admin.execute(
+            "SELECT s.warehouse_id FROM one_return_jobs r "
+            "JOIN one_stock_events s ON s.tenant_id=r.tenant_id "
+            "AND s.id=r.source_event_id WHERE r.tenant_id=%s AND r.id=%s",
+            (tenant,job)).fetchone()[0]
+        for kwargs in (
+            ("restock",Decimal("1"),None,uuid4(),uuid4()),
+            ("restock",Decimal("1"),source,uuid4(),uuid4()),
+            ("dispose",Decimal("1"),source,uuid4(),None),
+            ("dispose",Decimal("2"),None,uuid4(),None),
+            ("restock",Decimal("1"),uuid4(),uuid4(),uuid4()),
+        ):
+            with self.subTest(kwargs=kwargs),self.assertRaises(self.psycopg.Error):
+                self.unified_return_disposition(
+                    tenant,actor,job,*kwargs)
+        event=uuid4()
+        first,_=self.unified_return_disposition(
+            tenant,actor,job,"dispose",Decimal("1"),None,event)
+        with self.assertRaises(self.psycopg.Error):
+            self.unified_return_disposition(
+                tenant,actor,job,"dispose",Decimal("1"),None,uuid4(),
+                disposition=first)
+        with self.assertRaises(self.psycopg.Error):
+            self.unified_return_disposition(
+                tenant,actor,job,"dispose",Decimal("1"),None,event)
+        self.assertEqual(self.read_unified_return_case(tenant,actor,job)[1:3],
+                         ("qa_resolved","credit_review_pending"))
+
+    def test_unified_return_case_scoped_to_membership_and_db_tenant(self):
+        tenant,actor,invoice,job=self.complete_customer_return_for_invoice()
+        with self.assertRaises(self.psycopg.Error):
+            self.read_unified_return_case(tenant,uuid4(),job)
+        with self.assertRaises(self.psycopg.Error):
+            self.read_unified_return_case(self.tenant_b,actor,job)
+        with self.assertRaises(self.psycopg.Error):
+            self.unified_return_disposition(
+                tenant,uuid4(),job,"dispose",Decimal("1"),None,uuid4())
+        with self.assertRaises(self.psycopg.Error):
+            self.unified_return_disposition(
+                self.tenant_b,actor,job,"dispose",Decimal("1"),None,uuid4())
+
+    def test_unified_return_case_pending_rejected_and_vendor_paths(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        receipt=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,purchase,receipt,actor))
+        vendor_job=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_request_return(%s,%s,%s,1,%s,%s,'Vendor return')",
+            (tenant,vendor_job,receipt,None,actor))
+        self.assertEqual(self.read_unified_return_case(
+            tenant,actor,vendor_job)[1:3],
+            ("inspection_pending","supplier_bill_matching_not_ready"))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+            (tenant,vendor_job,uuid4(),actor))
+        self.assertEqual(self.read_unified_return_case(
+            tenant,actor,vendor_job)[1:3],
+            ("vendor_stock_returned","supplier_bill_matching_not_ready"))
+        rejected=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_request_return(%s,%s,%s,1,%s,%s,'Rejected claim')",
+            (tenant,rejected,receipt,None,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_finish_return(%s,%s,0,%s,%s)",
+            (tenant,rejected,None,actor))
+        self.assertEqual(self.read_unified_return_case(
+            tenant,actor,rejected)[1:3],
+            ("rejected","supplier_bill_matching_not_ready"))
+
+    def test_disposition_event_conflict_rolls_back_both_stock_buckets(self):
+        tenant,actor,invoice,job=self.complete_customer_return_for_invoice()
+        row=self.admin.execute(
+            "SELECT r.destination_warehouse_id,s.product_id,s.id "
+            "FROM one_return_jobs r JOIN one_stock_events s "
+            "ON s.tenant_id=r.tenant_id AND s.id=r.source_event_id "
+            "WHERE r.tenant_id=%s AND r.id=%s",(tenant,job)).fetchone()
+        quarantine,product,existing_event=row
+        target=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) VALUES "
+            "(%s,%s,%s,'Return target')",
+            (tenant,target,"TG-"+target.hex))
+        with self.assertRaises(self.psycopg.Error):
+            self.unified_return_disposition(
+                tenant,actor,job,"restock",Decimal("1"),target,
+                existing_event,uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone()[0],Decimal("2"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,target,product)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_return_dispositions "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,job)).fetchone()[0],0)
 
 
 if __name__ == "__main__":
