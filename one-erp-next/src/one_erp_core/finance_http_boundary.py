@@ -76,10 +76,13 @@ def render_private_dashboard_response(
     The database membership and RLS checks provide a second defense layer.
     Permission errors are deliberately generic to avoid account enumeration.
     """
+    if not isinstance(raw_access_token, str) or not raw_access_token.strip():
+        raise AccountingError("Authentication required")
     identity = identity_verifier.verify_access_token(raw_access_token)
     if (not isinstance(identity, AuthenticatedFinanceIdentity) or
             not isinstance(identity.actor_id, UUID) or
             not isinstance(requested_tenant, UUID) or
+            not isinstance(identity.allowed_tenants, frozenset) or
             requested_tenant not in identity.allowed_tenants or
             not all(isinstance(x, UUID) for x in identity.allowed_tenants)):
         raise AccountingError("Not authorized to view this company")
