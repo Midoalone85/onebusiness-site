@@ -58,7 +58,7 @@ class FinanceInsightTests(unittest.TestCase):
                          set(result.current.source_entry_ids))
 
     def test_no_baseline_returns_undefined_growth_not_infinity(self):
-        future=self.compare(current_from=date(2026,10,1),current_through=date(2026,10,30))
+        future=self.compare(current_from=date(2026,11,1),current_through=date(2026,11,30))
         self.assertIsNone(future.revenue.percent_change)
         self.assertEqual(future.current.revenue,Decimal(0))
 
