@@ -86,6 +86,10 @@ def propose_inventory_nrv_adjustment(
         or not position.currency.isascii() or not position.currency.isalpha()
         or len(position.currency) != 3 or not position.currency.isupper()):
         raise AccountingError("Evidence-backed matching inventory assessment required")
+    if (not isinstance(period, AccountingPeriod)
+        or period.tenant_id != position.tenant_id or period.closed
+        or not period.begins <= estimate.assessed_on < period.ends_exclusive):
+        raise AccountingError("NRV assessment must belong to an open company period")
     money = Decimal(1).scaleb(-minor_units)
     qty = _safe_decimal(position.quantity, unit=Decimal("0.001"))
     original = _safe_decimal(position.cost_before_write_down,unit=money)
