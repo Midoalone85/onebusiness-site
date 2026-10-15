@@ -8488,11 +8488,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(self.commerce_execute(
             tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
             (tenant,sale,owner)),sale)
-        with self.assertRaises(self.psycopg.Error):
-            self.commerce_execute(
-                self.tenant_b,owner,
-                "SELECT one_source_actor_permitted(%s,%s,%s)",
-                (tenant,owner,'sales.order.confirm'))
+        self.assertFalse(self.commerce_execute(
+            self.tenant_b,owner,
+            "SELECT one_source_actor_permitted(%s,%s,%s)",
+            (tenant,owner,'sales.order.confirm')))
 
     def test_055_receipt_and_dispatch_denials_roll_back_stock_and_order(self):
         tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture()
