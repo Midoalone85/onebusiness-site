@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import base64
+import binascii
 import json
 import re
 from uuid import UUID
@@ -69,7 +70,10 @@ def _decode_unpadded(encoded: str) -> bytes:
     if (not isinstance(encoded, str) or not encoded or
             not re.fullmatch(r"[A-Za-z0-9_-]+", encoded)):
         raise InvalidBootstrapEvidence("Invalid attestation encoding")
-    raw = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+    try:
+        raw = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+    except (ValueError, binascii.Error):
+        raise InvalidBootstrapEvidence("Invalid attestation encoding") from None
     if base64.urlsafe_b64encode(raw).rstrip(b"=").decode() != encoded:
         raise InvalidBootstrapEvidence("Noncanonical attestation encoding")
     return raw
