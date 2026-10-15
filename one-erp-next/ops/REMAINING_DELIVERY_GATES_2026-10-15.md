@@ -41,6 +41,13 @@ Still required before real customer use:
   rollback tests. This is NOT an authenticated production API. Older
   separate stock/valuation entry points still exist and MUST be retired or
   restricted before any live tenant begins processing.
+- **New isolated RMA cost proof (019-021):** accepted customer goods
+  enter quarantine with the original valued sale dispatch cost and an
+  atomic COGS reversal. Explicit QA restock moves physical units and book
+  value into saleable stock; scrapping posts a disposal expense and removes
+  book value within the same transaction. ONE PULSE RMA trace recognizes
+  these costed stock movements. Direct legacy unvalued entrypoints are
+  STILL accessible in CI and MUST be revoked in production.
 - STILL REQUIRED: true lot/serial-level inventory ownership, landed cost,
   opening balances, FX, approved cost corrections, returns/QA/disposal COGS
   reversal, three-way match with tax and supplier credits, country rules,
@@ -86,8 +93,9 @@ Still required before real customer use:
 1. Gate the new atomic movement+valuation operations behind signed
    identity and minimal company roles; block legacy non-valued direct movement
    paths. Add restart/retry/crash and concurrent consumer tests.
-2. Add lot/serial-owned warehouse balances, quarantine and approved physical
-   returns; post proper reversal/disposal valuation, not only stock units.
+2. Harden the new costed return and QA disposal procedures into the only
+   permitted operator routes; add per-case lot/serial ownership,
+   expiry tracking, warranty/repair/replacement and physical proof.
 3. Upgrade supplier goods billing beyond zero tax: verified VAT input tax,
    cost variances, GRNI adjustments and return-backed supplier credits.
 4. Connect real authenticated APIs and least-privilege database accounts to
