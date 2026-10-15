@@ -64,6 +64,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             .read_text(encoding="utf-8"), prepare=False,
         )
         cls.admin.execute(
+            (migration_dir.parent / "control_plane" / "003_tenant_bootstrap_gate.sql")
+            .read_text(encoding="utf-8"), prepare=False,
+        )
+        cls.admin.execute(
             "CREATE ROLE one_erp_auth_ci LOGIN PASSWORD 'ci_auth_only' "
             "NOSUPERUSER NOBYPASSRLS"
         )
@@ -862,6 +866,176 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             autocommit=True,
         )
 
+    def _complete_ci_bootstrap(self, conn, tenant, operator):
+        # Synthetic CI stage evidence only. In production the trusted backend
+        # MUST independently verify each real infrastructure checkpoint;
+        # this helper is not a production release approval or restore test.
+        job = uuid4()
+        conn.execute(
+            "SELECT one_auth.begin_tenant_bootstrap(%s,%s,%s,%s,%s)",
+            (tenant, job, operator, "CI-APPROVAL-ONLY", uuid4()),
+        )
+        for stage in (
+            "database_created", "schema_migrated", "isolation_verified",
+            "restore_verified", "route_verified", "ready",
+        ):
+            digest = sha256(("fictional-ci-" + stage).encode()).digest()
+            conn.execute(
+                "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                (job, operator, stage, digest, uuid4()),
+            )
+        return job
+
+    def test_staged_bootstrap_denies_access_before_ready_and_blocks_skips(self):
+        from one_erp_core.accounting import AccountingError
+        tenant, actor, operator, job = uuid4(), uuid4(), uuid4(), uuid4()
+        subject = "provision-" + uuid4().hex
+        issuer = "https://identity.example.test"
+        begin_event = uuid4()
+        proof = sha256(b"ci-only-checkpoint").digest()
+        with self.provisioning_connection() as conn:
+            conn.execute(
+                "SELECT one_auth.register_tenant(%s,%s,%s)",
+                (tenant, operator, uuid4()),
+            )
+            conn.execute(
+                "SELECT one_auth.link_subject(%s,%s,%s,%s,%s)",
+                (issuer, subject, actor, operator, uuid4()),
+            )
+            self.assertFalse(self.admin.execute(
+                "SELECT active FROM one_auth.tenant_registry WHERE tenant_id=%s",
+                (tenant,),
+            ).fetchone()[0])
+            # Registered without a physical database cannot gain membership.
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.set_entitlement(%s,%s,true,%s,%s)",
+                    (actor, tenant, operator, uuid4()),
+                )
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.set_tenant_active(%s,true,%s,%s)",
+                    (tenant, operator, uuid4()),
+                )
+            self.assertEqual(conn.execute(
+                "SELECT one_auth.begin_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                (tenant, job, operator, "CI-CHANGE-1234", begin_event),
+            ).fetchone()[0], "requested")
+            self.assertEqual(conn.execute(
+                "SELECT one_auth.begin_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                (tenant, job, operator, "CI-CHANGE-1234", begin_event),
+            ).fetchone()[0], "requested")
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (job, operator, "ready", proof, uuid4()),
+                )
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (job, operator, "database_created", b"short", uuid4()),
+                )
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (job, uuid4(), "database_created", proof, uuid4()),
+                )
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT * FROM one_auth.tenant_bootstrap_jobs"
+                )
+            stages = (
+                "database_created", "schema_migrated", "isolation_verified",
+                "restore_verified", "route_verified", "ready",
+            )
+            for stage in stages:
+                event = uuid4()
+                self.assertEqual(conn.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (job, operator, stage, proof, event),
+                ).fetchone()[0], stage)
+                self.assertEqual(conn.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (job, operator, stage, proof, event),
+                ).fetchone()[0], stage)
+                if stage != "ready":
+                    self.assertFalse(self.admin.execute(
+                        "SELECT active FROM one_auth.tenant_registry WHERE tenant_id=%s",
+                        (tenant,),
+                    ).fetchone()[0])
+            self.assertTrue(self.admin.execute(
+                "SELECT active FROM one_auth.tenant_registry WHERE tenant_id=%s",
+                (tenant,),
+            ).fetchone()[0])
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (job, operator, "ready", proof, uuid4()),
+                )
+            conn.execute(
+                "SELECT one_auth.set_entitlement(%s,%s,true,%s,%s)",
+                (actor, tenant, operator, uuid4()),
+            )
+        resolved = ControlPlaneIdentityDirectory(self.auth_connection).resolve(
+            issuer, subject
+        )
+        self.assertIn(tenant, resolved.allowed_tenants)
+        audit = self.admin.execute(
+            "SELECT old_state,new_state FROM one_auth.tenant_bootstrap_events "
+            "WHERE job_id=%s ORDER BY recorded_at, event_id", (job,),
+        ).fetchall()
+        self.assertEqual(len(audit), 7)
+        self.assertEqual({row[1] for row in audit},
+                         {"requested", *stages})
+
+    def test_staged_bootstrap_failure_is_quarantined_and_audited(self):
+        tenant, operator, job = uuid4(), uuid4(), uuid4()
+        proof = sha256(b"ci-only-checkpoint").digest()
+        failure = uuid4()
+        with self.provisioning_connection() as conn:
+            conn.execute(
+                "SELECT one_auth.register_tenant(%s,%s,%s)",
+                (tenant, operator, uuid4()),
+            )
+            conn.execute(
+                "SELECT one_auth.begin_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                (tenant, job, operator, "CI-FAIL-12345", uuid4()),
+            )
+            conn.execute(
+                "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                (job, operator, "database_created", proof, uuid4()),
+            )
+            self.assertEqual(conn.execute(
+                "SELECT one_auth.fail_tenant_bootstrap(%s,%s,%s,%s)",
+                (job, operator, "RESTORE_CHECK_FAILED", failure),
+            ).fetchone()[0], "failed")
+            self.assertEqual(conn.execute(
+                "SELECT one_auth.fail_tenant_bootstrap(%s,%s,%s,%s)",
+                (job, operator, "RESTORE_CHECK_FAILED", failure),
+            ).fetchone()[0], "failed")
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (job, operator, "schema_migrated", proof, uuid4()),
+                )
+            with self.assertRaises(self.psycopg.Error):
+                conn.execute(
+                    "SELECT one_auth.begin_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (tenant, uuid4(), operator, "CI-FAIL-NEW", uuid4()),
+                )
+        state, enabled = self.admin.execute(
+            "SELECT j.state,t.active FROM one_auth.tenant_bootstrap_jobs j "
+            "JOIN one_auth.tenant_registry t USING (tenant_id) "
+            "WHERE j.job_id=%s", (job,),
+        ).fetchone()
+        self.assertEqual(state, "failed")
+        self.assertFalse(enabled)
+        audit = self.admin.execute(
+            "SELECT error_code FROM one_auth.tenant_bootstrap_events "
+            "WHERE job_id=%s AND new_state='failed'", (job,),
+        ).fetchall()
+        self.assertEqual(audit, [("RESTORE_CHECK_FAILED",)])
+
     def test_audited_provisioning_enforces_tenant_disable_and_least_privilege(self):
         # Run every operation as the unprivileged provisioner (not test superuser).
         from one_erp_core.accounting import AccountingError
@@ -878,6 +1052,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 "SELECT one_auth.link_subject(%s,%s,%s,%s,%s)",
                 (issuer, subject, actor, operator, request_ids[1]),
             )
+            self._complete_ci_bootstrap(conn, tenant, operator)
             conn.execute(
                 "SELECT one_auth.set_entitlement(%s,%s,%s,%s,%s)",
                 (actor, tenant, True, operator, request_ids[2]),
