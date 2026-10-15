@@ -8251,7 +8251,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             ).fetchone()[0],False)
             for name in (
                 "one_tenants","one_memberships","one_invoice_docs",
-                "one_sales_orders","one_stock_events",
+                "one_payment_docs","one_stock_events",
                 "one_permission_change_requests",
                 "one_soft_adjustment_approval_evidence",
                 "one_soft_adjustment_statement_approval_seals",
@@ -8264,7 +8264,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     "SELECT has_table_privilege(current_user,%s,'TRUNCATE')",
                     (name,)).fetchone()[0],name)
             for name in (
-                "one_memberships","one_invoice_docs","one_sales_orders",
+                "one_memberships","one_invoice_docs","one_payment_docs",
                 "one_stock_events","one_permission_change_requests",
             ):
                 self.assertFalse(db.execute(
