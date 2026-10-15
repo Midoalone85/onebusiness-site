@@ -21,6 +21,7 @@ from one_erp_core.invoicing import (
 )
 from one_erp_core.invoice_persistence import persist_invoice_with_journal
 from one_erp_core.sales_invoice_bridge import persist_dispatch_backed_sales_invoice
+from one_erp_core.return_credit_bridge import persist_return_backed_customer_credit
 from one_erp_core.payments import (
     PaymentRequest, PaymentDirection, PaymentLedgerAccounts,
     PaymentAllocation, OpenInvoice,
@@ -171,6 +172,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         ):
             cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
                               " TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_link_customer_return_credit(uuid,uuid,uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -2627,6 +2633,130 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT sum(quantity) FROM one_return_jobs "
             "WHERE tenant_id=%s AND source_event_id=%s AND status='requested'",
             (tenant,source)).fetchone()[0],Decimal("2"))
+
+
+
+    def complete_customer_return_for_invoice(self, *,
+                                             acceptance=Decimal("2")):
+        tenant,actor,product,warehouse,purchase,sale=self.prepare_outbound_delivery()
+        quarantine,job,dispatch,return_job = (uuid4() for _ in range(4))
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name,warehouse_type) "
+            "VALUES (%s,%s,%s,'Return quarantine','quarantine')",
+            (tenant,quarantine,"QR-"+quarantine.hex))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+            (tenant,job,sale,actor))
+        self.delivery_stage(tenant,actor,job,"picked")
+        self.delivery_stage(tenant,actor,job,"packed")
+        self.delivery_stage(tenant,actor,job,"dispatched",dispatch)
+        invoice=self.sale_source_invoice(tenant,Decimal("2"))
+        self.post_dispatched_sale_invoice(sale,actor,invoice)
+        self.commerce_execute(
+            tenant,actor,"SELECT one_request_return(%s,%s,%s,2,%s,%s,'Customer returned')",
+            (tenant,return_job,dispatch,quarantine,actor))
+        if acceptance is not None:
+            self.commerce_execute(
+                tenant,actor,"SELECT one_finish_return(%s,%s,%s,%s,%s)",
+                (tenant,return_job,acceptance,
+                 uuid4() if acceptance>0 else None,actor))
+        return tenant,actor,invoice,return_job
+
+    def credit_for_source_return(self, source, quantity, *, price=Decimal("12.50")):
+        from dataclasses import replace
+        return replace(
+            source,id=uuid4(),number="CN-"+uuid4().hex,
+            kind=DocumentType.CUSTOMER_CREDIT,source_invoice_id=source.id,
+            lines=(replace(source.lines[0],
+                           quantity=quantity,unit_price=price),),
+        )
+
+    def issue_accepted_return_credit(self, credit, job, actor):
+        return persist_return_backed_customer_credit(
+            self.db,return_job_id=job,document=credit,
+            accounts=self.invoice_accounts,chart=self.chart,
+            period=self.period,period_id=self.period_id,
+            actor_id=actor,
+            memberships=(Membership(actor,self.tenant_a,Role.COMPANY_ADMIN),),
+        )
+
+    def test_return_credit_journal_and_source_are_atomic_traceable(self):
+        tenant,actor,original,return_job=self.complete_customer_return_for_invoice()
+        first=self.credit_for_source_return(original,Decimal("1"))
+        second=self.credit_for_source_return(original,Decimal("1"))
+        for credit in (first,second):
+            result=self.issue_accepted_return_credit(credit,return_job,actor)
+            self.assertEqual(result.totals.net,Decimal("12.50"))
+            self.assertEqual(self.admin.execute(
+                "SELECT d.status,j.status FROM one_invoice_docs d "
+                "JOIN one_journal_entries j ON j.tenant_id=d.tenant_id "
+                "AND j.id=d.journal_id WHERE d.tenant_id=%s AND d.id=%s",
+                (tenant,credit.id)).fetchone(),("issued","posted"))
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(quantity) FROM one_customer_return_credits "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,return_job)).fetchone()[0],Decimal("2"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_operation_outbox "
+            "WHERE tenant_id=%s AND event_type='finance.customer_return_credited' "
+            "AND source_id IN (%s,%s)",
+            (tenant,first.id,second.id)).fetchone()[0],2)
+
+    def test_return_credit_above_accepted_qty_rolls_back_every_finance_record(self):
+        tenant,actor,original,return_job=self.complete_customer_return_for_invoice(
+            acceptance=Decimal("1"))
+        too_large=self.credit_for_source_return(original,Decimal("2"))
+        with self.assertRaises(self.psycopg.Error):
+            self.issue_accepted_return_credit(too_large,return_job,actor)
+        for table,col in (
+            ("one_invoice_docs","id"),
+            ("one_journal_entries","id"),
+            ("one_invoice_audit","doc_id"),
+            ("one_customer_return_credits","credit_invoice_id"),
+        ):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+" WHERE tenant_id=%s AND "
+                +col+"=%s",(tenant,too_large.id)).fetchone()[0],0)
+        valid=self.credit_for_source_return(original,Decimal("1"))
+        self.issue_accepted_return_credit(valid,return_job,actor)
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(quantity) FROM one_customer_return_credits "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,return_job)).fetchone()[0],Decimal("1"))
+
+    def test_customer_credit_cannot_be_issued_on_pending_return_or_changed_price(self):
+        tenant,actor,source,job=self.complete_customer_return_for_invoice(
+            acceptance=None)
+        early=self.credit_for_source_return(source,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.issue_accepted_return_credit(early,job,actor)
+        self.commerce_execute(
+            tenant,actor,"SELECT one_finish_return(%s,%s,2,%s,%s)",
+            (tenant,job,uuid4(),actor))
+        mismatched=self.credit_for_source_return(source,Decimal("1"),
+                                                 price=Decimal("14.00"))
+        with self.assertRaises(self.psycopg.Error):
+            self.issue_accepted_return_credit(mismatched,job,actor)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries "
+            "WHERE tenant_id=%s AND id IN (%s,%s)",
+            (tenant,early.id,mismatched.id)).fetchone()[0],0)
+
+    def test_return_credit_rejects_wrong_source_and_unauthorized_actor(self):
+        tenant,actor,source,job=self.complete_customer_return_for_invoice()
+        wrong=self.invoice()
+        self.post_invoice(wrong)
+        credit=self.credit_for_source_return(wrong,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.issue_accepted_return_credit(credit,job,actor)
+        another=self.credit_for_source_return(source,Decimal("1"))
+        from one_erp_core.accounting import AccountingError
+        with self.assertRaises(AccountingError):
+            self.issue_accepted_return_credit(another,job,uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_customer_return_credits WHERE "
+            "tenant_id=%s AND return_job_id=%s",
+            (tenant,job)).fetchone()[0],0)
 
 
 if __name__ == "__main__":
