@@ -92,6 +92,8 @@ def verify_restore_candidate(
         database = payload["database"]
         checksum = payload["encrypted_archive_sha256"]
         key_id = payload["key_id"]
+        if not isinstance(payload["created_at"], str):
+            raise RestorePreflightError("Invalid signed timestamp")
         created = datetime.fromisoformat(payload["created_at"].replace("Z", "+00:00"))
     except (ValueError, TypeError, KeyError, UnicodeError, json.JSONDecodeError) as error:
         raise RestorePreflightError("Invalid signed manifest") from error
