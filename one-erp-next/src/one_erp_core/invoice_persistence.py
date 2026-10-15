@@ -6,7 +6,7 @@ tax treatment must be validated by an approved country pack before calling.
 """
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Mapping, Callable
 from uuid import UUID
 
 from .accounting import Account, AccountingError, AccountingPeriod, JournalEntry
@@ -30,6 +30,7 @@ def persist_invoice_with_journal(
     memberships: tuple[Membership, ...],
     minor_units: int = 2,
     goods_receipt_liability_accounts: frozenset[str] = frozenset(),
+    before_issue: Callable[[object], None] | None = None,
 ) -> InvoicePostingProposal:
     """One transaction from source invoice to posted journal and sealed snapshot.
 
@@ -88,6 +89,11 @@ def persist_invoice_with_journal(
                         totals.base,totals.tax,
                     ),
                 )
+            # Goods-source matching must be completed and atomically validated
+            # BEFORE issuing the snapshot, not attached to an already-issued
+            # invoice. A failed hook rolls back all journal and document rows.
+            if before_issue is not None:
+                before_issue(cursor)
             cursor.execute(
                 "SELECT one_issue_invoice(%s,%s,%s)",
                 (document.tenant_id, document.id, actor_id),
