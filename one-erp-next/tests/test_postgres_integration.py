@@ -2929,9 +2929,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         tenant,actor,invoice,job=self.complete_customer_return_for_invoice(
             acceptance=Decimal("1"))
         source=self.admin.execute(
-            "SELECT s.warehouse_id FROM one_return_jobs r "
-            "JOIN one_stock_events s ON s.tenant_id=r.tenant_id "
-            "AND s.id=r.source_event_id WHERE r.tenant_id=%s AND r.id=%s",
+            "SELECT destination_warehouse_id FROM one_return_jobs "
+            "WHERE tenant_id=%s AND id=%s",
             (tenant,job)).fetchone()[0]
         for kwargs in (
             ("restock",Decimal("1"),None,uuid4(),uuid4()),
