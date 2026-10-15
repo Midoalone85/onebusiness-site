@@ -26,6 +26,9 @@ from one_erp_core.payments import (
 )
 from one_erp_core.payment_persistence import persist_payment_with_allocations
 from one_erp_core.report_repository import load_finance_snapshot
+from one_erp_core.finance_http_boundary import (
+    AuthenticatedFinanceIdentity,render_private_dashboard_response,
+)
 from one_erp_core.statement_details import balance_sheet, general_ledger_detail
 from one_erp_core.tenancy import Membership, Role
 
@@ -528,6 +531,40 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         )
         self.assertNotIn(later.id,{e.id for e in old.entries})
         self.assertIn(later.id,{e.id for e in today.entries})
+
+
+
+    def test_authenticated_private_dashboard_uses_tenant_db_name(self):
+        report_entry=self.post(self.fresh_entry())
+        class DemoVerifier:
+            def __init__(self,actor,tenant):
+                self.actor=actor
+                self.tenant=tenant
+            def verify_access_token(self,raw_token):
+                if raw_token != "test-session":
+                    raise ValueError("invalid test token")
+                return AuthenticatedFinanceIdentity(
+                    self.actor,frozenset({self.tenant})
+                )
+
+        response=render_private_dashboard_response(
+            self.db,
+            raw_access_token="test-session",
+            identity_verifier=DemoVerifier(self.actor,self.tenant_a),
+            requested_tenant=self.tenant_a,
+            from_date=date(2026,10,1),
+            as_of=date(2026,10,15),
+            currency="SAR",
+            locale="ar",
+        )
+        self.assertEqual(response.status,200)
+        self.assertIn("no-store",response.headers["Cache-Control"])
+        self.assertIn("frame-ancestors 'none'",response.headers["Content-Security-Policy"])
+        self.assertIn('lang="ar" dir="rtl"',response.body)
+        self.assertIn("Test Tenant",response.body)
+        self.assertIn("ONE ERP",response.body)
+        self.assertIn(str(report_entry.id),response.body)
+        self.assertNotIn("test-session",response.body)
 
 
 
