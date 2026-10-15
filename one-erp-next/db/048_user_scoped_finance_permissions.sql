@@ -142,6 +142,8 @@ BEGIN
     NOT EXISTS(SELECT 1 FROM one_memberships m
       WHERE m.tenant_id=p_tenant AND m.actor_id=p_actor AND m.active
         AND m.role='company_admin') OR
+    NOT one_actor_has_permission(
+      p_tenant,p_actor,'finance.permission.change.request') OR
     NOT EXISTS(SELECT 1 FROM one_permission_keys k
       WHERE k.permission_key=p_permission) THEN
   RAISE EXCEPTION 'Authorized and valid permission proposal required';
@@ -171,7 +173,9 @@ BEGIN
    current_setting('one.actor_id',true) IS DISTINCT FROM p_actor::text OR
    NOT EXISTS(SELECT 1 FROM one_memberships m
       WHERE m.tenant_id=p_tenant AND m.actor_id=p_actor AND m.active
-        AND m.role IN ('company_admin','accountant')) THEN
+        AND m.role IN ('company_admin','accountant')) OR
+   NOT one_actor_has_permission(
+      p_tenant,p_actor,'finance.permission.change.approve') THEN
   RAISE EXCEPTION 'An authenticated independent policy reviewer is required';
  END IF;
  SELECT * INTO proposed FROM one_permission_change_requests
