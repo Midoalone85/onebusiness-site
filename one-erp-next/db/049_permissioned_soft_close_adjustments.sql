@@ -381,7 +381,10 @@ BEGIN
         WHEN EXISTS(SELECT 1 FROM one_period_soft_close_approvals a
           WHERE a.tenant_id=p_tenant AND a.period_id=p_period) THEN 'soft_closed'
         ELSE 'open' END)::text,
-  (NOT p.closed AND one_actor_has_permission(
+  (NOT p.closed AND EXISTS(
+    SELECT 1 FROM one_period_soft_close_approvals a
+    WHERE a.tenant_id=p_tenant AND a.period_id=p_period)
+    AND one_actor_has_permission(
       p_tenant,p_actor,'finance.period.soft_adjust'))::boolean,
   (SELECT count(*)::bigint FROM one_soft_adjustment_requests r
      WHERE r.tenant_id=p_tenant AND r.period_id=p_period
