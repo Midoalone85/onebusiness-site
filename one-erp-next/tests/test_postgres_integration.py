@@ -35,6 +35,7 @@ from one_erp_core.control_plane_identity import (
     ControlPlaneIdentityDirectory, ControlPlaneRevocationChecker,
 )
 from one_erp_core.oidc_identity import RS256VerifierConfig, VerifiedRS256FinanceAccess
+from one_erp_core.finance_wsgi import OneFinanceWSGI, TenantFinanceConnections
 from one_erp_core.statement_details import balance_sheet, general_ledger_detail
 from one_erp_core.tenancy import Membership, Role
 
@@ -775,6 +776,65 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 as_of=date(2026,10,15),
                 currency="SAR",
             )
+
+
+
+    def test_wsgi_route_with_real_readonly_postgresql_report(self):
+        # HTTP parsing/tenant routing + PostgreSQL role/membership/report stack.
+        class TrustedTestVerifier:
+            def __init__(self, actor, tenant):
+                self.actor,self.tenant=actor,tenant
+            def verify_access_token(self,raw_token):
+                if raw_token != "header.payload.signature":
+                    raise ValueError("Invalid CI-only token")
+                return AuthenticatedFinanceIdentity(self.actor,frozenset({self.tenant}))
+        reader_connections=0
+        def report_connection():
+            nonlocal reader_connections
+            reader_connections += 1
+            return self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_report_ci",password="ci_report_only",
+                autocommit=True,
+            )
+        app=OneFinanceWSGI(
+            verifier=TrustedTestVerifier(self.actor,self.tenant_a),
+            connections=TenantFinanceConnections({self.tenant_a:report_connection}),
+            allowed_hosts=frozenset({"finance.example.test"}),
+        )
+        posted=self.post(self.fresh_entry())
+        def wsgi_call(tenant,*,scheme="https"):
+            status={}
+            html=b"".join(app({
+                "REQUEST_METHOD":"GET",
+                "wsgi.url_scheme":scheme,
+                "HTTP_HOST":"finance.example.test",
+                "PATH_INFO":"/api/v1/finance/dashboard",
+                "QUERY_STRING":(
+                    f"tenant={tenant}&from=2026-10-01"
+                    "&as_of=2026-10-15&currency=SAR&locale=en"
+                ),
+                "HTTP_AUTHORIZATION":"Bearer header.payload.signature",
+                "CONTENT_LENGTH":"",
+            },lambda code,headers:status.update(
+                code=code,headers=dict(headers)
+            ))).decode("utf-8")
+            return status,html
+        response,html=wsgi_call(self.tenant_a)
+        self.assertEqual(response["code"],"200 OK")
+        self.assertEqual(reader_connections,1)
+        self.assertIn("no-store",response["headers"]["Cache-Control"])
+        self.assertIn("Test Tenant",html)
+        self.assertIn(str(posted.id),html)
+        self.assertNotIn("header.payload.signature",html)
+        forbidden,blank=wsgi_call(self.tenant_b)
+        self.assertEqual(forbidden["code"],"403 Forbidden")
+        self.assertEqual(reader_connections,1)
+        insecure,_=wsgi_call(self.tenant_a,scheme="http")
+        self.assertEqual(insecure["code"],"403 Forbidden")
+        self.assertEqual(reader_connections,1)
 
 
 
