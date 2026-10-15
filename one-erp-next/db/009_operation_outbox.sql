@@ -6,6 +6,7 @@ BEGIN;
 CREATE TABLE one_operation_outbox (
   tenant_id uuid NOT NULL REFERENCES one_tenants(id),
   id uuid NOT NULL DEFAULT gen_random_uuid(),
+  stream_position bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
   event_type text NOT NULL CHECK (event_type IN (
     'stock.purchase_received','stock.sale_dispatched',
     'delivery.created','delivery.picked','delivery.packed',
@@ -19,7 +20,7 @@ CREATE TABLE one_operation_outbox (
   UNIQUE (tenant_id,event_type,source_id)
 );
 CREATE INDEX one_operation_outbox_scan
-  ON one_operation_outbox(tenant_id,created_at,id);
+  ON one_operation_outbox(tenant_id,stream_position);
 ALTER TABLE one_operation_outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE one_operation_outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY one_operation_outbox_tenant ON one_operation_outbox
