@@ -1655,5 +1655,70 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,warehouse,product)).fetchone()[0],0)
 
 
+
+    def test_competing_reservations_cannot_double_allocate_same_stock(self):
+        """Two real PostgreSQL connections race for the last five units."""
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,actor,product,warehouse,incoming,outgoing=self.commerce_fixture()
+        competitor=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_commercial_orders "
+            "(tenant_id,id,kind,number,partner_id,currency) "
+            "VALUES (%s,%s,'sale',%s,'CUSTOMER-B','SAR')",
+            (tenant,competitor,"CI-"+competitor.hex))
+        self.admin.execute(
+            "INSERT INTO one_commercial_order_lines "
+            "(tenant_id,order_id,line_no,product_id,warehouse_id,ordered_qty,unit_price) "
+            "VALUES (%s,%s,1,%s,%s,5,10)",
+            (tenant,competitor,product,warehouse))
+        for order in (incoming,outgoing,competitor):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,incoming,uuid4(),actor))
+        gate=Barrier(2)
+
+        def compete(order):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB", "one_erp_test"),
+                user="one_erp_runtime_ci", password="ci_only_password",
+                autocommit=True,
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute(
+                            "SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+                        conn.execute(
+                            "SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+                        gate.wait(timeout=10)
+                        conn.execute(
+                            "SELECT one_reserve_sale_line(%s,%s,1,3,%s,%s)",
+                            (tenant,order,uuid4(),actor))
+                    return True
+                except self.psycopg.Error:
+                    return False
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            left=pool.submit(compete,outgoing)
+            right=pool.submit(compete,competitor)
+            results=(left.result(timeout=20),right.result(timeout=20))
+        self.assertEqual(sorted(results),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT reserved FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],3)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_reservation_events "
+            "WHERE tenant_id=%s AND order_id IN (%s,%s)",
+            (tenant,outgoing,competitor)).fetchone()[0],1)
+
+
 if __name__ == "__main__":
     unittest.main()
