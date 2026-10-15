@@ -176,6 +176,7 @@ def propose_invoice_journal(
     chart: dict[str, Account],
     period: AccountingPeriod,
     minor_units: int = 2,
+    goods_receipt_liability_accounts: frozenset[str] = frozenset(),
 ) -> InvoicePostingProposal:
     """Return a balanced *draft* journal; nothing is saved or posted.
 
@@ -202,9 +203,25 @@ def propose_invoice_journal(
         ))
 
     for line, detail in zip(document.lines, totals.details):
+        # A specifically-approved goods vendor bill clears received-not-invoiced
+        # inventory liability (GRNI), not a second purchase expense. Default
+        # callers cannot use this exception. Dedicated source matching MUST
+        # finish in the same transaction or the invoice/journal roll back.
+        clears_received_stock = (
+            document.kind is DocumentType.VENDOR_BILL
+            and line.account_id in goods_receipt_liability_accounts
+        )
+        if clears_received_stock and (
+            line.discount_amount != 0 or line.tax_rate != 0
+            or line.tax_category not in (TaxCategory.OUT_OF_SCOPE,
+                                         TaxCategory.ZERO_RATED)
+            or line.input_tax_recoverable
+        ):
+            raise AccountingError("GRNI goods vendor bill requires matched zero-tax line")
         _kind_account(
             chart, line.account_id,
-            AccountKind.REVENUE if is_customer else AccountKind.EXPENSE,
+            AccountKind.LIABILITY if clears_received_stock
+            else (AccountKind.REVENUE if is_customer else AccountKind.EXPENSE),
             document.tenant_id,
         )
         if is_customer:
