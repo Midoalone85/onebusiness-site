@@ -25,6 +25,12 @@ BEGIN
         AND m.role IN ('company_admin','accountant','viewer')) THEN
    RAISE EXCEPTION 'Approved company financial reporting role required';
  END IF;
+ -- No functional-currency FX translation engine exists yet. Never sum
+ -- inventory figures expressed in different transaction currencies.
+ IF (SELECT count(DISTINCT v.currency) FROM one_stock_value_positions v
+      WHERE v.tenant_id=p_tenant)>1 THEN
+   RAISE EXCEPTION 'Company inventory contains multiple valuation currencies: translate before aggregation';
+ END IF;
  RETURN QUERY
  SELECT count(*)::bigint,
    coalesce(sum(b.on_hand),0)::numeric,
@@ -60,6 +66,14 @@ BEGIN
       WHERE m.tenant_id=p_tenant AND m.actor_id=p_actor AND m.active
         AND m.role IN ('company_admin','accountant','viewer')) THEN
    RAISE EXCEPTION 'Approved period / tenant reader required';
+ END IF;
+ IF (SELECT count(DISTINCT j.currency)
+      FROM one_inventory_nrv_events e
+      JOIN one_journal_entries j ON j.tenant_id=e.tenant_id
+       AND j.id=e.journal_id
+      WHERE e.tenant_id=p_tenant AND e.assessed_on>=p_start
+        AND e.assessed_on<p_end_exclusive AND j.status='posted')>1 THEN
+   RAISE EXCEPTION 'Multi-currency NRV activity requires reviewed functional currency conversion';
  END IF;
  RETURN QUERY
  SELECT count(*)::bigint,
