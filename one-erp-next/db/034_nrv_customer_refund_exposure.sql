@@ -110,10 +110,10 @@ BEGIN
  SELECT coalesce(sum(c.quantity),0) INTO claimed
   FROM one_customer_return_credits c
   WHERE c.tenant_id=p_tenant AND c.return_job_id=p_return;
- IF gross>src.gross_total-credited OR claimed>r.accepted_qty THEN
-  assessment='credit_ceiling_review';
- ELSIF current_status.internal_credit_posted THEN
+ IF current_status.internal_credit_posted THEN
   assessment='already_internally_credited';
+ ELSIF gross>src.gross_total-credited OR claimed>r.accepted_qty THEN
+  assessment='credit_ceiling_review';
  ELSIF current_status.case_status<>'awaiting_internal_credit' THEN
   assessment='financial_discrepancy';
  ELSIF src.tax_total<>0 OR l.tax_rate<>0 OR
