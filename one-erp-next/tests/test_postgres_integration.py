@@ -6827,5 +6827,137 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             with self.assertRaises(self.psycopg.Error):
                 self.inventory_close_preflight(tenant,actor,pid)
 
+
+    # 045 | Captured close-time positions stay frozen after subsequent activity.
+    def test_inventory_seal_045_empty_company_and_access_control(self):
+        period, admin, viewer = uuid4(), uuid4(), uuid4()
+        self.admin.execute(
+            "INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive) "
+            "VALUES(%s,%s,%s,%s)",
+            (self.tenant_b,period,date(2040,1,1),date(2041,1,1)))
+        for actor,role in ((admin,"company_admin"),(viewer,"viewer")):
+            self.admin.execute(
+                "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+                "VALUES(%s,%s,%s)",(self.tenant_b,actor,role))
+        self.assertEqual(self.commerce_execute(
+            self.tenant_b,admin,"SELECT one_close_period(%s,%s,%s)",
+            (self.tenant_b,period,admin)),period)
+        seal=self.admin.execute(
+            "SELECT snapshot_kind,position_count,physical_movement_count,"
+            "valued_movement_count FROM one_period_inventory_seals "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (self.tenant_b,period)).fetchone()
+        self.assertEqual(seal,("OBSERVED_AT_CLOSE",0,0,0))
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(self.tenant_b),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(viewer),))
+            self.assertEqual(self.db.execute(
+                "SELECT * FROM one_inventory_period_seal_details(%s,%s,%s)",
+                (self.tenant_b,period,viewer)).fetchall(),[])
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                self.tenant_b,uuid4(),
+                "SELECT count(*) FROM one_inventory_period_seal_details(%s,%s,%s)",
+                (self.tenant_b,period,uuid4()))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                self.tenant_b,admin,
+                "UPDATE one_period_inventory_seals SET position_count=1 "
+                "WHERE tenant_id=%s AND period_id=%s RETURNING position_count",
+                (self.tenant_b,period))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                self.tenant_b,admin,"SELECT one_close_period(%s,%s,%s)",
+                (self.tenant_b,period,admin))
+
+    def test_inventory_seal_045_nonempty_snapshot_is_not_live_balance(self):
+        # Synthetic fixtures only: administrative inserts are never supported
+        # production stock movements. They isolate close-time capture behavior.
+        tenant,admin,warehouse,product,period = (uuid4() for _ in range(5))
+        self.admin.execute(
+            "INSERT INTO one_tenants(id,company_name) VALUES(%s,%s)",
+            (tenant,"Seal 045 isolated CI"))
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'company_admin')",(tenant,admin))
+        self.admin.execute(
+            "INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive) "
+            "VALUES(%s,%s,%s,%s)",
+            (tenant,period,date(2042,1,1),date(2043,1,1)))
+        self.admin.execute(
+            "INSERT INTO one_products(tenant_id,id,sku,name) "
+            "VALUES(%s,%s,%s,'Seal-only product')",
+            (tenant,product,product.hex))
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) "
+            "VALUES(%s,%s,%s,'Seal-only warehouse')",
+            (tenant,warehouse,warehouse.hex[:15]))
+        with self.admin.transaction():
+            self.admin.execute("SELECT set_config('one.tenant_id',%s,true)",
+                               (str(tenant),))
+            self.admin.execute("SELECT set_config('one.commerce_context','yes',true)")
+            self.admin.execute("SELECT set_config('one.valuation_context','yes',true)")
+            self.admin.execute(
+                "INSERT INTO one_stock_balances(tenant_id,warehouse_id,"
+                "product_id,on_hand,reserved) VALUES(%s,%s,%s,3,1)",
+                (tenant,warehouse,product))
+            self.admin.execute(
+                "INSERT INTO one_stock_value_positions(tenant_id,warehouse_id,"
+                "product_id,currency,qty,book_value) VALUES(%s,%s,%s,'SAR',3,18)",
+                (tenant,warehouse,product))
+        check=self.inventory_close_preflight(tenant,admin,period)
+        self.assertTrue(check[3])
+        self.assertEqual(check[0],1)
+        self.assertEqual(self.commerce_execute(
+            tenant,admin,"SELECT one_close_period(%s,%s,%s)",
+            (tenant,period,admin)),period)
+        observed=self.admin.execute(
+            "SELECT physical_qty,reserved_qty,gross_book_value,net_book_value "
+            "FROM one_period_inventory_seal_lines WHERE tenant_id=%s "
+            "AND period_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,period,warehouse,product)).fetchone()
+        self.assertEqual(observed,(3,1,18,18))
+        header=self.admin.execute(
+            "SELECT position_count,snapshot_kind FROM one_period_inventory_seals "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (tenant,period)).fetchone()
+        self.assertEqual(header,(1,"OBSERVED_AT_CLOSE"))
+        with self.admin.transaction():
+            self.admin.execute("SELECT set_config('one.tenant_id',%s,true)",
+                               (str(tenant),))
+            self.admin.execute("SELECT set_config('one.commerce_context','yes',true)")
+            self.admin.execute("SELECT set_config('one.valuation_context','yes',true)")
+            self.admin.execute(
+                "UPDATE one_stock_balances SET on_hand=4 "
+                "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+                (tenant,warehouse,product))
+            self.admin.execute(
+                "UPDATE one_stock_value_positions SET qty=4,book_value=24 "
+                "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+                (tenant,warehouse,product))
+        still=self.admin.execute(
+            "SELECT physical_qty,reserved_qty,gross_book_value,net_book_value "
+            "FROM one_period_inventory_seal_lines WHERE tenant_id=%s "
+            "AND period_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,period,warehouse,product)).fetchone()
+        self.assertEqual(still,observed)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(admin),))
+            detail=self.db.execute(
+                "SELECT physical_qty,gross_book_value,snapshot_kind "
+                "FROM one_inventory_period_seal_details(%s,%s,%s)",
+                (tenant,period,admin)).fetchone()
+        self.assertEqual(detail,(3,18,"OBSERVED_AT_CLOSE"))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,admin,"DELETE FROM one_period_inventory_seal_lines "
+                "WHERE tenant_id=%s AND period_id=%s RETURNING product_id",
+                (tenant,period))
+
 if __name__ == "__main__":
     unittest.main()
