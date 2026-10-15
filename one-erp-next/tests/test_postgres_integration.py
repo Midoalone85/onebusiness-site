@@ -285,6 +285,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "one_nrv_customer_credit_case(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_nrv_return_settlement_exposure(uuid,uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -5871,6 +5876,81 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(self.admin.execute(
             "SELECT count(*) FROM one_journal_entries WHERE tenant_id=%s AND id=%s",
             (tenant,attempted)).fetchone()[0],0)
+
+    # 034 | Informational AR/refund allocation, never a bank action.
+    def nrv_refund_exposure(self,tenant,actor,rma,invoice):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_nrv_return_settlement_exposure(%s,%s,%s,%s)",
+                (tenant,actor,rma,invoice.id)).fetchone()
+
+    def test_nrv_unpaid_sale_return_has_no_refund_liability(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        a=self.nrv_refund_exposure(tenant,admin,rma,invoice)
+        self.assertEqual(a,(
+            invoice.id,Decimal("2"),Decimal("25"),Decimal("0"),
+            Decimal("0"),Decimal("25"),Decimal("25"),Decimal("0"),
+            Decimal("25"),Decimal("25"),Decimal("0"),"internal_credit_ready"))
+
+    def test_nrv_partially_paid_return_requires_split_settlement(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        a=self.nrv_refund_exposure(tenant,admin,rma,invoice)
+        self.assertEqual(a[3:12],(
+            Decimal("10"),Decimal("0"),Decimal("15"),Decimal("25"),
+            Decimal("0"),Decimal("25"),Decimal("15"),Decimal("10"),
+            "requires_refund_liability_workflow"))
+
+    def test_nrv_fully_paid_return_is_not_misreported_as_ar_credit(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("25")),
+                          invoice,outstanding=Decimal("25"))
+        a=self.nrv_refund_exposure(tenant,admin,rma,invoice)
+        self.assertEqual(a[-3:],(
+            Decimal("0"),Decimal("25"),"requires_refund_liability_workflow"))
+
+    def test_nrv_issued_internal_credit_cannot_create_new_refund_proposal(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.issue_reviewed_nrv_credit(tenant,admin,rma,invoice)
+        a=self.nrv_refund_exposure(tenant,admin,rma,invoice)
+        self.assertEqual(a[3:6],(
+            Decimal("0"),Decimal("25"),Decimal("0")))
+        self.assertEqual(a[-3:],(
+            Decimal("0"),Decimal("0"),"already_internally_credited"))
+
+    def test_nrv_vat_source_exposure_requires_zatca_pack(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        order=self.admin.execute(
+            "SELECT order_id FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s",(tenant,shipped)).fetchone()[0]
+        original=self.sale_source_invoice(tenant,Decimal("2"))
+        original=replace(original,lines=(
+            replace(original.lines[0],tax_category=TaxCategory.STANDARD,
+                    tax_code="DEMO-STANDARD",tax_rate=Decimal("0.15")),))
+        self.post_dispatched_sale_invoice(order,admin,original)
+        self.reassess_nrv_return(tenant,admin,rma,Decimal("2"))
+        a=self.nrv_refund_exposure(tenant,admin,rma,original)
+        self.assertEqual(a[6:9],(
+            Decimal("25"),Decimal("3.75"),Decimal("28.75")))
+        self.assertEqual(a[-1],"requires_zatca_tax_pack")
+
+    def test_nrv_refund_report_rejects_wrong_tenant_actor_and_invoice(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        wrong=self.invoice()
+        self.post_invoice(wrong)
+        for tid,actor,original in (
+            (self.tenant_b,admin,invoice),
+            (tenant,uuid4(),invoice),
+            (tenant,admin,wrong),
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.nrv_refund_exposure(tid,actor,rma,original)
 
 if __name__ == "__main__":
     unittest.main()
