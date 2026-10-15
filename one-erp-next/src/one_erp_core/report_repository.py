@@ -30,6 +30,7 @@ class LedgerSnapshot:
     chart: dict[str, Account]
     entries: tuple[JournalEntry, ...]
     memberships: tuple[Membership, ...]
+    company_name: str = ""
 
 
 def load_finance_snapshot(
@@ -79,6 +80,13 @@ def load_finance_snapshot(
             except ValueError as error:
                 raise AccountingError("Unrecognized company role") from error
             memberships = (Membership(actor_id,tenant_id,role,True),)
+            cur.execute(
+                "SELECT company_name FROM one_tenants WHERE id=%s", (tenant_id,)
+            )
+            company_row = cur.fetchone()
+            if company_row is None or not company_row[0].strip():
+                raise AccountingError("Company identity unavailable")
+            company_name = company_row[0]
             if not can_access(
                 actor_id=actor_id, tenant_id=tenant_id,
                 action=Action.READ, memberships=memberships,
@@ -153,4 +161,4 @@ def load_finance_snapshot(
                     tuple(lines),EntryStatus.POSTED,meta[5],
                 ))
     # Snapshot is now fully materialized and detached from the DB connection.
-    return LedgerSnapshot(tenant_id,actor_id,as_of,chart,tuple(entries),memberships)
+    return LedgerSnapshot(tenant_id,actor_id,as_of,chart,tuple(entries),memberships,company_name)
