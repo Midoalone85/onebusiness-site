@@ -329,6 +329,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         cls.admin.execute(
             "GRANT EXECUTE ON FUNCTION "
             "one_refund_control_pulse(uuid,uuid) TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_refund_period_close_preflight(uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -6630,6 +6634,102 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                               (tenant,uuid4())):
             with self.assertRaises(self.psycopg.Error):
                 self.refund_control_pulse(company,actor)
+
+    # 043 | Accounting-period close checks finance refund reconciliation.
+    def new_period_for_close(self,start=date(2031,1,1),end=date(2032,1,1)):
+        pid,admin=uuid4(),uuid4()
+        self.admin.execute(
+            "INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive) "
+            "VALUES(%s,%s,%s,%s)",(self.tenant_a,pid,start,end))
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'company_admin')",(self.tenant_a,admin))
+        return pid,admin
+
+    def refund_close_preflight(self,tenant,admin,period):
+        return self.commerce_execute(
+            tenant,admin,
+            "SELECT * FROM one_refund_period_close_preflight(%s,%s,%s)",
+            (tenant,period,admin),
+            fetch_all=True
+        )
+
+    def test_close_period_seals_audited_refund_snapshot_with_unpaid_claims(self):
+        # Legitimately outstanding refund liabilities never masquerade as
+        # disbursed and need NOT be paid merely to close a reporting period.
+        pid,admin=self.new_period_for_close()
+        overview=self.refund_control_pulse(self.tenant_a,self.actor)
+        ready=self.refund_close_preflight(self.tenant_a,admin,pid)
+        self.assertEqual(ready[0][0],0)
+        self.assertEqual(ready[0][1],0)
+        self.assertEqual(ready[0][4],overview[0])
+        self.assertTrue(ready[0][7])
+        self.assertEqual(
+            self.commerce_execute(
+                self.tenant_a,admin,"SELECT one_close_period(%s,%s,%s)",
+                (self.tenant_a,pid,admin)),pid)
+        evidence=self.admin.execute(
+            "SELECT posted_refund_claims,period_refund_liability,"
+            "company_refund_liability,company_unverified_bank_references "
+            "FROM one_period_refund_close_evidence WHERE tenant_id=%s "
+            "AND period_id=%s",(self.tenant_a,pid)).fetchone()
+        self.assertEqual(evidence[0],0)
+        self.assertEqual(evidence[1],Decimal("0"))
+        self.assertEqual(evidence[2],overview[0])
+        self.assertEqual(evidence[3],overview[4])
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_period_close_audit "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (self.tenant_a,pid)).fetchone()[0],1)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                self.tenant_a,admin,"SELECT one_close_period(%s,%s,%s)",
+                (self.tenant_a,pid,admin))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                self.tenant_a,admin,
+                "DELETE FROM one_period_refund_close_evidence "
+                "WHERE tenant_id=%s AND period_id=%s",(self.tenant_a,pid))
+
+    def test_close_period_rejects_unposted_journal_without_sealing(self):
+        pid,admin=self.new_period_for_close(
+            date(2032,1,1),date(2033,1,1))
+        draft=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_journal_entries("
+            "tenant_id,id,period_id,reference,idempotency_key,occurred_on,currency)"
+            " VALUES(%s,%s,%s,%s,%s,%s,'SAR')",
+            (self.tenant_a,draft,pid,"unposted-close-gate-"+str(draft),
+             "close-gate:"+str(draft),date(2032,2,1)))
+        summary=self.refund_close_preflight(self.tenant_a,admin,pid)[0]
+        self.assertEqual(summary[0],1)
+        self.assertFalse(summary[7])
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                self.tenant_a,admin,"SELECT one_close_period(%s,%s,%s)",
+                (self.tenant_a,pid,admin))
+        self.assertEqual(self.admin.execute(
+            "SELECT closed FROM one_periods WHERE tenant_id=%s AND id=%s",
+            (self.tenant_a,pid)).fetchone()[0],False)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_period_refund_close_evidence "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (self.tenant_a,pid)).fetchone()[0],0)
+
+    def test_refund_close_gate_rejects_wrong_company_or_non_admin(self):
+        pid,admin=self.new_period_for_close(
+            date(2033,1,1),date(2034,1,1))
+        for tid,actor in (
+            (self.tenant_b,admin),
+            (self.tenant_a,self.actor),
+            (self.tenant_a,uuid4())
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.refund_close_preflight(tid,actor,pid)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_period_close_audit "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (self.tenant_a,pid)).fetchone()[0],0)
 
 if __name__ == "__main__":
     unittest.main()
