@@ -124,7 +124,7 @@ END $$;
 -- physical + PO allocation already exists at the point of issuing. This is a
 -- real DB invariant, not a spoofable SQL session flag.
 CREATE OR REPLACE FUNCTION one_issue_invoice(p_tenant uuid,p_doc uuid,p_actor uuid)
-RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER AS $
+RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER AS $$
 DECLARE
     d one_invoice_docs%ROWTYPE;
     j one_journal_entries%ROWTYPE;
@@ -243,7 +243,7 @@ BEGIN
     INSERT INTO one_invoice_audit(tenant_id,doc_id,actor_id)
       VALUES (p_tenant,p_doc,p_actor);
     RETURN p_doc;
-END $;
+END $$;
 
 REVOKE ALL ON one_goods_bill_allocations FROM PUBLIC;
 REVOKE ALL ON FUNCTION
