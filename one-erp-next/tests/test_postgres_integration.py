@@ -989,11 +989,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.assertEqual(proof.tenant_id, tenant)
             self.assertEqual(proof.evidence_digest,
                              bytes.fromhex(claims["evidence_sha256"]))
-            # An exact resend is a no-op, without a duplicated audit record.
+                # An exact resend is a no-op, without a duplicate audit row.
                 repeat, _ = record_signed_checkpoint(
                     connection=verified_conn, **base
                 )
-            self.assertEqual(repeat, "database_created")
+                self.assertEqual(repeat, "database_created")
         self.assertFalse(self.admin.execute(
             "SELECT active FROM one_auth.tenant_registry WHERE tenant_id=%s",
             (tenant,),
@@ -1004,6 +1004,38 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         ).fetchall()
         self.assertEqual(len(rows), 2)
         self.assertEqual({x[0] for x in rows}, {"requested", "database_created"})
+
+    def test_stage_attestor_and_general_admin_roles_are_separated(self):
+        # No ordinary provisioning login may send synthetic READY proofs.
+        with self.provisioning_connection() as ordinary, self.attestor_connection() as attestor:
+            with self.assertRaises(self.psycopg.errors.InsufficientPrivilege):
+                ordinary.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (uuid4(), uuid4(), "ready", sha256(b"fake").digest(), uuid4()),
+                )
+            with self.assertRaises(self.psycopg.errors.InsufficientPrivilege):
+                attestor.execute(
+                    "SELECT one_auth.register_tenant(%s,%s,%s)",
+                    (uuid4(), uuid4(), uuid4()),
+                )
+            with self.assertRaises(self.psycopg.errors.InsufficientPrivilege):
+                attestor.execute(
+                    "SELECT one_auth.begin_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (uuid4(), uuid4(), uuid4(), "CI-APPROVAL-NEW", uuid4()),
+                )
+            with self.assertRaises(self.psycopg.errors.InsufficientPrivilege):
+                attestor.execute(
+                    "SELECT * FROM one_auth.tenant_bootstrap_events"
+                )
+            # Confirm each CI role has only the expected, separate inherited role.
+            self.assertEqual(
+                ordinary.execute("SELECT current_user").fetchone()[0],
+                "one_erp_auth_provision_ci",
+            )
+            self.assertEqual(
+                attestor.execute("SELECT current_user").fetchone()[0],
+                "one_erp_auth_attestor_ci",
+            )
 
     def test_staged_bootstrap_denies_access_before_ready_and_blocks_skips(self):
         from one_erp_core.accounting import AccountingError
