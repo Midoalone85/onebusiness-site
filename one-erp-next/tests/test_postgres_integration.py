@@ -317,6 +317,15 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION "
             "one_refund_approved_instruction_preview(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_register_refund_bank_candidate("
+            "uuid,uuid,uuid,uuid,text,text,text,text,text,text,numeric,date) "
+            "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_refund_bank_candidate_company_overview(uuid,uuid) "
+            "TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -6396,6 +6405,121 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.refund_approvals_overview(
                 tenant,self.actor,start=date(2027,1,1),
                 end=date(2026,1,1))
+
+    # 041 | Manually entered statement candidates, NEVER bank-paid evidence.
+    def prepare_bank_candidate_order(self):
+        tenant,preparer,rma,invoice,reviewer=self.prepare_refund_approval()
+        order,_=self.nrv_request_approval(tenant,preparer,rma)
+        self.nrv_approve_request(tenant,reviewer,order)
+        bank_clerk=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'accountant')",(tenant,bank_clerk))
+        return tenant,preparer,reviewer,bank_clerk,order
+
+    def register_bank_candidate(self,tenant,actor,order,*,bank_line=None,
+                amount=Decimal("10"),currency="SAR",
+                beneficiary="BENEFICIARY-REVIEW-CI",
+                payment_reference=None,
+                transaction_ref=None,
+                statement_ref="STATEMENT-TEST-20261015",
+                value_date=date(2026,10,16)):
+        bank_line=bank_line or uuid4()
+        return bank_line,self.commerce_execute(
+            tenant,actor,"SELECT one_register_refund_bank_candidate("
+            "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (tenant,order,bank_line,actor,"BANK-ACCOUNT-DEMO",
+             statement_ref,transaction_ref or "TX-"+bank_line.hex,
+             payment_reference or "ORDER-"+str(order),beneficiary,
+             currency,amount,value_date))
+
+    def bank_candidate_company_report(self,tenant,actor):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_refund_bank_candidate_company_overview(%s,%s)",
+                (tenant,actor)).fetchone()
+
+    def test_bank_candidate_is_immutable_unverified_and_never_posts_cash(self):
+        before=self.bank_candidate_company_report(self.tenant_a,self.actor)
+        tenant,preparer,reviewer,bank_clerk,order=self.prepare_bank_candidate_order()
+        pending=self.bank_candidate_company_report(tenant,self.actor)
+        self.assertEqual(pending[0]-before[0],1)
+        self.assertEqual(pending[3]-before[3],1)
+        bank_line,created=self.register_bank_candidate(tenant,bank_clerk,order)
+        self.assertEqual(created,bank_line)
+        self.assertEqual(self.admin.execute(
+            "SELECT verification_status,debit_amount,currency,order_id "
+            "FROM one_refund_bank_debit_candidates WHERE tenant_id=%s AND id=%s",
+            (tenant,bank_line)).fetchone(),
+            ("unverified",Decimal("10"),"SAR",order))
+        after=self.bank_candidate_company_report(tenant,self.actor)
+        self.assertEqual(after[0]-before[0],1)
+        self.assertEqual(after[1]-before[1],1)
+        self.assertEqual(after[2]-before[2],Decimal("10"))
+        self.assertEqual(after[3],before[3])
+        self.assertEqual(after[4],before[4])
+        self.assertEqual(after[5],"candidates_unverified_no_disbursement")
+        for action in (
+            "UPDATE one_refund_bank_debit_candidates SET "
+            "verification_status='verified' WHERE tenant_id=%s AND id=%s",
+            "DELETE FROM one_refund_bank_debit_candidates "
+            "WHERE tenant_id=%s AND id=%s",
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(tenant,bank_clerk,action,
+                                     (tenant,bank_line))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries "
+            "WHERE tenant_id=%s AND reference LIKE 'refund-payout:%%'",
+            (tenant,)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_customer_refund_orders "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,order)).fetchone()[0],"approved")
+
+    def test_bank_candidate_rejects_duplicate_order_and_reference(self):
+        tenant,preparer,reviewer,bank_clerk,order=self.prepare_bank_candidate_order()
+        bank_line,_=self.register_bank_candidate(tenant,bank_clerk,order)
+        with self.assertRaises(self.psycopg.Error):
+            self.register_bank_candidate(tenant,bank_clerk,order)
+        with self.assertRaises(self.psycopg.Error):
+            self.register_bank_candidate(tenant,bank_clerk,order,bank_line=bank_line)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_refund_bank_debit_candidates "
+            "WHERE tenant_id=%s AND order_id=%s",
+            (tenant,order)).fetchone()[0],1)
+
+    def test_bank_candidate_rejects_incorrect_amount_currency_and_evidence(self):
+        tenant,preparer,reviewer,bank_clerk,order=self.prepare_bank_candidate_order()
+        for options in (
+            {"amount":Decimal("11")},{"amount":Decimal("-10")},
+            {"currency":"USD"},{"beneficiary":"WRONG-BENEFICIARY"},
+            {"payment_reference":"ANOTHER-ORDER"},
+            {"value_date":date(2020,1,1)},
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.register_bank_candidate(tenant,bank_clerk,order,**options)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_refund_bank_debit_candidates "
+            "WHERE tenant_id=%s AND order_id=%s",
+            (tenant,order)).fetchone()[0],0)
+
+    def test_bank_candidate_enforces_separate_roles_and_tenant(self):
+        tenant,preparer,reviewer,bank_clerk,order=self.prepare_bank_candidate_order()
+        for who in (preparer,reviewer,uuid4()):
+            with self.assertRaises(self.psycopg.Error):
+                self.register_bank_candidate(tenant,who,order)
+        with self.assertRaises(self.psycopg.Error):
+            self.register_bank_candidate(self.tenant_b,bank_clerk,order)
+        self.register_bank_candidate(tenant,bank_clerk,order)
+        with self.assertRaises(self.psycopg.Error):
+            self.bank_candidate_company_report(self.tenant_b,bank_clerk)
+        with self.assertRaises(self.psycopg.Error):
+            self.bank_candidate_company_report(tenant,uuid4())
 
 if __name__ == "__main__":
     unittest.main()
