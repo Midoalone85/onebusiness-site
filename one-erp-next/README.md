@@ -15,7 +15,7 @@ See ARCHITECTURE.md for what is implemented and what is not.
 A **fictional-data UI-only preview** is published from the separate static
 `main/one-erp-preview/index.html` path on GitHub Pages:
 
-https://midoalone85.github.io/onebusiness-site/one-erp-preview/
+https://onebusiness.site/one-erp-preview/
 
 This has interactive module navigation, Arabic RTL / English LTR, sample
 accounting statements, purchasing, inventory, CRM, hospital/clinic/lab/pharmacy
