@@ -4229,5 +4229,53 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,legacy)).fetchone()[0],0)
 
 
+
+    def test_one_pulse_reports_valued_quarantine_restock_and_disposal(self):
+        tenant,admin,product,warehouse,sale,source,quarantine,job=(
+            self.prepare_costed_customer_return())
+        stock_event,accepted_journal,_=self.post_costed_customer_return(
+            tenant,admin,job,Decimal("2"))
+        target=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) "
+            "VALUES (%s,%s,%s,'QC restocked value')",
+            (tenant,target,"QCVAL-"+target.hex))
+        self.costed_qa_disposition(
+            tenant,admin,job,"restock",Decimal("1"),target)
+        _,_,_,disposal_journal,_=self.costed_qa_disposition(
+            tenant,admin,job,"dispose",Decimal("1"))
+        for wh,qty,val in (
+            (quarantine,Decimal("0"),Decimal("0")),
+            (target,Decimal("1"),Decimal("12.50")),
+            (warehouse,Decimal("2"),Decimal("25.00"))
+        ):
+            report=self.inventory_pulse_check(tenant,admin,wh,product)
+            self.assertEqual(report[0],qty)
+            self.assertEqual(report[3],qty)
+            self.assertEqual(report[4],val)
+            self.assertEqual(report[5],0)
+            self.assertTrue(report[-1])
+        event_timeline=self.fetch_return_timeline(tenant,admin,job)
+        posted={sid for _,event,sid in event_timeline
+                if event=="finance.journal_posted"}
+        self.assertIn(accepted_journal,posted)
+        self.assertIn(disposal_journal,posted)
+        self.assertIn(("stock.customer_returned",stock_event),
+                      {(event,sid) for _,event,sid in event_timeline})
+
+    def test_one_pulse_warns_unvalued_manual_return_into_quarantine(self):
+        tenant,admin,product,warehouse,sale,source,quarantine,job=(
+            self.prepare_costed_customer_return())
+        event=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+            (tenant,job,event,admin))
+        report=self.inventory_pulse_check(tenant,admin,quarantine,product)
+        self.assertEqual(report[0],Decimal("1"))
+        self.assertEqual(report[3],Decimal("0"))
+        self.assertEqual(report[5],1)
+        self.assertFalse(report[-1])
+
+
 if __name__ == "__main__":
     unittest.main()
