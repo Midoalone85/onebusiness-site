@@ -107,6 +107,32 @@ are **design targets, not coded functions** in this prototype.
 - Production Oracle, existing customer invoices, stocks and journals are
   unchanged; neither branch has been merged or deployed.
 
+## October 15 hardening: QA event timeline
+
+Implemented in `db/014_return_trace.sql` and disposable PostgreSQL tests:
+
+- Each warehouse QA decision writes a uniquely source-linked
+  `returns.restocked` or `returns.disposed` event **in the same transaction**.
+  A rolled-back QA operation writes no successful event.
+- `one_return_case_timeline(tenant,return,actor)` reads a single case's
+  relevant, immutable identifiers and events across customer-return stock
+  receipt, quarantine dispositions, internal customer credit, invoice and
+  GL journal. Event records are tenant-scoped and contain **no PII**.
+- Tested with simultaneous attempts to dispose of the same accepted item;
+  only one may succeed, no negative remaining stock, and only one outbox
+  completion fact is committed.
+- Authorization is enforced by database membership/RLS in isolated CI.
+  **This alone is not production identity or sufficient least privilege**.
+- The cursor is a monotonic stream position allocated by PostgreSQL; under
+  concurrent commits it does not establish a guaranteed global commit order.
+  An external subscriber must handle holes, retries and idempotency.
+
+**Remaining financial/physical constraints:** there is still no serial/lot
+ownership of quarantine stock, approved accounting value or reverse COGS,
+signed customer collection/refund, supplier credit/three-way bill match,
+real message dispatcher, authenticated API or live application workspace.
+The case timeline reports facts only and must not trigger monetary operations.
+
 ## Next milestone
 
 Implement per-return/lot-owned quarantine buckets, cross-warehouse transfer
