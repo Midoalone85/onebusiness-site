@@ -256,6 +256,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION "
             "one_inventory_nrv_period_activity(uuid,uuid,date,date) "
             "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_ship_and_allocate_nrv("
+            "uuid,uuid,integer,numeric,uuid,uuid,uuid,uuid,text,text,text,uuid) "
+            "TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -5081,6 +5085,129 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         ):
             with self.assertRaises(self.psycopg.Error):
                 self.commerce_execute(tenant,self.actor,statement,values)
+
+    # 027 | Separate gross COGS and NRV contra-asset release in one sale.
+    def sell_nrv_adjusted(self,tenant,admin,sale,quantity,*,event=None,
+                          gross_journal=None,release_journal=None,period=None):
+        event=event or uuid4()
+        gross_journal=gross_journal or uuid4()
+        release_journal=release_journal or uuid4()
+        return event,gross_journal,release_journal,self.commerce_execute(
+            tenant,admin,"SELECT one_ship_and_allocate_nrv("
+            "%s,%s,1,%s,%s,%s,%s,%s,'inventory','cogs','nrvallow',%s)",
+            (tenant,sale,quantity,event,gross_journal,release_journal,
+             period or self.period_id,admin))
+
+    def test_nrv_partial_sale_releases_allowance_and_reports_net_cogs(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        self.commerce_execute(tenant,admin,
+             "SELECT one_confirm_commercial_order(%s,%s,%s)",
+             (tenant,sale,admin))
+        event,gross,release,res=self.sell_nrv_adjusted(
+            tenant,admin,sale,Decimal("2"))
+        self.assertEqual(res,event)
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines WHERE "
+            "tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,gross)).fetchall(),[
+            ("cogs",Decimal("25"),Decimal("0")),
+            ("inventory",Decimal("0"),Decimal("25"))])
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines WHERE "
+            "tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,release)).fetchall(),[
+            ("nrvallow",Decimal("7"),Decimal("0")),
+            ("cogs",Decimal("0"),Decimal("7"))])
+        self.assertEqual(self.admin.execute(
+            "SELECT quantity,gross_cogs,released_allowance,net_cogs,allowance_after "
+            "FROM one_inventory_nrv_sale_releases WHERE tenant_id=%s "
+            "AND stock_event_id=%s",
+            (tenant,event)).fetchone(),
+            (Decimal("2"),Decimal("25"),Decimal("7"),
+             Decimal("18"),Decimal("10.50")))
+        self.assertEqual(self.nrv_report(tenant,admin,warehouse,product),(
+            Decimal("3"),Decimal("3"),Decimal("37.50"),
+            Decimal("10.50"),Decimal("27"),Decimal("10.50"),True))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_operation_outbox WHERE tenant_id=%s "
+            "AND event_type='finance.inventory_nrv_released' AND source_id=%s",
+            (tenant,event)).fetchone()[0],1)
+
+    def test_nrv_full_sale_exhausts_gross_cost_and_allowance(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        self.commerce_execute(tenant,admin,
+             "SELECT one_confirm_commercial_order(%s,%s,%s)",
+             (tenant,sale,admin))
+        event,gross,release,result=self.sell_nrv_adjusted(
+            tenant,admin,sale,Decimal("5"))
+        self.assertEqual(result,event)
+        self.assertEqual(self.admin.execute(
+            "SELECT cost_qty,gross_cost,allowance FROM one_inventory_nrv_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("0"),Decimal("0"),Decimal("0")))
+        self.assertEqual(self.nrv_report(tenant,admin,warehouse,product),(
+            Decimal("0"),Decimal("0"),Decimal("0"),Decimal("0"),
+            Decimal("0"),Decimal("0"),True))
+        self.assertEqual(self.admin.execute(
+            "SELECT net_cogs FROM one_inventory_nrv_sale_releases "
+            "WHERE tenant_id=%s AND stock_event_id=%s",
+            (tenant,event)).fetchone()[0],Decimal("45"))
+
+    def test_nrv_sale_invalid_period_rolls_back_both_journals_and_stock(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        self.commerce_execute(tenant,admin,
+            "SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,admin))
+        event,gross,release=uuid4(),uuid4(),uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.sell_nrv_adjusted(
+                tenant,admin,sale,Decimal("2"),event=event,
+                gross_journal=gross,release_journal=release,
+                period=uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s AND id=%s",
+            (tenant,event)).fetchone()[0],0)
+        for j in (gross,release):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM one_journal_entries WHERE tenant_id=%s AND id=%s",
+                (tenant,j)).fetchone()[0],0)
+        self.assertEqual(self.nrv_report(tenant,admin,warehouse,product),(
+            Decimal("5"),Decimal("5"),Decimal("62.50"),
+            Decimal("17.50"),Decimal("45"),Decimal("17.50"),True))
+        self.sell_nrv_adjusted(
+            tenant,admin,sale,Decimal("2"),event=event,
+            gross_journal=gross,release_journal=release)
+
+    def test_nrv_sale_retries_or_unsupported_quantity_cannot_double_release(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        self.commerce_execute(tenant,admin,
+            "SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,admin))
+        event,gross,release,_=self.sell_nrv_adjusted(
+            tenant,admin,sale,Decimal("2"))
+        with self.assertRaises(self.psycopg.Error):
+            self.sell_nrv_adjusted(
+                tenant,admin,sale,Decimal("2"),event=event,
+                gross_journal=gross,release_journal=release)
+        with self.assertRaises(self.psycopg.Error):
+            self.sell_nrv_adjusted(tenant,admin,sale,Decimal("4"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_inventory_nrv_sale_releases WHERE "
+            "tenant_id=%s AND stock_event_id=%s",
+            (tenant,event)).fetchone()[0],1)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("3"))
 
 if __name__ == "__main__":
     unittest.main()
