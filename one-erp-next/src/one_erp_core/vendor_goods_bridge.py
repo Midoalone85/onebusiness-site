@@ -49,24 +49,23 @@ def persist_valued_goods_vendor_bill(
         action=Action.WRITE_ACCOUNTING,memberships=memberships
     ):
         raise AccountingError("Company accounting authorization required")
+    def match_before_issue(cursor) -> None:
+        # This callback runs after invoice+lines exist but before the guarded
+        # internal issue operation. Both validations and posting roll back
+        # together if order/receipt/price/quantity checks fail.
+        cursor.execute("SELECT one_link_goods_vendor_bill(%s,%s,%s,%s,%s,%s)",
+                       (document.tenant_id,document.id,order_id,
+                        grni_account_id,list(order_line_numbers),actor_id))
+        row=cursor.fetchone()
+        if row is None or row[0]!=document.id:
+            raise AccountingError("Vendor bill/GRNI goods matching not confirmed")
+
     with connection.transaction():
         proposal=persist_invoice_with_journal(
             connection,document=document,accounts=accounts,chart=chart,
             period=period,period_id=period_id,actor_id=actor_id,
             memberships=memberships,minor_units=minor_units,
             goods_receipt_liability_accounts=frozenset((grni_account_id,)),
+            before_issue=match_before_issue,
         )
-        with connection.cursor() as cur:
-            cur.execute("SELECT set_config('one.tenant_id',%s,true)",
-                        (str(document.tenant_id),))
-            cur.execute("SELECT set_config('one.actor_id',%s,true)",
-                        (str(actor_id),))
-            cur.execute(
-                "SELECT one_link_goods_vendor_bill(%s,%s,%s,%s,%s,%s)",
-                (document.tenant_id,document.id,order_id,
-                 grni_account_id,list(order_line_numbers),actor_id),
-            )
-            row=cur.fetchone()
-            if row is None or row[0]!=document.id:
-                raise AccountingError("Vendor bill/GRNI goods matching not confirmed")
     return proposal
