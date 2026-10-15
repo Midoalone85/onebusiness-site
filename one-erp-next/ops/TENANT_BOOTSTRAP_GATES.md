@@ -101,10 +101,22 @@ authority signed a claim, NOT that a real physical customer database,
 a backup restore or a TLS route passed verification. A genuine evidence
 signing service, its key custody/rotation, audited approval workflow,
 reliable evidence collection and authorization separation are all missing.
-The underlying SQL procedure still accepts arbitrary 32-byte digests from
-anyone granted its backend-only provisioning role. A production deployment
-must close that bypass with restricted grants and an enforced server-side
-signed-evidence path before enabling real tenants.
+New control-plane migration `004_attested_transition_role.sql` removes
+stage-advance EXECUTE from the general provisioning role and grants it only
+to a separate NOLOGIN `one_erp_auth_attestor` role. CI uses different
+credentials for tenant administration and trusted evidence verification.
+The ordinary operator can no longer bypass signed-checkpoint verification
+by directly calling the SQL stage-advance function.
+
+**Remaining production release blocker:** PostgreSQL does not itself verify
+Ed25519 signatures in that function. Anyone holding the separate attestor
+login/role could still submit an arbitrary 32-byte digest through SQL.
+A production deployment must keep that role isolated in the private
+attestation-verifier backend (not shared with the general provisioning
+service), audit and protect its credentials, verify signers and real
+independent infrastructure evidence, and forbid direct caller access.
+Run reviewed migrations only in an isolated staging control plane first.
+Migration 004 is not retroactively installed on any Oracle database.
 
 A direct automatic database CREATE/DROP runtime or production-side runner
 is not included here. The disposable PostgreSQL database separation tests
