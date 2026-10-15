@@ -296,6 +296,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "uuid,uuid,uuid,uuid,uuid,text,text,text,uuid,date,text) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_nrv_customer_refund_liability_register(uuid,uuid,date,date) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -6101,6 +6106,54 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                           invoice,outstanding=Decimal("28.75"))
         with self.assertRaises(self.psycopg.Error):
             self.nrv_recognize_refund(tenant,admin,rma,invoice)
+
+    # 037 | Audited, read-only company return-refund liability register.
+    def nrv_refund_register(self,tenant,actor,*,start=date(2026,1,1),
+                            end=date(2027,1,1)):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_nrv_customer_refund_liability_register("
+                "%s,%s,%s,%s)",(tenant,actor,start,end)).fetchone()
+
+    def test_nrv_refund_register_links_original_qa_and_paid_invoice_gl(self):
+        before=self.nrv_refund_register(self.tenant_a,self.actor)
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        after=self.nrv_refund_register(tenant,self.actor)
+        self.assertEqual(after[0]-before[0],1)
+        self.assertEqual(after[1]-before[1],Decimal("25"))
+        self.assertEqual(after[2]-before[2],Decimal("15"))
+        self.assertEqual(after[3]-before[3],Decimal("10"))
+        self.assertEqual(after[4]-before[4],0)
+        self.assertTrue(after[5])
+
+    def test_nrv_full_paid_refund_register_tracks_entire_liability(self):
+        before=self.nrv_refund_register(self.tenant_a,self.actor)
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("25")),
+                          invoice,outstanding=Decimal("25"))
+        self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        after=self.nrv_refund_register(tenant,self.actor)
+        self.assertEqual(after[0]-before[0],1)
+        self.assertEqual(after[2]-before[2],Decimal("0"))
+        self.assertEqual(after[3]-before[3],Decimal("25"))
+        self.assertTrue(after[5])
+
+    def test_nrv_refund_register_denies_other_company_unknown_actor_and_bad_period(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        for company,who,start,end in (
+             (self.tenant_b,admin,date(2026,1,1),date(2027,1,1)),
+             (tenant,uuid4(),date(2026,1,1),date(2027,1,1)),
+             (tenant,self.actor,date(2027,1,1),date(2026,1,1)),
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.nrv_refund_register(company,who,start=start,end=end)
 
 if __name__ == "__main__":
     unittest.main()
