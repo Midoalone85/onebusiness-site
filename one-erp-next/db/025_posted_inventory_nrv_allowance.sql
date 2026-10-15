@@ -126,7 +126,7 @@ CREATE FUNCTION one_post_inventory_nrv_adjustment(
  p_tenant uuid,p_warehouse uuid,p_product uuid,
  p_event uuid,p_journal uuid,p_period uuid,
  p_allowance_account text,p_expense_account text,p_actor uuid,
- p_expected_qty numeric,p_expected_cost numeric,
+ p_expected_revision integer,p_expected_qty numeric,p_expected_cost numeric,
  p_unit_sale numeric,p_unit_completion numeric,p_unit_sell numeric,
  p_evidence text,p_on date
 ) RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER AS $$
@@ -147,6 +147,7 @@ BEGIN
     p_allowance_account IS NULL OR p_expense_account IS NULL OR
     p_allowance_account=p_expense_account OR
     p_evidence IS NULL OR length(btrim(p_evidence)) NOT BETWEEN 3 AND 200 OR
+    p_expected_revision IS NULL OR p_expected_revision<0 OR
     p_expected_qty IS NULL OR p_expected_cost IS NULL OR
     p_unit_sale IS NULL OR p_unit_completion IS NULL OR p_unit_sell IS NULL OR
     p_unit_sale<0 OR p_unit_completion<0 OR p_unit_sell<0 OR
@@ -210,6 +211,9 @@ BEGIN
     WHERE tenant_id=p_tenant AND warehouse_id=p_warehouse
       AND product_id=p_product FOR UPDATE;
  IF FOUND THEN
+  IF prev.revision<>p_expected_revision THEN
+   RAISE EXCEPTION 'Stale IAS 2 adjustment revision';
+  END IF;
   IF prev.currency<>val.currency OR
      prev.allowance_account_id<>p_allowance_account OR
      prev.expense_account_id<>p_expense_account OR
@@ -220,6 +224,9 @@ BEGIN
   old_allowance=prev.allowance;
   next_revision=prev.revision+1;
  ELSE
+  IF p_expected_revision<>0 THEN
+   RAISE EXCEPTION 'First IAS 2 adjustment requires revision zero';
+  END IF;
   old_allowance=0;
   next_revision=1;
  END IF;
@@ -324,7 +331,7 @@ END $$;
 REVOKE ALL ON one_inventory_nrv_positions,one_inventory_nrv_events FROM PUBLIC;
 REVOKE ALL ON FUNCTION one_post_inventory_nrv_adjustment(
  uuid,uuid,uuid,uuid,uuid,uuid,text,text,uuid,
- numeric,numeric,numeric,numeric,numeric,text,date) FROM PUBLIC;
+ integer,numeric,numeric,numeric,numeric,numeric,text,date) FROM PUBLIC;
 REVOKE ALL ON FUNCTION one_inventory_nrv_reconciliation(
  uuid,uuid,uuid,uuid) FROM PUBLIC;
 COMMIT;
