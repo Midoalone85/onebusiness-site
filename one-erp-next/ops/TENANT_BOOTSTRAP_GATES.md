@@ -122,3 +122,17 @@ A direct automatic database CREATE/DROP runtime or production-side runner
 is not included here. The disposable PostgreSQL database separation tests
 remain the only infrastructure exercise. The user-facing site remains a
 fictional-data preview.
+
+## Independent elevated tenant-inventory gate (additional CI preflight)
+
+The new `tenant_inventory.verify_exclusive_tenant_inventory` complements
+the tenant-scoped reader test with a separately trusted read-only, elevated
+inspection of `one_tenants` that can detect a second tenant hidden by forced
+RLS. It checks absence of PUBLIC database CONNECT and forbids the explicitly
+enumerated peer readers from connecting. The *entire* peer set, privilege
+inheritance, separate backend authorization and PostgreSQL network policy
+remain the infrastructure operator's responsibility.
+
+This evidence has **not** been wired to an independent signing service, the
+stage transition, backup/restore checks, HTTPS or any live Oracle service.
+Do not equate a CI inventory digest to a signed or deployed safety proof.
