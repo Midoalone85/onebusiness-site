@@ -53,10 +53,11 @@ def persist_and_post(
             cursor.execute(
                 """INSERT INTO one_journal_entries
                    (tenant_id,id,period_id,reference,idempotency_key,
-                    occurred_on,currency)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                    occurred_on,currency,reversal_of)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (entry.tenant_id, entry.id, period_id, entry.reference,
-                 entry.idempotency_key, entry.occurred_on, entry.currency),
+                 entry.idempotency_key, entry.occurred_on, entry.currency,
+                 entry.reversal_of),
             )
             for number, line in enumerate(entry.lines, start=1):
                 cursor.execute(
@@ -74,3 +75,35 @@ def persist_and_post(
             if result is None or result[0] != entry.id:
                 raise AccountingError("Database did not confirm journal posting")
     return posted
+
+
+def close_accounting_period(
+    connection,
+    *,
+    tenant_id: UUID,
+    period_id: UUID,
+    actor_id: UUID,
+) -> UUID:
+    """Close period and append audit atomically, database verifying admin role.
+
+    This must only be called from a trusted authenticated server session.
+    Transaction-local context is necessary but not an authentication boundary.
+    """
+    with connection.transaction():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT set_config('one.tenant_id', %s, true)",
+                (str(tenant_id),),
+            )
+            cursor.execute(
+                "SELECT set_config('one.actor_id', %s, true)",
+                (str(actor_id),),
+            )
+            cursor.execute(
+                "SELECT one_close_period(%s,%s,%s)",
+                (tenant_id, period_id, actor_id),
+            )
+            row = cursor.fetchone()
+            if row is None or row[0] != period_id:
+                raise AccountingError("Database did not confirm period closure")
+    return period_id
