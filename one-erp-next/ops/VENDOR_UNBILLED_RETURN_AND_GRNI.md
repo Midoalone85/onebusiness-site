@@ -69,3 +69,19 @@ An invoice for 4 units is rejected because only 3 retained units remain.
   backwards test coverage. Production MUST retire or revoke them.
 - No VAT/ZATCA compliant invoice/credit, real payment, Oracle deployment,
   live inventory update or actual customer/vendor transaction is performed.
+
+## Verified CI acceptance
+
+- **335 / 335 tests under Python 3.11 and 335 / 335 under Python 3.13**
+  against disposable PostgreSQL 14.
+- GitHub CI: https://github.com/Midoalone85/onebusiness-site/actions/runs/38717071409
+- A supplier return of 2 from 5 units makes a bill for 4 invalid, while the
+  retained 3 can be billed. Reported outstanding GRNI SAR 37.50 before
+  that invoice, then zero after.
+- An unvalued legacy physical vendor return is correctly flagged for finance
+  reconciliation rather than silently accepted.
+- Concurrent supplier billing and vendor return claiming 3 of 5 units in
+  separate transactions cannot both succeed.
+- This does NOT include invoiced goods vendor credit, AP/VAT reversal,
+  settlement, mixed-cost variance, lot/serial custody, real identity/API,
+  ZATCA, Oracle deployment, or production recovery.
