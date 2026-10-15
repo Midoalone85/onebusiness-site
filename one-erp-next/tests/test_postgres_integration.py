@@ -260,6 +260,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_ship_and_allocate_nrv("
             "uuid,uuid,integer,numeric,uuid,uuid,uuid,uuid,text,text,text,uuid) "
             "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_dispatch_reserved_or_delivery_with_nrv("
+            "uuid,uuid,integer,uuid,numeric,uuid,uuid,uuid,uuid,"
+            "text,text,text,uuid) TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -5208,6 +5212,163 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
             "AND warehouse_id=%s AND product_id=%s",
             (tenant,warehouse,product)).fetchone()[0],Decimal("3"))
+
+    # 028 | NRV adjusted dispatch for reserved orders and packed delivery jobs.
+    def prepare_nrv_reserved_sale(self, reserve=Decimal("3")):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        self.commerce_execute(
+            tenant,admin,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,admin))
+        self.commerce_execute(
+            tenant,admin,"SELECT one_reserve_sale_line(%s,%s,1,%s,%s,%s)",
+            (tenant,sale,reserve,uuid4(),admin))
+        return tenant,admin,product,warehouse,sale
+
+    def dispatch_nrv_reserved(self,tenant,admin,sale,quantity, *,
+                              job=None,period=None,stock=None,gross=None,
+                              released=None,inv="inventory",cost="cogs",
+                              allowance="nrvallow"):
+        stock=stock or uuid4()
+        gross=gross or uuid4()
+        released=released or uuid4()
+        result=self.commerce_execute(
+            tenant,admin,"SELECT one_dispatch_reserved_or_delivery_with_nrv("
+            "%s,%s,1,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (tenant,sale,job,quantity,stock,gross,released,
+             period or self.period_id,inv,cost,allowance,admin))
+        return stock,gross,released,result
+
+    def test_reserved_ias2_dispatch_adjusts_net_cogs_without_using_other_reservations(self):
+        tenant,admin,product,warehouse,sale=self.prepare_nrv_reserved_sale()
+        stock,gross,released,result=self.dispatch_nrv_reserved(
+            tenant,admin,sale,Decimal("2"))
+        self.assertEqual(result,stock)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("3"),Decimal("1")))
+        self.assertEqual(self.admin.execute(
+            "SELECT gross_cogs,released_allowance,net_cogs,allowance_after "
+            "FROM one_inventory_nrv_sale_releases WHERE tenant_id=%s "
+            "AND stock_event_id=%s",(tenant,stock)).fetchone(),
+            (Decimal("25"),Decimal("7"),Decimal("18"),Decimal("10.50")))
+        self.assertEqual(self.nrv_report(tenant,admin,warehouse,product),(
+            Decimal("3"),Decimal("3"),Decimal("37.50"),
+            Decimal("10.50"),Decimal("27"),Decimal("10.50"),True))
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines WHERE "
+            "tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,released)).fetchall(),[
+            ("nrvallow",Decimal("7"),Decimal("0")),
+            ("cogs",Decimal("0"),Decimal("7"))])
+
+    def test_ias2_packed_delivery_atomic_finance_then_customer_proof(self):
+        tenant,admin,product,warehouse,sale=self.prepare_nrv_reserved_sale()
+        job=uuid4()
+        self.commerce_execute(
+            tenant,admin,"SELECT one_create_delivery(%s,%s,%s,1,3,%s)",
+            (tenant,job,sale,admin))
+        for stage in ("picked","packed"):
+            self.delivery_stage(tenant,admin,job,stage)
+        stock,gross,released,result=self.dispatch_nrv_reserved(
+            tenant,admin,sale,Decimal("3"),job=job)
+        self.assertEqual(result,job)
+        self.assertEqual(self.admin.execute(
+            "SELECT status,dispatch_event_id FROM one_delivery_jobs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,job)).fetchone(),
+            ("dispatched",stock))
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines WHERE "
+            "tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,released)).fetchall(),[
+            ("nrvallow",Decimal("10.50"),Decimal("0")),
+            ("cogs",Decimal("0"),Decimal("10.50"))])
+        self.assertEqual(self.nrv_report(tenant,admin,warehouse,product),(
+            Decimal("2"),Decimal("2"),Decimal("25"),
+            Decimal("7"),Decimal("18"),Decimal("7"),True))
+        self.assertEqual(self.delivery_stage(
+            tenant,admin,job,"delivered",proof="CONFIRMED-TEST-POD"),job)
+        self.assertEqual(self.admin.execute(
+            "SELECT event FROM one_fulfillment_audit WHERE tenant_id=%s "
+            "AND delivery_id=%s ORDER BY happened_at,event",
+            (tenant,job)).fetchall(),[
+             ("created",),("picked",),("packed",),("dispatched",),("delivered",)])
+
+    def test_ias2_packed_delivery_invalid_period_rolls_back_every_stage(self):
+        tenant,admin,product,warehouse,sale=self.prepare_nrv_reserved_sale()
+        job=uuid4()
+        self.commerce_execute(tenant,admin,
+            "SELECT one_create_delivery(%s,%s,%s,1,3,%s)",
+            (tenant,job,sale,admin))
+        for step in ("picked","packed"):
+            self.delivery_stage(tenant,admin,job,step)
+        stock,gross,released=uuid4(),uuid4(),uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.dispatch_nrv_reserved(
+                tenant,admin,sale,Decimal("3"),job=job,
+                period=uuid4(),stock=stock,gross=gross,released=released)
+        self.assertEqual(self.admin.execute(
+            "SELECT status,dispatch_event_id FROM one_delivery_jobs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,job)).fetchone(),
+            ("packed",None))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s AND id=%s",
+            (tenant,stock)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_inventory_nrv_sale_releases "
+            "WHERE tenant_id=%s AND stock_event_id=%s",
+            (tenant,stock)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand,reserved FROM one_stock_balances WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("5"),Decimal("3")))
+        self.dispatch_nrv_reserved(
+            tenant,admin,sale,Decimal("3"),job=job,
+            stock=stock,gross=gross,released=released)
+
+    def test_ias2_reserved_route_must_not_bypass_existing_delivery_job(self):
+        tenant,admin,product,warehouse,sale=self.prepare_nrv_reserved_sale()
+        job=uuid4()
+        self.commerce_execute(tenant,admin,
+             "SELECT one_create_delivery(%s,%s,%s,1,2,%s)",
+             (tenant,job,sale,admin))
+        with self.assertRaises(self.psycopg.Error):
+            self.dispatch_nrv_reserved(tenant,admin,sale,Decimal("2"))
+        with self.assertRaises(self.psycopg.Error):
+            self.dispatch_nrv_reserved(tenant,admin,sale,Decimal("2"),job=job)
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_delivery_jobs WHERE tenant_id=%s AND id=%s",
+            (tenant,job)).fetchone()[0],"draft")
+        self.delivery_stage(tenant,admin,job,"picked")
+        self.delivery_stage(tenant,admin,job,"packed")
+        self.dispatch_nrv_reserved(tenant,admin,sale,Decimal("2"),job=job)
+
+    def test_ias2_reserved_protects_against_repeat_cross_tenant_and_wrong_accounts(self):
+        tenant,admin,product,warehouse,sale=self.prepare_nrv_reserved_sale()
+        for tenant_arg,who,account in (
+            (self.tenant_b,admin,"nrvallow"),
+            (tenant,self.actor,"nrvallow"),
+            (tenant,admin,"inventory"),
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.dispatch_nrv_reserved(
+                    tenant_arg,who,sale,Decimal("1"),allowance=account)
+        stock,gross,released,_=self.dispatch_nrv_reserved(
+            tenant,admin,sale,Decimal("2"))
+        with self.assertRaises(self.psycopg.Error):
+            self.dispatch_nrv_reserved(
+                tenant,admin,sale,Decimal("2"),
+                stock=stock,gross=gross,released=released)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_inventory_nrv_sale_releases "
+            "WHERE tenant_id=%s AND stock_event_id=%s",
+            (tenant,stock)).fetchone()[0],1)
+        self.assertEqual(self.nrv_report(tenant,admin,warehouse,product)[3],
+                         Decimal("10.50"))
 
 if __name__ == "__main__":
     unittest.main()
