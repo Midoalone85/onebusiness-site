@@ -126,6 +126,17 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_apply_payment(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        # 049: disposable CI-only soft review and two-person adjustment calls.
+        for func in (
+            "one_request_period_soft_close(uuid,uuid,uuid)",
+            "one_approve_period_soft_close(uuid,uuid,uuid)",
+            "one_request_soft_adjustment("
+            "uuid,uuid,uuid,uuid,date,text,text,text,numeric,text,uuid)",
+            "one_approve_soft_adjustment(uuid,uuid,uuid)",
+            "one_finance_period_state(uuid,uuid,uuid)",
+        ):
+            cls.admin.execute("GRANT EXECUTE ON FUNCTION "+func+
+                              " TO one_erp_runtime_ci")
         # 048: ONLY disposable PG14 CI role; production grant audit required.
         for func in (
             "one_actor_has_permission(uuid,uuid,text)",
@@ -7490,6 +7501,182 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.approve_permission_048(tenant,reviewer,restore)
         self.assertEqual(self.approve_date_046(
             tenant,reviewer,event),event)
+
+
+    # 049 | Soft close is a reviewed state, not permission to overwrite books.
+    def soft_state_049(self,tenant,actor,period):
+        return self.commerce_execute(
+            tenant,actor,
+            "SELECT * FROM one_finance_period_state(%s,%s,%s)",
+            (tenant,period,actor))
+
+    def soft_request_049(self,tenant,actor,period):
+        return self.commerce_execute(
+            tenant,actor,"SELECT one_request_period_soft_close(%s,%s,%s)",
+            (tenant,period,actor))
+
+    def soft_approve_049(self,tenant,actor,period):
+        return self.commerce_execute(
+            tenant,actor,"SELECT one_approve_period_soft_close(%s,%s,%s)",
+            (tenant,period,actor))
+
+    def adjust_request_049(self,tenant,actor,period,*,amount="7.50",when=None):
+        request,journal=uuid4(),uuid4()
+        result=self.commerce_execute(
+            tenant,actor,
+            "SELECT one_request_soft_adjustment("
+            "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (tenant,request,period,journal,when or date.today(),"SAR",
+             "cogs","grni",Decimal(amount),
+             "Approved reclassification discovered after soft close",actor))
+        self.assertEqual(result,request)
+        return request,journal
+
+    def test_049_soft_close_requires_independent_users_and_freezes_ordinary_gl(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.assertEqual(self.soft_state_049(
+            tenant,owner,period)[0],"open")
+        with self.assertRaises(self.psycopg.Error):
+            self.soft_request_049(tenant,reviewer,period)
+        self.assertEqual(self.soft_request_049(tenant,owner,period),period)
+        with self.assertRaises(self.psycopg.Error):
+            self.soft_approve_049(tenant,owner,period)
+        self.assertEqual(self.soft_approve_049(tenant,reviewer,period),period)
+        self.assertEqual(self.soft_state_049(
+            tenant,owner,period)[0],"soft_closed")
+        unauthorized=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "INSERT INTO one_journal_entries("
+                "tenant_id,id,period_id,reference,idempotency_key,"
+                "occurred_on,currency) "
+                "VALUES(%s,%s,%s,'Without soft review',%s,%s,'SAR') "
+                "RETURNING id",
+                (tenant,unauthorized,period,str(uuid4()),date.today()))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,unauthorized)).fetchone()[0],0)
+
+        request,journal=self.adjust_request_049(tenant,owner,period)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+                (tenant,journal,owner))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "SELECT one_approve_soft_adjustment(%s,%s,%s)",
+                (tenant,request,owner))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,owner,
+                "UPDATE one_journal_lines SET debit=9 "
+                "WHERE tenant_id=%s AND entry_id=%s AND line_number=1 "
+                "RETURNING debit",
+                (tenant,journal))
+        self.assertEqual(self.soft_state_049(tenant,reviewer,period)[2:5],
+                         (1,0,0))
+        self.assertEqual(self.commerce_execute(
+            tenant,reviewer,
+            "SELECT one_approve_soft_adjustment(%s,%s,%s)",
+            (tenant,request,reviewer)),request)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,reviewer,"SELECT one_post_journal(%s,%s,%s)",
+                (tenant,journal,reviewer))
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_post_journal(%s,%s,%s)",
+            (tenant,journal,owner)),journal)
+        self.assertEqual(self.soft_state_049(tenant,owner,period)[2:5],
+                         (0,1,1))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_soft_adjustment_post_audit WHERE "
+            "tenant_id=%s AND request_id=%s AND journal_id=%s AND posted_by=%s",
+            (tenant,request,journal,owner)).fetchone()[0],1)
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_journal_entries "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,journal)).fetchone()[0],"posted")
+
+    def test_049_soft_adjust_and_approval_respect_user_scoped_permissions(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        denied=self.propose_permission_048(
+            tenant,owner,'finance.period.soft_close.approve','deny',
+            target_user=reviewer)
+        self.approve_permission_048(tenant,reviewer,denied)
+        self.soft_request_049(tenant,owner,period)
+        with self.assertRaises(self.psycopg.Error):
+            self.soft_approve_049(tenant,reviewer,period)
+        restored=self.propose_permission_048(
+            tenant,owner,'finance.period.soft_close.approve','allow',
+            target_user=reviewer)
+        self.approve_permission_048(tenant,reviewer,restored)
+        self.soft_approve_049(tenant,reviewer,period)
+        revoked=self.propose_permission_048(
+            tenant,owner,'finance.period.soft_adjust','deny',
+            target_user=owner)
+        self.approve_permission_048(tenant,reviewer,revoked)
+        with self.assertRaises(self.psycopg.Error):
+            self.adjust_request_049(tenant,owner,period)
+        granted=self.propose_permission_048(
+            tenant,owner,'finance.period.soft_adjust','allow',
+            target_user=owner)
+        self.approve_permission_048(tenant,reviewer,granted)
+        request,journal=self.adjust_request_049(tenant,owner,period)
+        deny_approval=self.propose_permission_048(
+            tenant,owner,'finance.period.soft_adjust.approve','deny',
+            target_user=reviewer)
+        self.approve_permission_048(tenant,reviewer,deny_approval)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,reviewer,
+                "SELECT one_approve_soft_adjustment(%s,%s,%s)",
+                (tenant,request,reviewer))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_soft_adjustment_approvals "
+            "WHERE tenant_id=%s AND request_id=%s",
+            (tenant,request)).fetchone()[0],0)
+
+    def test_049_soft_close_can_be_finalized_but_hard_close_stays_immutable(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        self.soft_request_049(tenant,owner,period)
+        self.soft_approve_049(tenant,reviewer,period)
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_close_period(%s,%s,%s)",
+            (tenant,period,owner)),period)
+        self.assertEqual(self.soft_state_049(
+            tenant,reviewer,period)[0],"hard_closed")
+        with self.assertRaises(self.psycopg.Error):
+            self.adjust_request_049(tenant,owner,period)
+        with self.assertRaises(self.psycopg.Error):
+            self.soft_approve_049(tenant,reviewer,period)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_period_close_audit "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (tenant,period)).fetchone()[0],1)
+
+    def test_049_soft_close_rejects_existing_unposted_journals(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        journal=uuid4()
+        self.commerce_execute(
+            tenant,owner,
+            "INSERT INTO one_journal_entries("
+            "tenant_id,id,period_id,reference,idempotency_key,"
+            "occurred_on,currency) VALUES(%s,%s,%s,'Draft for preflight',%s,%s,'SAR') "
+            "RETURNING id",
+            (tenant,journal,period,str(uuid4()),date.today()))
+        with self.assertRaises(self.psycopg.Error):
+            self.soft_request_049(tenant,owner,period)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_period_soft_close_requests "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (tenant,period)).fetchone()[0],0)
 
 if __name__ == "__main__":
     unittest.main()
