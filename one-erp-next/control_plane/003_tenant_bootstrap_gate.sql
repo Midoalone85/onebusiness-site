@@ -101,9 +101,9 @@ BEGIN
 
     -- Serialize claims for one tenant, including concurrent worker retries.
     PERFORM 1 FROM one_auth.tenant_registry
-      WHERE tenant_id=p_tenant AND NOT active FOR UPDATE;
+      WHERE tenant_id=p_tenant FOR UPDATE;
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Unknown or active tenant';
+        RAISE EXCEPTION 'Unknown tenant';
     END IF;
     SELECT * INTO existing FROM one_auth.tenant_bootstrap_jobs
       WHERE tenant_id=p_tenant;
@@ -116,6 +116,9 @@ BEGIN
             RETURN existing.state;
         END IF;
         RAISE EXCEPTION 'Tenant provisioning job already exists';
+    END IF;
+    IF EXISTS (SELECT 1 FROM one_auth.tenant_registry WHERE tenant_id=p_tenant AND active) THEN
+        RAISE EXCEPTION 'Active tenant cannot begin onboarding';
     END IF;
     INSERT INTO one_auth.tenant_bootstrap_jobs(
         job_id,tenant_id,operator_id,approval_reference
@@ -131,9 +134,10 @@ CREATE FUNCTION one_auth.advance_tenant_bootstrap(
     p_digest bytea, p_event uuid
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, one_auth AS $$
-DECLARE j one_auth.tenant_bootstrap_jobs%ROWTYPE;
-DECLARE next_expected text;
-DECLARE previous_event one_auth.tenant_bootstrap_events%ROWTYPE;
+DECLARE
+    j one_auth.tenant_bootstrap_jobs%ROWTYPE;
+    next_expected text;
+    previous_event one_auth.tenant_bootstrap_events%ROWTYPE;
 BEGIN
     IF p_job IS NULL OR p_operator IS NULL OR p_next IS NULL OR
        p_event IS NULL OR p_digest IS NULL OR octet_length(p_digest)<>32 THEN
@@ -191,8 +195,9 @@ CREATE FUNCTION one_auth.fail_tenant_bootstrap(
     p_job uuid, p_operator uuid, p_code text, p_event uuid
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, one_auth AS $$
-DECLARE j one_auth.tenant_bootstrap_jobs%ROWTYPE;
-DECLARE previous_event one_auth.tenant_bootstrap_events%ROWTYPE;
+DECLARE
+    j one_auth.tenant_bootstrap_jobs%ROWTYPE;
+    previous_event one_auth.tenant_bootstrap_events%ROWTYPE;
 BEGIN
     IF p_job IS NULL OR p_operator IS NULL OR p_code IS NULL OR
        p_code !~ '^[A-Z_]{3,48}$' OR p_event IS NULL THEN
