@@ -12,6 +12,9 @@ import unittest
 from pathlib import Path
 from uuid import uuid4
 
+from one_erp_core.accounting import AccountingError
+from one_erp_core.tenant_readiness import verify_physical_tenant_database
+
 DSN = os.environ.get("ONE_TEST_PG_DSN")
 PG_HOST = os.environ.get("ONE_TEST_PG_HOST", "localhost")
 PG_PORT = int(os.environ.get("ONE_TEST_PG_PORT", "5432"))
@@ -243,3 +246,54 @@ class PhysicallyIsolatedTenantDatabaseTests(unittest.TestCase):
                 "one_payment_allocations",
             ):
                 self.assertIn(expected, tables)
+
+
+    def test_readiness_evidence_is_computed_from_verified_live_db_facts(self):
+        for i in range(2):
+            with self._reader(i) as db:
+                evidence = verify_physical_tenant_database(
+                    db, expected_tenant=self.tenants[i],
+                    expected_actor=self.actors[i],
+                    expected_database=self.databases[i],
+                    expected_reader_role=self.roles[i],
+                )
+                self.assertEqual(evidence.database_name, self.databases[i])
+                self.assertEqual(evidence.tenant_id, self.tenants[i])
+                self.assertEqual(len(evidence.digest), 32)
+                self.assertIn("one_invoice_docs", evidence.observed_tables)
+                self.assertIn("one_payment_allocations", evidence.observed_tables)
+        self.assertNotEqual(
+            self.tenants[0], self.tenants[1],
+        )
+
+    def test_readiness_preflight_rejects_wrong_tenant_db_role_and_actor(self):
+        with self._reader(0) as db:
+            good = dict(
+                expected_tenant=self.tenants[0],
+                expected_actor=self.actors[0],
+                expected_database=self.databases[0],
+                expected_reader_role=self.roles[0],
+            )
+            for bad in (
+                {"expected_tenant": self.tenants[1]},
+                {"expected_actor": self.actors[1]},
+                {"expected_database": self.databases[1]},
+                {"expected_reader_role": self.roles[1]},
+                {"expected_database": "something; DROP DATABASE postgres"},
+            ):
+                fields = good | bad
+                with self.assertRaises(AccountingError):
+                    verify_physical_tenant_database(db, **fields)
+
+    def test_readiness_refuses_privileged_admin_connection(self):
+        # Even the administrator must not be accepted as an application
+        # report-reader, regardless of superuser/RLS bypass privileges.
+        with self._connection_to_database(self.databases[0]) as admin_db:
+            with self.assertRaises(AccountingError):
+                verify_physical_tenant_database(
+                    admin_db, expected_tenant=self.tenants[0],
+                    expected_actor=self.actors[0],
+                    expected_database=self.databases[0],
+                    expected_reader_role="postgres",
+                )
+
