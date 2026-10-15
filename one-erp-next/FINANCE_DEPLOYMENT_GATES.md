@@ -7,8 +7,8 @@
 1. Trusted user authentication, tenant identity and audited provisioning.
 2. Chart of accounts, fiscal periods and double-entry journal policy (Python domain rules).
 3. PostgreSQL transactional persistence, database tenant policies, posting checks and append-only audit events (initial prototype).
-4. Real DB integration tests, concurrency/retry tests, permissions, closing periods and reversals.
-5. Invoice and credit-note subledger, receivables/payables, payments and reconciliation.
+4. Real DB integration tests and first implementations of admin-only period closing and exact source-linked reversals (in progress); concurrency/retry and permissions hardening still needed.
+5. Read-only explainable bank-match proposals (prototype); actual bank feed import, settlement and approval audit not yet built. Then invoices, credit notes, receivables/payables, and payments.
 6. Country-specific taxes, e-invoicing adapters, financial year close and multi-currency FX.
 7. Source-linked reports: trial balance, profit and loss, balance sheet, cashflow, comparisons and visual drill-down.
 8. Intelligent anomaly detection/financial explanations; AI suggestions never silently post or alter entries.
@@ -30,6 +30,13 @@
 
 ## What is not yet implemented
 
-Real sign-in, tenant provisioning, billing, web UI, approved ZATCA integration, invoice posting, receipts/payments, closing periods, FX rates, VAT engine, cashflow, polished PDF/interactive dashboards, medical packs, production deployment, certified compliance.
+Real sign-in, tenant provisioning, billing, web UI, approved ZATCA integration, invoice posting, receipts/payments, production-grade period close/reopen policy, approved bank reconciliation, FX rates, VAT engine, cashflow, polished PDF/interactive dashboards, medical packs, production deployment, certified compliance.
+
+## Additional finance foundation (migration 002)
+
+- Period close: requires company-admin membership, locks period row, records close timestamp/actor in append-only log, and prevents posting into the closed period. Existing draft journals remain drafts but cannot be posted after closure; workflow to resolve/reopen them must be designed before production.
+- Reversals: create a *new* draft with same tenant/currency, original journal reference, inverse lines, deterministic idempotency key; database validates full exact line-by-line reversal and uniqueness.
+- Bank reconciliation proposals: exact signed amount/currency and bounded dates only, human-reviewed, deterministic rationale; no automated ledger mutation or silent approvals.
+- These are prototypes in a shared-tenant test schema. Privilege hardening, real identity proof, and external bank statement ingestion remain outstanding.
 
 The pipeline `.github/workflows/one-erp-next-finance-tests.yml` runs Python tests and disposable PostgreSQL 14 integration tests. Check the actual workflow conclusion before calling the change verified.
