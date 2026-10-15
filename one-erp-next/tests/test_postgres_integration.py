@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, timezone
 from one_erp_core.control_plane_identity import (
     ControlPlaneIdentityDirectory, ControlPlaneRevocationChecker,
 )
+from one_erp_core.oidc_identity import RS256VerifierConfig, VerifiedRS256FinanceAccess
 from one_erp_core.statement_details import balance_sheet, general_ledger_detail
 from one_erp_core.tenancy import Membership, Role
 
@@ -709,6 +710,71 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertFalse(checker.is_revoked("https://another.example.test",blocked_id))
         with self.assertRaises(Exception):
             checker.is_revoked(issuer,"")
+
+
+
+    def test_signed_access_token_to_read_only_dashboard_end_to_end(self):
+        import jwt
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.hazmat.primitives import serialization
+
+        # Ephemeral key exists only inside the integration test process.
+        key=rsa.generate_private_key(public_exponent=65537,key_size=2048)
+        private_key=key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+        public_key=key.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode("ascii")
+        now=int(datetime.now(timezone.utc).timestamp())
+        claims=dict(
+            iss="https://identity.example.test",
+            aud="one-erp-finance-api",
+            sub="ci_subject",
+            iat=now-5,
+            nbf=now-5,
+            exp=now+300,
+            jti=str(uuid4()),
+            token_use="access",
+        )
+        token=jwt.encode(claims,private_key,algorithm="RS256",headers={"kid":"ci-1"})
+        verifier=VerifiedRS256FinanceAccess(
+            RS256VerifierConfig(
+                issuer="https://identity.example.test",
+                audience="one-erp-finance-api",
+                signing_keys_by_id={"ci-1":public_key},
+            ),
+            ControlPlaneIdentityDirectory(self.auth_connection),
+            ControlPlaneRevocationChecker(self.auth_connection),
+        )
+        posted=self.post(self.fresh_entry())
+        response=render_private_dashboard_response(
+            self.reporting_db,
+            raw_access_token=token,
+            identity_verifier=verifier,
+            requested_tenant=self.tenant_a,
+            from_date=date(2026,10,1),
+            as_of=date(2026,10,15),
+            currency="SAR",
+        )
+        self.assertEqual(response.status,200)
+        self.assertIn("no-store",response.headers["Cache-Control"])
+        self.assertIn("Test Tenant",response.body)
+        self.assertIn(str(posted.id),response.body)
+        self.assertNotIn(token,response.body)
+        with self.assertRaises(Exception):
+            render_private_dashboard_response(
+                self.reporting_db,
+                raw_access_token=token,
+                identity_verifier=verifier,
+                requested_tenant=self.tenant_b,
+                from_date=date(2026,10,1),
+                as_of=date(2026,10,15),
+                currency="SAR",
+            )
 
 
 
