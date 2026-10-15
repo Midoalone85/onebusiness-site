@@ -12,8 +12,6 @@ import unittest
 from pathlib import Path
 from uuid import uuid4
 
-from one_erp_core.accounting import AccountingError
-
 DSN = os.environ.get("ONE_TEST_PG_DSN")
 PG_HOST = os.environ.get("ONE_TEST_PG_HOST", "localhost")
 PG_PORT = int(os.environ.get("ONE_TEST_PG_PORT", "5432"))
@@ -115,11 +113,12 @@ class PhysicallyIsolatedTenantDatabaseTests(unittest.TestCase):
 
     @classmethod
     def _connection_to_database(cls, database: str):
-        # Test-admin connection to a known, internally created CI database.
-        return cls.psycopg.connect(
-            host=PG_HOST, port=PG_PORT, dbname=database,
-            user="postgres", password="ci_testing_only", autocommit=True,
-        )
+        # Derive privileged CI connection from the supplied ephemeral DSN.
+        # Never hardcode even throwaway passwords in reusable source files.
+        from psycopg.conninfo import conninfo_to_dict
+        params = conninfo_to_dict(DSN)
+        params["dbname"] = database
+        return cls.psycopg.connect(**params, autocommit=True)
 
     @classmethod
     def _reader(cls, index: int, *, database: str | None = None):
