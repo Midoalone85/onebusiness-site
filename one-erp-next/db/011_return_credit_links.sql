@@ -63,6 +63,7 @@ DECLARE j one_return_jobs%ROWTYPE;
         original_line one_invoice_lines%ROWTYPE;
         credit_line one_invoice_lines%ROWTYPE;
         matched_qty numeric(20,6);
+        original_line_no integer;
         claimed_by_job numeric(24,6);
         claimed_from_original numeric(24,6);
 BEGIN
@@ -112,19 +113,18 @@ BEGIN
      OR credit_line.discount_amount<>0 THEN
     RAISE EXCEPTION 'Credit quantity precision and discount must match policy';
   END IF;
-  SELECT invoice_line.quantity,il.*
-    INTO matched_qty,original_line
-    FROM (SELECT quantity FROM one_sales_invoice_allocations
-          WHERE tenant_id=p_tenant AND invoice_id=p_original
-            AND order_id=movement.order_id AND order_line_no=movement.line_no
-         ) invoice_line
-    JOIN one_sales_invoice_allocations alloc
-      ON alloc.tenant_id=p_tenant AND alloc.invoice_id=p_original
+  SELECT alloc.quantity,alloc.invoice_line_number
+    INTO matched_qty,original_line_no
+    FROM one_sales_invoice_allocations alloc
+    WHERE alloc.tenant_id=p_tenant AND alloc.invoice_id=p_original
       AND alloc.order_id=movement.order_id AND
-         alloc.order_line_no=movement.line_no
-    JOIN one_invoice_lines il ON il.tenant_id=alloc.tenant_id
-      AND il.doc_id=alloc.invoice_id AND
-         il.line_number=alloc.invoice_line_number;
+          alloc.order_line_no=movement.line_no;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Original invoice has no billed matching order line';
+  END IF;
+  SELECT * INTO original_line FROM one_invoice_lines
+    WHERE tenant_id=p_tenant AND doc_id=p_original
+      AND line_number=original_line_no;
   IF NOT FOUND OR original_line.discount_amount<>0
      OR credit_line.unit_price<>original_line.unit_price
      OR credit_line.account_id<>original_line.account_id
