@@ -136,3 +136,27 @@ test('language switch preserves route and does not modify business data',()=>{
  assert.equal(r.location.reloaded,true);
  assert.equal(r.document.documentElement.lang,'ar');
 });
+
+
+test('compact mobile hierarchy preserves data density and readable labels',()=>{
+ const mobileBlock=css.slice(css.indexOf('ONE ERP COMPACT INTERFACE v2'));
+ assert.ok(mobileBlock.length>1000,'mobile layout override must be present');
+ assert.match(mobileBlock,/@media\(max-width:710px\)/);
+ assert.match(mobileBlock,/\.kpis\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:0/);
+ assert.match(mobileBlock,/\.kpi\{min-width:0;min-height:76px/);
+ assert.match(mobileBlock,/\.kpi-note\{display:none\}/);
+ assert.match(mobileBlock,/\.context-heading\{display:none\}/);
+ assert.match(mobileBlock,/\.work-tools\{[^}]*flex-wrap:nowrap;overflow-x:auto/);
+ assert.match(mobileBlock,/\.work-header\{min-height:0/);
+ assert.match(mobileBlock,/tbody tr\{display:grid/);
+ assert.match(mobileBlock,/td:nth-child\(4\)::before\{content:attr\(data-label\)/);
+ assert.match(mobileBlock,/@media\(max-width:380px\)/);
+ const invo=setup({page:'workspace',module:'accounting',view:'invoices'});
+ assert.equal((invo.main.match(/class="kpi"/g)||[]).length,4);
+ assert.match(invo.main,/data-label="القيمة"/);
+ assert.match(invo.main,/data-label="التاريخ"/);
+ assert.match(invo.main,/class="tablewrap"/);
+ const en=setup({page:'workspace',module:'accounting',view:'invoices',lang:'en'});
+ assert.match(en.main,/data-label="Amount"/);
+ assert.match(en.main,/data-label="Date"/);
+});
