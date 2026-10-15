@@ -3207,5 +3207,35 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "WHERE tenant_id=%s AND id=%s",(tenant,d)).fetchone()[0],0)
 
 
+
+    def test_vendor_return_trace_includes_original_receipt_and_supplier_dispatch(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        received=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,purchase,received,actor))
+        rma,returned=uuid4(),uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_request_return(%s,%s,%s,1,%s,%s,'Supplier reject')",
+            (tenant,rma,received,None,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+            (tenant,rma,returned,actor))
+        log=self.fetch_return_timeline(tenant,actor,rma)
+        self.assertTrue({
+            ("stock.purchase_received",received),
+            ("returns.requested",rma),("returns.completed",rma),
+            ("stock.vendor_returned",returned),
+        }.issubset(set((event,source) for _,event,source in log)))
+        self.assertEqual(len(log),4)
+        self.assertEqual([pos for pos,_,_ in log],
+                         sorted(pos for pos,_,_ in log))
+        self.assertEqual(self.read_unified_return_case(tenant,actor,rma)[1],
+                         "vendor_stock_returned")
+
+
 if __name__ == "__main__":
     unittest.main()
