@@ -31,6 +31,7 @@ function setup({page='home',module='accounting',view='overview',lang='ar'}={}){
     classList:{ add(){},remove(){} },
     appendChild(){},remove(){},setAttribute(){},
     addEventListener(type,fn){(listeners['element:'+id+':'+type]??=[]).push(fn)},
+    focus(){document.activeElement=this},
  });
  const el=id=>elements.get(id)||((elements.set(id,fakeElem(id))),elements.get(id));
  const document={
@@ -54,6 +55,7 @@ function setup({page='home',module='accounting',view='overview',lang='ar'}={}){
  vm.runInNewContext(js,ctx,{filename:'ui.js',timeout:4000});
  return {document,window,location,elements,listeners,el,main:el('app').innerHTML,
    emit(type,target){(listeners[type]||[]).forEach(fn=>fn({target,key:''}))},
+   fire(type,event){(listeners[type]||[]).forEach(fn=>fn(event))},
  };
 }
 
@@ -159,4 +161,56 @@ test('compact mobile hierarchy preserves data density and readable labels',()=>{
  const en=setup({page:'workspace',module:'accounting',view:'invoices',lang:'en'});
  assert.match(en.main,/data-label="Amount"/);
  assert.match(en.main,/data-label="Date"/);
+});
+
+test('module flyout opens from arrow keys, cycles links, and returns focus on Escape',()=>{
+ const r=setup({page:'workspace',module:'accounting',view:'invoices'});
+ assert.match(r.main,/aria-haspopup="menu" aria-controls="flyout"/);
+ const trigger={dataset:{menuTrigger:'accounting'},getBoundingClientRect(){return {left:50,right:200,bottom:120}},
+   setAttribute(){},focus(){r.document.activeElement=this}};
+ const items=Array.from({length:9},(_,i)=>({
+   focus(){r.document.activeElement=this},
+   closest(sel){return sel==='#flyout'?r.el('flyout'):null}
+ }));
+ r.el('flyout').querySelectorAll=()=>items;
+ const event=(key,target)=>({key,target,preventDefault(){this.prevented=true}});
+ r.fire('keydown',event('ArrowDown',trigger));
+ assert.equal(r.document.activeElement,items[0]);
+ r.fire('keydown',event('ArrowUp',items[0]));
+ assert.equal(r.document.activeElement,items[8]);
+ r.fire('keydown',event('Home',items[8]));
+ assert.equal(r.document.activeElement,items[0]);
+ r.fire('keydown',event('End',items[0]));
+ assert.equal(r.document.activeElement,items[8]);
+ r.fire('keydown',event('Escape',items[8]));
+ assert.equal(r.document.activeElement,trigger);
+});
+
+test('search empty result never counts placeholder as a record and keeps live count',()=>{
+ const r=setup({page:'workspace',module:'accounting',view:'invoices'});
+ assert.match(r.main,/id="recordCount" role="status" aria-live="polite"/);
+ const tbody=r.el('dataRows'),counter=r.el('recordCount');
+ const rows=[{textContent:'Invoice A',hidden:false,cells:[1,2,3,4,5]},{textContent:'Invoice B',hidden:false,cells:[1,2,3,4,5]}];
+ const placeholders=[];
+ tbody.appendChild=x=>{placeholders.push(x);return x};
+ r.document.querySelectorAll=selector=>selector==='#dataRows tr'?rows.concat(placeholders.filter(x=>!x.removed)):[];
+ r.document.getElementById=id=>{
+  if(id==='noMatchRow')return placeholders.find(x=>!x.removed)||null;
+  return r.el(id);
+ };
+ // Simulate browser tr.remove() by removing it from the current DOM result.
+ r.document.createElement=tag=>({id:'',style:{},cells:[],appendChild(){},remove(){this.removed=true}});
+ const fire=value=>r.fire('input',{target:{id:'recordSearch',value}});
+ fire('absent');
+ assert.equal(rows.every(x=>x.hidden),true);
+ assert.match(counter.textContent,/0 \/ 2/);
+ assert.equal(placeholders.length,1);
+ fire('invoice a');
+ assert.equal(rows[0].hidden,false);
+ assert.equal(rows[1].hidden,true);
+ assert.equal(placeholders[0].removed,true);
+ assert.match(counter.textContent,/1 \/ 2/);
+ fire('');
+ assert.equal(rows.every(x=>!x.hidden),true);
+ assert.match(counter.textContent,/2 \/ 2/);
 });
