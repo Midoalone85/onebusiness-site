@@ -112,8 +112,8 @@ if(kind==='accounting'){
 metrics=[[tx('الأصول','Assets'),money(2450000),'ledger'],[tx('الالتزامات','Liabilities'),money(1120000),'file'],[tx('حقوق الملكية','Equity incl. profit'),money(1330000),'shield'],[t('profit'),money(235000),'chart']];
 if(view==='accounts'||view==='statements'){
 columns=[t('number'),t('details'),tx('مدين','Debit'),tx('دائن','Credit')];
-rows=chartAccounts.map(function(a){return [a[0],a[1],money(a[2]),money(a[3])]});
-if(view==='statements')rows.push([tx('الإجمالي','Total'),'—',money(3195000),money(3195000)]);
+rows=chartAccounts.map(function(a){return [a[0],a[1],a[2],a[3]]});
+if(view==='statements')rows.push([tx('الإجمالي','Total'),'—',3195000,3195000]);
 actions=[[tx('تقرير تفصيلي','Detailed report'),'file'],[t('export'),'download'],[t('print'),'printer']];
 }else if(view==='overview'){
 rows=[row('JE-2026-040','2026-10-15',tx('قيد مبيعات متوازن','Balanced sample journal'),84600,'posted'),row('INV-2026-119','2026-10-14',tx('فاتورة عميل تجريبية','Sample customer invoice'),33700,'pending'),row('PAY-2026-019','2026-10-12',tx('سند صرف تجريبي','Sample payment'),18500,'draft')];
@@ -235,7 +235,10 @@ setTimeout(function(){URL.revokeObjectURL(obj)},1000);
 function modal(){document.getElementById('dialog').classList.remove('hidden');document.getElementById('dialogTitle').textContent=t('preview');document.getElementById('dialogText').innerHTML='<p>'+t('notLive')+'</p><p>'+t('demoAnswer')+'</p>'}
 function closeDialog(){document.getElementById('dialog').classList.add('hidden')}
 function showAI(){document.getElementById('dialog').classList.remove('hidden');document.getElementById('dialogTitle').textContent=t('ask');document.getElementById('dialogText').innerHTML='<p>'+t('aiExplain')+'</p><input id="askText" maxlength="110" class="filter" style="max-width:none;width:100%" placeholder="'+norm(t('aiPlaceholder'))+'"><button class="btn primary" type="button" data-action="answer" style="margin-top:12px">'+t('askGo')+'</button><div id="aiResult"></div>'}
-function filterTable(value){var rows=document.querySelectorAll('#dataRows tr'),count=0;rows.forEach(function(r){var visible=r.textContent.toLocaleLowerCase().includes(value.toLocaleLowerCase());r.hidden=!visible;if(visible)count++});if(!count&&rows.length){document.getElementById('dataRows').setAttribute('data-empty','true')}else document.getElementById('dataRows').removeAttribute('data-empty')}
+function filterTable(value){var rows=document.querySelectorAll('#dataRows tr'),count=0;rows.forEach(function(r){var visible=r.textContent.toLocaleLowerCase().includes(value.toLocaleLowerCase());r.hidden=!visible;if(visible)count++});var tbody=document.getElementById('dataRows'),oldEmpty=document.getElementById('noMatchRow');
+if(oldEmpty)oldEmpty.remove();
+if(!count&&rows.length){var tr=document.createElement('tr');tr.id='noMatchRow';var td=document.createElement('td');td.colSpan=rows[0].cells.length;td.textContent=t('noRows');td.style.textAlign='center';td.style.padding='25px';tr.appendChild(td);tbody.appendChild(tr)}
+}
 function setupEvents(){
 document.addEventListener('click',function(e){var trigger=e.target.closest('[data-menu-trigger]');if(trigger){showMenu(trigger.dataset.menuTrigger,trigger);return}
 if(opened&&!e.target.closest('#flyout'))hideMenu();
