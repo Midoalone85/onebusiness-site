@@ -127,7 +127,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "TO one_erp_runtime_ci"
         )
         # 045: grant the read-only report function to the disposable CI role.
-        self.admin.execute(
+        cls.admin.execute(
             "GRANT EXECUTE ON FUNCTION "
             "one_inventory_period_seal_details(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
