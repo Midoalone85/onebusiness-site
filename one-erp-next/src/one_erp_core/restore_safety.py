@@ -119,7 +119,7 @@ def verify_restore_candidate(
     try:
         # This primitive must not accept symlinks. Run in a trusted private
         # restore directory, never a web-upload directory or shared host path.
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
         try:
             if not stat.S_ISREG(os.fstat(fd).st_mode):
                 raise RestorePreflightError("Artifact is not a regular file")
