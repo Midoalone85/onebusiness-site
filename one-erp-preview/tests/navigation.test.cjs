@@ -14,9 +14,9 @@ const workspace=fs.readFileSync(path.join(root,'workspace','index.html'),'utf8')
 
 const moduleViews={
  accounting:['overview','journals','invoices','bills','payments','bank','accounts','tax','statements'],
- sales:['overview','quotes','orders','invoices','deliveries','proof','customers'],
- purchasing:['overview','requests','orders','receiving','bills','suppliers'],
- inventory:['overview','products','receipts','picking','deliveries','quality','transfers','warehouses','valuation'],
+ sales:['overview','quotes','orders','invoices','deliveries','proof','returns','customers'],
+ purchasing:['overview','requests','orders','receiving','returns','bills','suppliers'],
+ inventory:['overview','products','receipts','picking','deliveries','quality','returns','quarantine','transfers','warehouses','valuation'],
  crm:['overview','leads','pipeline','activities','contacts'],
  healthcare:['overview','rooms','patients','appointments','doctors','lab','radiology','pharmacy','meals'],
  hr:['overview','employees','attendance','payroll','leaves','contracts'],
@@ -92,7 +92,7 @@ test('every module page renders top modules, own page, back and contextual links
    }
   }
  }
- assert.equal(cases,114);
+ assert.equal(cases,122);
 });
 
 test('homepage shows all eight horizontal modules and navigable links',()=>{
@@ -251,5 +251,31 @@ test('stage-specific modules preserve separate URLs, bilingual titles and demo a
     assert.match(r.main,/data-action="demo"/);
     assert.match(r.main,/id="recordSearch"/);
   }
+ }
+});
+
+test('returns and quarantine show consistent immutable sample references',()=>{
+ for(const lang of ['ar','en']){
+   const customer=setup({page:'workspace',module:'sales',view:'returns',lang});
+   const vendor=setup({page:'workspace',module:'purchasing',view:'returns',lang});
+   const inventory=setup({page:'workspace',module:'inventory',view:'returns',lang});
+   const quarantine=setup({page:'workspace',module:'inventory',view:'quarantine',lang});
+   for(const r of [customer,inventory,quarantine]){
+     assert.match(r.main,/RMA-C-2026-006/);
+     assert.match(r.main,/DEL-2026-006/);
+     assert.match(r.main,/DEMO DATA/);
+     assert.match(r.main,/class="related-workflow"/);
+   }
+   assert.match(vendor.main,/RMA-V-2026-004/);
+   assert.match(vendor.main,/REC-2026-003/);
+   assert.match(customer.main,/module=inventory&view=quarantine/);
+   assert.match(vendor.main,/module=inventory&view=returns/);
+   assert.match(inventory.main,/module=purchasing&view=returns/);
+   assert.match(quarantine.main,/module=sales&view=returns/);
+   for(const r of [customer,vendor,inventory,quarantine]){
+     assert.match(r.main,/id="backBtn"/);
+     assert.match(r.main,/data-action="demo"/);
+     assert.match(r.main,/role="status"/);
+   }
  }
 });
