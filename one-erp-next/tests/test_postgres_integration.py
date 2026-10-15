@@ -8087,5 +8087,132 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(len(self.statement_051(
             tenant,reviewer,request,drift=True)),7)
 
+
+    # 052: Real RS256 bearer -> control-plane subject mapping -> tenant-scoped
+    # WSGI command -> PostgreSQL RLS + 048/049/050 financial permissions.
+    def test_052_signed_http_actor_binds_real_period_and_adjustment_posting(self):
+        import json
+        import jwt
+        from io import BytesIO
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.hazmat.primitives import serialization
+        from one_erp_core.finance_commands_wsgi import OneFinanceCommandsWSGI
+        from one_erp_core.finance_wsgi import TenantFinanceConnections
+
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        for actor,label in ((owner,"owner"),(reviewer,"reviewer")):
+            self.admin.execute(
+                "INSERT INTO one_auth.subject_links(issuer,subject,actor_id) "
+                "VALUES('https://identity.example.test',%s,%s)",
+                ("052-"+label+"-"+tenant.hex,actor))
+            self.admin.execute(
+                "INSERT INTO one_auth.tenant_entitlements(actor_id,tenant_id) "
+                "VALUES(%s,%s)",(actor,tenant))
+        self.admin.execute(
+            "INSERT INTO one_auth.tenant_registry(tenant_id,active) "
+            "VALUES(%s,true)",(tenant,))
+        key=rsa.generate_private_key(public_exponent=65537,key_size=2048)
+        private_key=key.private_bytes(
+            serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption())
+        public_key=key.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode("ascii")
+        verifier=VerifiedRS256FinanceAccess(
+            RS256VerifierConfig(
+                issuer="https://identity.example.test",
+                audience="one-erp-finance-api",
+                signing_keys_by_id={"052-ci":public_key},
+            ),
+            ControlPlaneIdentityDirectory(self.auth_connection),
+            ControlPlaneRevocationChecker(self.auth_connection),
+        )
+        now=int(datetime.now(timezone.utc).timestamp())
+        def signed(label):
+            subject="052-"+label+"-"+tenant.hex
+            return jwt.encode({
+                "iss":"https://identity.example.test",
+                "aud":"one-erp-finance-api","sub":subject,
+                "iat":now-5,"nbf":now-5,"exp":now+240,
+                "jti":str(uuid4()),"token_use":"access",
+            },private_key,algorithm="RS256",headers={"kid":"052-ci"})
+        def tenant_connection():
+            return self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True,
+            )
+        app=OneFinanceCommandsWSGI(
+            verifier=verifier,
+            connections=TenantFinanceConnections({tenant:tenant_connection}),
+            allowed_hosts=frozenset({"finance.example.test"}),
+        )
+        def call(label, payload):
+            body=json.dumps(payload).encode()
+            env={"REQUEST_METHOD":"POST","wsgi.url_scheme":"https",
+                 "HTTP_HOST":"finance.example.test",
+                 "PATH_INFO":"/api/v1/finance/commands",
+                 "CONTENT_TYPE":"application/json",
+                 "CONTENT_LENGTH":str(len(body)),
+                 "wsgi.input":BytesIO(body),
+                 "HTTP_AUTHORIZATION":"Bearer "+signed(label),
+                 "QUERY_STRING":""}
+            results={}
+            def send(status,headers):
+                results["status"]=status
+                results["headers"]=dict(headers)
+            returned=b"".join(app(env,send))
+            return results["status"],json.loads(returned)
+        base={"tenant":str(tenant),"period_id":str(period)}
+        req=dict(base,action="request_soft_close")
+        status,value=call("owner",req)
+        self.assertEqual((status,value["id"]),("200 OK",str(period)))
+        status,_=call("reviewer",req)
+        self.assertEqual(status,"409 Conflict")
+        status,_=call("owner",dict(req,actor_id=str(reviewer)))
+        self.assertEqual(status,"400 Bad Request")
+        status,_=call("owner",dict(req,tenant=str(uuid4())))
+        self.assertEqual(status,"403 Forbidden")
+        status,value=call("reviewer",dict(base,action="approve_soft_close"))
+        self.assertEqual((status,value["id"]),("200 OK",str(period)))
+        request,journal=uuid4(),uuid4()
+        proposal=dict(base,action="request_soft_adjustment",
+                      request_id=str(request),journal_id=str(journal),
+                      occurred_on=date.today().isoformat(),currency="SAR",
+                      reason="Reviewed and documented closing correction",
+                      lines=[{"account_id":"cogs","debit":15.50,"credit":0},
+                             {"account_id":"grni","debit":0,"credit":15.50}])
+        status,value=call("owner",proposal)
+        self.assertEqual((status,value["id"]),("200 OK",str(request)))
+        status,_=call("owner",{
+            "action":"post_soft_adjustment","tenant":str(tenant),
+            "journal_id":str(journal)})
+        self.assertIn(status,("403 Forbidden","409 Conflict"))
+        status,value=call("reviewer",{
+            "action":"approve_soft_adjustment","tenant":str(tenant),
+            "request_id":str(request)})
+        self.assertEqual((status,value["id"]),("200 OK",str(request)))
+        status,_=call("reviewer",{
+            "action":"post_soft_adjustment","tenant":str(tenant),
+            "journal_id":str(journal)})
+        self.assertEqual(status,"403 Forbidden")
+        status,value=call("owner",{
+            "action":"post_soft_adjustment","tenant":str(tenant),
+            "journal_id":str(journal)})
+        self.assertEqual((status,value["id"]),("200 OK",str(journal)))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_journal_entries "
+            "WHERE tenant_id=%s AND id=%s",(tenant,journal)
+        ).fetchone()[0],"posted")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_soft_adjustment_post_audit "
+            "WHERE tenant_id=%s AND journal_id=%s AND posted_by=%s",
+            (tenant,journal,owner)
+        ).fetchone()[0],1)
+
 if __name__ == "__main__":
     unittest.main()
