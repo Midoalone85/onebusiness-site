@@ -292,8 +292,8 @@ BEGIN
   WHERE c.tenant_id=p_tenant AND c.return_job_id=p_return;
  SELECT coalesce(sum(gross_return_amount),0),
          coalesce(sum(ar_reduction),0)
-   INTO claims_total,claims_ar FROM one_nrv_refund_claims
-   WHERE tenant_id=p_tenant AND original_invoice_id=p_original;
+   INTO claims_total,claims_ar FROM one_nrv_refund_claims c
+   WHERE c.tenant_id=p_tenant AND c.original_invoice_id=p_original;
  SELECT EXISTS(SELECT 1 FROM one_nrv_refund_claims
    WHERE tenant_id=p_tenant AND return_job_id=p_return) INTO has_claim;
  IF claims_ar>open_ar OR claims_total+credited>src.gross_total THEN
