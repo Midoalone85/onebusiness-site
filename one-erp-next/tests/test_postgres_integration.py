@@ -7308,5 +7308,47 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 " WHERE tenant_id=%s AND period_id=%s",
                 (tenant,period)).fetchone()[0],0)
 
+
+    def test_047_old_period_uses_period_end_not_newer_live_stock(self):
+        # Two nonoverlapping dates: historical period ended yesterday,
+        # today's later physical receipt is valued in a separate open period.
+        tenant,owner,reviewer,product,warehouse,old_period,purchase,sale=(
+            self.inventory_history_046_fixture(period_end=date.today()))
+        current_period=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive) "
+            "VALUES(%s,%s,%s,%s)",
+            (tenant,current_period,date.today(),date.today()+timedelta(days=7)))
+        event=uuid4()
+        self.commerce_execute(
+            tenant,owner,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,event,owner))
+        self.value_stock_event(tenant,owner,event,"grni",
+                               period_id=current_period)
+        self.request_date_046(tenant,owner,event,date.today())
+        self.approve_date_046(tenant,reviewer,event)
+        self.assertEqual(self.history_net_047(
+            tenant,reviewer,date.today()-timedelta(days=1)),[])
+        self.activate_strict_047(tenant,owner,reviewer)
+        self.assertEqual(self.commerce_execute(
+            tenant,owner,"SELECT one_close_period(%s,%s,%s)",
+            (tenant,old_period,owner)),old_period)
+        historic=self.admin.execute(
+            "SELECT cutoff_on,position_count FROM "
+            "one_period_historical_inventory_close WHERE "
+            "tenant_id=%s AND period_id=%s",
+            (tenant,old_period)).fetchone()
+        observed=self.admin.execute(
+            "SELECT position_count FROM one_period_inventory_seals "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (tenant,old_period)).fetchone()[0]
+        self.assertEqual(historic,(date.today()-timedelta(days=1),0))
+        self.assertEqual(observed,1)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_period_historical_inventory_close_lines "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (tenant,old_period)).fetchone()[0],0)
+
 if __name__ == "__main__":
     unittest.main()
