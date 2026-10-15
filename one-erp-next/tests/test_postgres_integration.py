@@ -5836,5 +5836,41 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             with self.assertRaises(self.psycopg.Error):
                 self.nrv_customer_credit_status(as_tenant,person,rma)
 
+    def test_nrv_customer_credit_rejects_paid_source_until_refund_workflow(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        payment=self.make_payment(invoice,Decimal("10"))
+        self.post_payment(payment,invoice,outstanding=Decimal("25"))
+        attempted=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.issue_reviewed_nrv_credit(
+                tenant,admin,rma,invoice,credit=attempted,
+                issued_on=date(2026,10,17))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_docs WHERE tenant_id=%s AND id=%s",
+            (tenant,attempted)).fetchone()[0],0)
+        self.assertEqual(
+            self.nrv_customer_credit_status(tenant,admin,rma)[-1],
+            "awaiting_internal_credit")
+
+    def test_nrv_customer_credit_rejects_vat_source_without_tax_pack(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        order=self.admin.execute(
+            "SELECT order_id FROM one_stock_events WHERE tenant_id=%s AND id=%s",
+            (tenant,shipped)).fetchone()[0]
+        base=self.sale_source_invoice(tenant,Decimal("2"))
+        original=replace(base,lines=(
+            replace(base.lines[0],tax_category=TaxCategory.STANDARD,
+                    tax_code="DEMO-STANDARD",tax_rate=Decimal("0.15")),))
+        self.post_dispatched_sale_invoice(order,admin,original)
+        self.reassess_nrv_return(tenant,admin,rma,Decimal("2"))
+        attempted=uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.issue_reviewed_nrv_credit(
+                tenant,admin,rma,original,credit=attempted)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries WHERE tenant_id=%s AND id=%s",
+            (tenant,attempted)).fetchone()[0],0)
+
 if __name__ == "__main__":
     unittest.main()
