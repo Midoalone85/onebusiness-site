@@ -267,6 +267,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         cls.admin.execute(
             "GRANT EXECUTE ON FUNCTION one_nrv_adjusted_sales_activity("
             "uuid,uuid,date,date) TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_accept_reassessed_nrv_customer_return("
+            "uuid,uuid,numeric,uuid,uuid,uuid,uuid,uuid,"
+            "text,text,text,text,uuid,numeric,numeric,numeric,text,date) "
+            "TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -5482,6 +5487,159 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 self.commerce_execute(tid,person,
                     "SELECT * FROM one_nrv_adjusted_sales_activity(%s,%s,%s,%s)",
                     (tid,person,begin,end))
+
+    # 030 | A newly reviewed impaired customer return restores gross source
+    # cost into isolated QA and posts a *fresh*, evidenced NRV assessment.
+    def make_nrv_customer_return(self, qty=Decimal("2")):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        self.commerce_execute(tenant,admin,
+            "SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,admin))
+        shipped,gross,allowance,_=self.sell_nrv_adjusted(
+            tenant,admin,sale,Decimal("2"))
+        quarantine=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name,warehouse_type) "
+            "VALUES(%s,%s,%s,'Isolated RMA NRV QA','quarantine')",
+            (tenant,quarantine,"NRV-QC-"+quarantine.hex))
+        rma=uuid4()
+        self.commerce_execute(tenant,admin,
+            "SELECT one_request_return(%s,%s,%s,%s,%s,%s,'NRV inspection RMA')",
+            (tenant,rma,shipped,qty,quarantine,admin))
+        return tenant,admin,product,warehouse,quarantine,shipped,rma
+
+    def reassess_nrv_return(self,tenant,admin,rma,accepted, *,
+                            stock=None,cogs_gl=None,nrv_evt=None,nrv_gl=None,
+                            period=None,sale_price=Decimal("9"),
+                            completion=Decimal("0"),sell_cost=Decimal("1"),
+                            evidence=None):
+        stock=stock or uuid4()
+        cogs_gl=cogs_gl or uuid4()
+        nrv_evt=nrv_evt or uuid4()
+        nrv_gl=nrv_gl or uuid4()
+        evidence=evidence or ("REVIEW-NRV-"+stock.hex)
+        result=self.commerce_execute(
+            tenant,admin,
+            "SELECT one_accept_reassessed_nrv_customer_return("
+            "%s,%s,%s,%s,%s,%s,%s,%s,"
+            "'inventory','cogs','nrvallow','nrvexpense',"
+            "%s,%s,%s,%s,%s,%s)",
+            (tenant,rma,accepted,stock,cogs_gl,nrv_evt,nrv_gl,
+             period or self.period_id,admin,sale_price,completion,sell_cost,
+             evidence,date(2026,10,15)))
+        return stock,cogs_gl,nrv_evt,nrv_gl,result
+
+    def test_nrv_customer_return_new_inspection_books_original_cost_and_fresh_nrv(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        stock,cogs_gl,nrv_evt,nrv_gl,result=self.reassess_nrv_return(
+            tenant,admin,rma,Decimal("2"))
+        self.assertEqual(result,rma)
+        self.assertEqual(self.admin.execute(
+            "SELECT status,accepted_qty,processed_event_id "
+            "FROM one_return_jobs WHERE tenant_id=%s AND id=%s",
+            (tenant,rma)).fetchone(),("completed",Decimal("2"),stock))
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,cogs_gl)).fetchall(),[
+                ("inventory",Decimal("25"),Decimal("0")),
+                ("cogs",Decimal("0"),Decimal("25"))])
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,nrv_gl)).fetchall(),[
+                ("nrvexpense",Decimal("9"),Decimal("0")),
+                ("nrvallow",Decimal("0"),Decimal("9"))])
+        self.assertEqual(self.nrv_report(tenant,admin,qa,product),(
+            Decimal("2"),Decimal("2"),Decimal("25"),Decimal("9"),
+            Decimal("16"),Decimal("9"),True))
+        self.assertEqual(self.admin.execute(
+            "SELECT original_gross_return_cost,reassessed_nrv,new_allowance "
+            "FROM one_nrv_customer_return_reviews WHERE tenant_id=%s "
+            "AND return_job_id=%s",(tenant,rma)).fetchone(),(
+             Decimal("25"),Decimal("16"),Decimal("9")))
+        self.assertEqual(self.admin.execute(
+            "SELECT event_type FROM one_operation_outbox WHERE tenant_id=%s "
+            "AND source_id=%s AND event_type='returns.nrv_reassessed'",
+            (tenant,rma)).fetchone(),("returns.nrv_reassessed",))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_customer_return_credits WHERE tenant_id=%s "
+            "AND return_job_id=%s",(tenant,rma)).fetchone()[0],0)
+
+    def test_nrv_customer_partial_return_is_valued_only_at_accepted_quantity(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        stock,cogs_gl,nrv_evt,nrv_gl,res=self.reassess_nrv_return(
+            tenant,admin,rma,Decimal("1"))
+        self.assertEqual(res,rma)
+        self.assertEqual(self.admin.execute(
+            "SELECT accepted_qty FROM one_return_jobs "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,rma)).fetchone()[0],Decimal("1"))
+        self.assertEqual(self.nrv_report(tenant,admin,qa,product),(
+            Decimal("1"),Decimal("1"),Decimal("12.50"),Decimal("4.50"),
+            Decimal("8"),Decimal("4.50"),True))
+
+    def test_nrv_customer_return_invalid_period_reverts_whole_warehouse_and_gl(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        stock,gl,nrv_event,nrv_journal=(uuid4() for _ in range(4))
+        with self.assertRaises(self.psycopg.Error):
+            self.reassess_nrv_return(
+                tenant,admin,rma,Decimal("2"),
+                stock=stock,cogs_gl=gl,nrv_evt=nrv_event,nrv_gl=nrv_journal,
+                period=uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT status,processed_event_id FROM one_return_jobs "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,rma)).fetchone(),("requested",None))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s",(tenant,stock)).fetchone()[0],0)
+        for journal in (gl,nrv_journal):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM one_journal_entries "
+                "WHERE tenant_id=%s AND id=%s",(tenant,journal)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_nrv_customer_return_reviews "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,rma)).fetchone()[0],0)
+        self.reassess_nrv_return(tenant,admin,rma,Decimal("2"),
+            stock=stock,cogs_gl=gl,nrv_evt=nrv_event,nrv_gl=nrv_journal)
+
+    def test_nrv_customer_return_rejects_unreviewed_no_write_down(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        with self.assertRaises(self.psycopg.Error):
+            self.reassess_nrv_return(tenant,admin,rma,Decimal("2"),
+                sale_price=Decimal("50"),sell_cost=Decimal("0"))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_return_jobs WHERE tenant_id=%s AND id=%s",
+            (tenant,rma)).fetchone()[0],"requested")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s AND on_hand>0",
+            (tenant,qa,product)).fetchone()[0],0)
+
+    def test_nrv_customer_return_prevents_wrong_tenant_and_double_accepted_rma(self):
+        tenant,admin,product,warehouse,qa,shipped,rma=(
+            self.make_nrv_customer_return())
+        with self.assertRaises(self.psycopg.Error):
+            self.reassess_nrv_return(
+                self.tenant_b,admin,rma,Decimal("2"))
+        with self.assertRaises(self.psycopg.Error):
+            self.reassess_nrv_return(
+                tenant,self.actor,rma,Decimal("2"))
+        self.reassess_nrv_return(tenant,admin,rma,Decimal("2"))
+        with self.assertRaises(self.psycopg.Error):
+            self.reassess_nrv_return(tenant,admin,rma,Decimal("2"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_nrv_customer_return_reviews "
+            "WHERE tenant_id=%s AND return_job_id=%s",
+            (tenant,rma)).fetchone()[0],1)
 
 if __name__ == "__main__":
     unittest.main()
