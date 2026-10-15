@@ -240,6 +240,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "uuid,uuid,uuid,integer,uuid,text,uuid,uuid,text,text,uuid,date) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_post_inventory_nrv_adjustment("
+            "uuid,uuid,uuid,uuid,uuid,uuid,text,text,uuid,"
+            "integer,numeric,numeric,numeric,numeric,numeric,text,date) "
+            "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_inventory_nrv_reconciliation("
+            "uuid,uuid,uuid,uuid) TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -303,6 +311,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             ("cogs","510",AccountKind.EXPENSE),
             ("vatout","230",AccountKind.LIABILITY),
             ("vatin","130",AccountKind.ASSET),
+            ("nrvallow","145",AccountKind.ASSET),
+            ("nrvexpense","525",AccountKind.EXPENSE),
         ):
             item = Account(name,cls.tenant_a,code,name,kind)
             cls.chart[name] = item
@@ -4793,6 +4803,208 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT on_hand FROM one_stock_balances "
             "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
             (tenant,warehouse,product)).fetchone()[0],Decimal("3"))
+
+    # 025 | IAS 2 separate contra-asset position and immutable approved event.
+    def nrv_post(self,tenant,admin,warehouse,product,*,revision=0,
+                 cost=Decimal("62.50"),qty=Decimal("5"),
+                 selling=Decimal("10"),completion=Decimal("0"),
+                 selling_cost=Decimal("1"),event=None,journal=None,
+                 period=None,allowance="nrvallow",expense="nrvexpense",
+                 evidence=None):
+        event=event or uuid4()
+        journal=journal or uuid4()
+        evidence=evidence or ("IAS2-"+event.hex)
+        return event,journal,self.commerce_execute(
+            tenant,admin,
+            "SELECT one_post_inventory_nrv_adjustment("
+            "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (tenant,warehouse,product,event,journal,
+             period or self.period_id,allowance,expense,admin,
+             revision,qty,cost,selling,completion,selling_cost,
+             evidence,date(2026,10,15)))
+
+    def nrv_report(self,tenant,admin,warehouse,product):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(admin),))
+            return self.db.execute(
+                "SELECT * FROM one_inventory_nrv_reconciliation(%s,%s,%s,%s)",
+                (tenant,warehouse,product,admin)).fetchone()
+
+    def test_nrv_posting_reconciles_inventory_contra_asset_and_ifrs_net_value(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        event,journal,result=self.nrv_post(tenant,admin,warehouse,product)
+        self.assertEqual(event,result)
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,journal)).fetchall(),[
+                ("nrvexpense",Decimal("17.50"),Decimal("0")),
+                ("nrvallow",Decimal("0"),Decimal("17.50"))
+            ])
+        self.assertEqual(self.nrv_report(tenant,admin,warehouse,product),(
+            Decimal("5"),Decimal("5"),Decimal("62.50"),
+            Decimal("17.50"),Decimal("45.00"),
+            Decimal("17.50"),True))
+        self.assertEqual(self.admin.execute(
+            "SELECT adjustment,new_allowance,net_value_after "
+            "FROM one_inventory_nrv_events WHERE tenant_id=%s AND id=%s",
+            (tenant,event)).fetchone(),
+            (Decimal("17.50"),Decimal("17.50"),Decimal("45.00")))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_operation_outbox WHERE tenant_id=%s "
+            "AND event_type='finance.inventory_nrv_adjusted' AND source_id=%s",
+            (tenant,event)).fetchone()[0],1)
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("5"),Decimal("62.50")))
+
+    def test_nrv_recovery_reverses_prior_loss_but_never_above_cost(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        rev_event,rev_journal,_=self.nrv_post(
+            tenant,admin,warehouse,product,revision=1,selling=Decimal("20"),
+            selling_cost=Decimal("0"))
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,rev_journal)).fetchall(),[
+               ("nrvallow",Decimal("17.50"),Decimal("0")),
+               ("nrvexpense",Decimal("0"),Decimal("17.50"))])
+        self.assertEqual(self.nrv_report(tenant,admin,warehouse,product),(
+            Decimal("5"),Decimal("5"),Decimal("62.50"),
+            Decimal("0"),Decimal("62.50"),Decimal("0"),True))
+        self.commerce_execute(tenant,admin,
+            "SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,admin))
+        self.atomic_stock_post(tenant,admin,sale,Decimal("1"),"sale")
+        self.assertEqual(self.nrv_report(tenant,admin,warehouse,product)[:3],(
+             Decimal("4"),Decimal("4"),Decimal("50.00")))
+
+    def test_nrv_active_allowance_blocks_costed_sales_and_additional_receipts(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill(Decimal("2")))
+        self.nrv_post(tenant,admin,warehouse,product,
+                      cost=Decimal("25"),qty=Decimal("2"))
+        self.commerce_execute(tenant,admin,
+             "SELECT one_confirm_commercial_order(%s,%s,%s)",
+             (tenant,sale,admin))
+        for kind,order in (("sale",sale),("purchase",purchase)):
+            with self.assertRaises(self.psycopg.Error):
+                self.atomic_stock_post(tenant,admin,order,Decimal("1"),kind)
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("2"),Decimal("25")))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("2"))
+
+    def test_nrv_missing_period_cannot_create_persistent_position_or_gl(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        event,journal=uuid4(),uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_post(tenant,admin,warehouse,product,
+                event=event,journal=journal,period=uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_inventory_nrv_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],0)
+        for table,col in (
+           ("one_inventory_nrv_events","id"),
+           ("one_journal_entries","id"),
+        ):
+            token=journal if table=="one_journal_entries" else event
+            self.assertEqual(self.admin.execute(
+                f"SELECT count(*) FROM {table} WHERE tenant_id=%s AND {col}=%s",
+                (tenant,token)).fetchone()[0],0)
+        self.nrv_post(tenant,admin,warehouse,product,
+                      event=event,journal=journal)
+
+    def test_nrv_stale_revision_and_duplicate_evidence_rejected(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        event,journal,_=self.nrv_post(tenant,admin,warehouse,product)
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_post(tenant,admin,warehouse,product,revision=0,
+                          selling=Decimal("9"))
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_post(tenant,admin,warehouse,product,revision=1,
+                          selling=Decimal("9"),
+                          evidence="IAS2-"+event.hex)
+        self.assertEqual(self.admin.execute(
+            "SELECT revision,allowance FROM one_inventory_nrv_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (1,Decimal("17.50")))
+
+    def test_nrv_inactive_wrong_account_wrong_company_and_negative_nrv_fail_closed(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        for overrides in (
+            {"allowance":"expense"},
+            {"expense":"inventory"},
+            {"selling":Decimal("0"),"selling_cost":Decimal("2")},
+            {"qty":Decimal("7")},
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.nrv_post(tenant,admin,warehouse,product,**overrides)
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_post(self.tenant_b,admin,warehouse,product)
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_post(tenant,self.actor,warehouse,product)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_inventory_nrv_events WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],0)
+
+    def test_nrv_direct_mutation_and_duplicate_reversal_are_forbidden(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        for statement in (
+            "UPDATE one_inventory_nrv_positions SET allowance=0 "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            "DELETE FROM one_inventory_nrv_events WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(
+                    tenant,admin,statement+" RETURNING product_id",
+                    (tenant,warehouse,product))
+        self.nrv_post(tenant,admin,warehouse,product,
+                      revision=1,selling=Decimal("50"),
+                      selling_cost=Decimal("0"))
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_post(tenant,admin,warehouse,product,
+                          revision=2,selling=Decimal("50"),
+                          selling_cost=Decimal("0"))
+
+    def test_nrv_partial_reversal_and_source_audit_history(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        event,journal,_=self.nrv_post(
+            tenant,admin,warehouse,product,revision=1,
+            selling=Decimal("12"),selling_cost=Decimal("1"))
+        row=self.nrv_report(tenant,admin,warehouse,product)
+        self.assertEqual(row[3],Decimal("7.50"))
+        self.assertEqual(row[4],Decimal("55.00"))
+        self.assertEqual(row[5],Decimal("7.50"))
+        self.assertTrue(row[6])
+        self.assertEqual(self.admin.execute(
+            "SELECT adjustment FROM one_inventory_nrv_events "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,event)).fetchone()[0],Decimal("-10"))
 
 if __name__ == "__main__":
     unittest.main()
