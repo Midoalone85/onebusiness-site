@@ -4725,5 +4725,74 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         with self.assertRaises(self.psycopg.Error):
             self.complete_billed_vendor_return(tenant,admin,job,bill)
 
+    def test_billed_rma_rejects_credit_if_other_vendor_credit_consumed_bill_ceiling(self):
+        tenant,admin,product,warehouse,purchase,receipt,bill,job=(
+            self.billed_vendor_return_setup())
+        # Simulates an earlier separately issued supplier price adjustment.
+        # The cash/AP credit has already used 50 of the original 62.50 bill.
+        prior=InvoiceDocument(
+            uuid4(),tenant,"VCPREV-"+uuid4().hex,"TEST-PARTNER",
+            DocumentType.VENDOR_CREDIT,date(2026,10,15),date(2026,10,15),
+            "SAR",(InvoiceLine("Prior supplier adjustment","expense",
+                Decimal("1"),Decimal("50.00")),),
+            source_invoice_id=bill.id)
+        self.post_invoice(prior)
+        with self.assertRaises(self.psycopg.Error):
+            self.complete_billed_vendor_return(tenant,admin,job,bill)
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_return_jobs WHERE tenant_id=%s AND id=%s",
+            (tenant,job)).fetchone()[0],"requested")
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("5"))
+
+    def test_concurrent_billed_vendor_returns_cannot_overcredit_same_bill(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,admin,product,warehouse,purchase,receipt,bill,first=(
+            self.billed_vendor_return_setup(billed=Decimal("3")))
+        second=self.request_costed_vendor_return(
+            tenant,admin,receipt,Decimal("2"))
+        gate=Barrier(2)
+        def attempt(job):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(tenant),))
+                        conn.execute("SELECT set_config('one.actor_id',%s,true)",
+                                     (str(admin),))
+                        gate.wait(timeout=10)
+                        cid=uuid4()
+                        conn.execute(
+                            "SELECT one_complete_billed_vendor_return("
+                            "%s,%s,%s,1,%s,%s,%s,%s,'inventory','ap',%s,%s)",
+                            (tenant,job,bill.id,cid,"VC-"+cid.hex,
+                             uuid4(),self.period_id,admin,date(2026,10,15)))
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            one=pool.submit(attempt,first)
+            two=pool.submit(attempt,second)
+            outcomes=(one.result(timeout=35),two.result(timeout=35))
+        self.assertEqual(sorted(outcomes),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT coalesce(sum(quantity),0) FROM "
+            "one_billed_vendor_return_credit_links "
+            "WHERE tenant_id=%s AND source_bill_id=%s",
+            (tenant,bill.id)).fetchone()[0],Decimal("2"))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("3"))
+
 if __name__ == "__main__":
     unittest.main()
