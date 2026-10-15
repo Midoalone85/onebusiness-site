@@ -6660,42 +6660,42 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 "SELECT * FROM one_refund_period_close_preflight(%s,%s,%s)",
                 (tenant,period,admin)).fetchall()
 
-    def test_close_period_seals_audited_refund_snapshot_with_unpaid_claims(self):
-        # Legitimately outstanding refund liabilities never masquerade as
-        # disbursed and need NOT be paid merely to close a reporting period.
+    def test_close_period_refuses_stock_gap_even_if_refunds_are_reconciled(self):
+        # Migration 044 strengthens 043: clean refund GL is not sufficient
+        # if there is an unvalued source receipt elsewhere in the company.
         pid,admin=self.new_period_for_close()
         overview=self.refund_control_pulse(self.tenant_a,self.actor)
-        ready=self.refund_close_preflight(self.tenant_a,admin,pid)
-        self.assertEqual(ready[0][0],0)
-        self.assertEqual(ready[0][1],0)
-        self.assertEqual(ready[0][4],overview[0])
-        self.assertTrue(ready[0][7])
-        self.assertEqual(
-            self.commerce_execute(
-                self.tenant_a,admin,"SELECT one_close_period(%s,%s,%s)",
-                (self.tenant_a,pid,admin)),pid)
-        evidence=self.admin.execute(
-            "SELECT posted_refund_claims,period_refund_liability,"
-            "company_refund_liability,company_unverified_bank_references "
-            "FROM one_period_refund_close_evidence WHERE tenant_id=%s "
-            "AND period_id=%s",(self.tenant_a,pid)).fetchone()
-        self.assertEqual(evidence[0],0)
-        self.assertEqual(evidence[1],Decimal("0"))
-        self.assertEqual(evidence[2],overview[0])
-        self.assertEqual(evidence[3],overview[4])
-        self.assertEqual(self.admin.execute(
-            "SELECT count(*) FROM one_period_close_audit "
-            "WHERE tenant_id=%s AND period_id=%s",
-            (self.tenant_a,pid)).fetchone()[0],1)
+        ready=self.refund_close_preflight(self.tenant_a,admin,pid)[0]
+        self.assertEqual(ready[0],0)
+        self.assertEqual(ready[1],0)
+        self.assertEqual(ready[4],overview[0])
+        self.assertTrue(ready[7])
+        tenant,actor,product,warehouse,purchase,_=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        receipt=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,1,%s,%s)",
+            (tenant,purchase,receipt,actor))
+        stock=self.inventory_close_preflight(self.tenant_a,admin,pid)
+        self.assertGreaterEqual(stock[2],1)
+        self.assertFalse(stock[3])
         with self.assertRaises(self.psycopg.Error):
             self.commerce_execute(
                 self.tenant_a,admin,"SELECT one_close_period(%s,%s,%s)",
                 (self.tenant_a,pid,admin))
-        with self.assertRaises(self.psycopg.Error):
-            self.commerce_execute(
-                self.tenant_a,admin,
-                "DELETE FROM one_period_refund_close_evidence "
-                "WHERE tenant_id=%s AND period_id=%s",(self.tenant_a,pid))
+        self.assertFalse(self.admin.execute(
+            "SELECT closed FROM one_periods WHERE tenant_id=%s AND id=%s",
+            (self.tenant_a,pid)).fetchone()[0])
+        for table in ("one_period_close_audit",
+                      "one_period_refund_close_evidence",
+                      "one_period_inventory_close_evidence"):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+
+                " WHERE tenant_id=%s AND period_id=%s",
+                (self.tenant_a,pid)).fetchone()[0],0)
+        self.value_stock_event(tenant,actor,receipt,"grni")
 
     def test_close_period_rejects_unposted_journal_without_sealing(self):
         pid,admin=self.new_period_for_close(
