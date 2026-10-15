@@ -7016,8 +7016,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.admin.execute(
                 "INSERT INTO one_commercial_order_lines(tenant_id,order_id,"
                 "line_no,product_id,warehouse_id,ordered_qty,unit_price) "
-                "VALUES(%s,%s,1,%s,%s,5,12.50)",
-                (tenant,order,product,warehouse))
+                "VALUES(%s,%s,1,%s,%s,%s,12.50)",
+                (tenant,order,product,warehouse,6 if kind=="purchase" else 5))
             self.commerce_execute(
                 tenant,owner,"SELECT one_confirm_commercial_order(%s,%s,%s)",
                 (tenant,order,owner))
