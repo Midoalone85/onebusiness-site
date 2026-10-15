@@ -40,3 +40,16 @@ Real sign-in, tenant provisioning, billing, web UI, approved ZATCA integration, 
 - These are prototypes in a shared-tenant test schema. Privilege hardening, real identity proof, and external bank statement ingestion remain outstanding.
 
 The pipeline `.github/workflows/one-erp-next-finance-tests.yml` runs Python tests and disposable PostgreSQL 14 integration tests. Check the actual workflow conclusion before calling the change verified.
+
+
+## Invoice-to-payment vertical slice (experimental migrations 003 and 004)
+
+- A country-pack-reviewed invoice or credit-note draft produces a balanced ledger journal. Money uses Decimal; invoice line base, discounts and tax amounts are rounded by an explicit line-level half-up policy. Zero-rated, exempt and out-of-scope remain distinct categories even when tax due is zero.
+- Country tax compliance is NOT implemented. The demonstration standard rate is not a statutory rate engine. A production country pack must determine effective rates, recoverability, exemptions, legal numbering, fiscal metadata, archiving and ZATCA/gateway interoperability.
+- Migrations 003/004 persist source-document snapshots, internal approvals, posted journals, payments and invoice allocations in one PostgreSQL transaction per document. Failed validation rolls back the whole transaction.
+- Issued internal snapshots and applied payment allocations are immutable. Credit notes and approved payments both reduce the same original invoice balance, with a locking and bounded-allocation policy. A credit note cannot exceed the invoice's remaining gross after approved payments.
+- Payments here represent internally recorded settlement, not confirmed banking transactions. Bank-feed connectors, treasury controls, approval workflow, reconciliation and external proof of receipt are required.
+- Receivable/payable aging has deterministic current / 1-30 / 31-60 / 61-90 / 90+ buckets, supports historical as-of cutoff dates, and attaches original invoice, credit and payment identifiers to each row. Reporting callers MUST source consistent issued/applied records and avoid mixing tenants/currencies. PDF and interactive dashboards remain future work.
+- Database custom transaction settings for tenant, actor and function context flags can be set by any account with raw SQL access. They are NOT unspoofable security principals. No untrusted user may receive a SQL connection, direct table DML, or function execution. Before production, implement trusted backend authentication, per-tenant DB credentials, table-level least privilege, secure stored procedures or a hardened service-only role, and external audit.
+- Dedicated database per tenant remains the planned production security boundary; shared-tenant RLS and broad CI fixture grants are for prototype testing only. Do NOT deploy these test privileges.
+- The development branch and GitHub test runner do not establish that the system is deployed or that any invoice is legally valid in Saudi Arabia.
