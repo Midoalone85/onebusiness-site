@@ -47,35 +47,107 @@ CREATE TRIGGER one_inventory_date_controlled
  BEFORE INSERT OR UPDATE OR DELETE ON one_inventory_effective_dates
  FOR EACH ROW EXECUTE FUNCTION one_inventory_date_row_guard();
 
+
+-- Request and approval are separate authenticated invoker calls. Recording a
+-- reviewer UUID in the first request would NOT constitute real approval.
+CREATE TABLE one_inventory_date_requests (
+ tenant_id uuid NOT NULL,
+ stock_event_id uuid NOT NULL,
+ proposed_on date NOT NULL,
+ requested_by uuid NOT NULL,
+ requested_at timestamptz NOT NULL DEFAULT transaction_timestamp(),
+ PRIMARY KEY(tenant_id,stock_event_id),
+ FOREIGN KEY(tenant_id,stock_event_id)
+   REFERENCES one_stock_events(tenant_id,id)
+);
+ALTER TABLE one_inventory_date_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE one_inventory_date_requests FORCE ROW LEVEL SECURITY;
+CREATE POLICY one_inventory_date_request_tenant ON one_inventory_date_requests
+ USING(tenant_id::text=current_setting('one.tenant_id',true))
+ WITH CHECK(tenant_id::text=current_setting('one.tenant_id',true));
+CREATE FUNCTION one_inventory_date_request_guard()
+ RETURNS trigger LANGUAGE plpgsql AS $pending_guard$
+BEGIN
+ IF TG_OP<>'INSERT' OR
+    current_setting('one.stock_date_request_context',true) IS DISTINCT FROM 'yes' THEN
+  RAISE EXCEPTION 'Stock date requests can only be opened via controlled workflow';
+ END IF;
+ RETURN NEW;
+END $pending_guard$;
+CREATE TRIGGER one_inventory_date_request_controlled
+ BEFORE INSERT OR UPDATE OR DELETE ON one_inventory_date_requests
+ FOR EACH ROW EXECUTE FUNCTION one_inventory_date_request_guard();
+
+CREATE FUNCTION one_request_inventory_effective_date(
+ p_tenant uuid,p_event uuid,p_date date,p_actor uuid
+) RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER AS $request_stock_date$
+BEGIN
+ IF p_tenant IS NULL OR p_event IS NULL OR p_date IS NULL OR
+    p_actor IS NULL OR p_date>current_date OR
+    current_setting('one.tenant_id',true) IS DISTINCT FROM p_tenant::text OR
+    current_setting('one.actor_id',true) IS DISTINCT FROM p_actor::text OR
+    NOT EXISTS(SELECT 1 FROM one_memberships m
+      WHERE m.tenant_id=p_tenant AND m.actor_id=p_actor
+        AND m.active AND m.role='company_admin') THEN
+  RAISE EXCEPTION 'Authorized company administrator required to request effective date';
+ END IF;
+ PERFORM 1 FROM one_periods p
+   WHERE p.tenant_id=p_tenant AND p.begins<=p_date
+     AND p.ends_exclusive>p_date AND NOT p.closed FOR UPDATE;
+ IF NOT FOUND THEN
+  RAISE EXCEPTION 'Open accounting period required for stock date request';
+ END IF;
+ PERFORM 1 FROM one_stock_events e
+   WHERE e.tenant_id=p_tenant AND e.id=p_event;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Cannot date a missing stock movement'; END IF;
+ PERFORM set_config('one.stock_date_request_context','yes',true);
+ INSERT INTO one_inventory_date_requests(
+   tenant_id,stock_event_id,proposed_on,requested_by)
+ VALUES(p_tenant,p_event,p_date,p_actor);
+ PERFORM set_config('one.stock_date_request_context','',true);
+ RETURN p_event;
+END $request_stock_date$;
+
 -- Authenticated identity/permissions are inputs from a trusted backend.
 -- GUCs and these checks alone are NOT sufficient user authentication.
-CREATE FUNCTION one_attest_inventory_effective_date(
- p_tenant uuid,p_event uuid,p_date date,p_actor uuid,p_reviewer uuid
+CREATE FUNCTION one_approve_inventory_effective_date(
+ p_tenant uuid,p_event uuid,p_actor uuid
 ) RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER AS $attest_stock_date$
 DECLARE
  ev one_stock_events%ROWTYPE;
+ request one_inventory_date_requests%ROWTYPE;
  valuation one_stock_value_events%ROWTYPE;
  disposition one_return_dispositions%ROWTYPE;
  cost one_return_disposition_costs%ROWTYPE;
  posted one_journal_entries%ROWTYPE;
  v_kind text;
  source_journal uuid;
+ p_date date;
 BEGIN
- IF p_tenant IS NULL OR p_event IS NULL OR p_date IS NULL OR
-    p_actor IS NULL OR p_reviewer IS NULL OR p_actor=p_reviewer OR
-    p_date>current_date OR
+ IF p_tenant IS NULL OR p_event IS NULL OR p_actor IS NULL OR
     current_setting('one.tenant_id',true) IS DISTINCT FROM p_tenant::text OR
     current_setting('one.actor_id',true) IS DISTINCT FROM p_actor::text OR
     NOT EXISTS(SELECT 1 FROM one_memberships m
       WHERE m.tenant_id=p_tenant AND m.actor_id=p_actor
-        AND m.active AND m.role='company_admin') OR
-    NOT EXISTS(SELECT 1 FROM one_memberships m
-      WHERE m.tenant_id=p_tenant AND m.actor_id=p_reviewer
         AND m.active AND m.role IN ('company_admin','accountant')) THEN
-  RAISE EXCEPTION 'Independent approved stock date registration required';
+  RAISE EXCEPTION 'Authenticated independent reviewer required';
  END IF;
-
- -- A period close locks this row, so attestation cannot straddle the close.
+ SELECT * INTO request FROM one_inventory_date_requests
+   WHERE tenant_id=p_tenant AND stock_event_id=p_event FOR UPDATE;
+ IF NOT FOUND OR request.requested_by=p_actor THEN
+  RAISE EXCEPTION 'An independent first-party request is required';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM one_memberships m
+    WHERE m.tenant_id=p_tenant AND m.actor_id=request.requested_by
+      AND m.active AND m.role='company_admin') THEN
+  RAISE EXCEPTION 'Original stock-date requester is no longer authorized';
+ END IF;
+ p_date=request.proposed_on;
+ IF p_date>current_date THEN
+  RAISE EXCEPTION 'Future-effective stock history is not yet supported';
+ END IF;
+ -- An accounting close locks the same period row. Atomic approval cannot
+ -- interleave with close, and closed periods reject late registration.
  PERFORM 1 FROM one_periods p
   WHERE p.tenant_id=p_tenant AND p.begins<=p_date
     AND p.ends_exclusive>p_date AND NOT p.closed FOR UPDATE;
@@ -169,7 +241,7 @@ BEGIN
  INSERT INTO one_inventory_effective_dates(
   tenant_id,stock_event_id,effective_on,source_kind,source_journal_id,
   attested_by,approved_by)
- VALUES(p_tenant,p_event,p_date,v_kind,source_journal,p_actor,p_reviewer);
+ VALUES(p_tenant,p_event,p_date,v_kind,source_journal,request.requested_by,p_actor);
  PERFORM set_config('one.stock_date_registration','',true);
  RETURN p_event;
 END $attest_stock_date$;
@@ -333,9 +405,12 @@ BEGIN
  END IF;
 END $gross_asof$;
 
-REVOKE ALL ON one_inventory_effective_dates FROM PUBLIC;
-REVOKE ALL ON FUNCTION one_attest_inventory_effective_date(
- uuid,uuid,date,uuid,uuid) FROM PUBLIC;
+REVOKE ALL ON one_inventory_effective_dates,
+ one_inventory_date_requests FROM PUBLIC;
+REVOKE ALL ON FUNCTION one_request_inventory_effective_date(
+ uuid,uuid,date,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION one_approve_inventory_effective_date(
+ uuid,uuid,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION one_inventory_gross_history_asof(
  uuid,date,uuid) FROM PUBLIC;
 COMMIT;
