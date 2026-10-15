@@ -255,7 +255,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){hideMenu();
 document.addEventListener('input',function(e){if(e.target.id==='recordSearch')filterTable(e.target.value)});
 document.addEventListener('click',function(e){if(e.target.id==='dialog')closeDialog()});
 window.addEventListener('resize',function(){if(opened&&lastTrigger){var menu=document.getElementById('flyout');if(menu)positionMenu(lastTrigger,menu)}});
-window.addEventListener('scroll',function(){if(opened)hideMenu()},true);
+window.addEventListener('scroll',function(e){if(!opened)return;var target=e.target;if(target&&typeof target.closest==='function'&&target.closest('#flyout'))return;hideMenu()},true);
 var back=document.getElementById('backBtn');
 if(back)back.addEventListener('click',function(e){
  try{var ref=new URL(document.referrer);if(ref.origin===location.origin&&ref.pathname.indexOf('/one-erp-preview/')!==-1){e.preventDefault();history.back()}}catch(err){}
