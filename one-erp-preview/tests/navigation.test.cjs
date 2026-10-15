@@ -15,8 +15,8 @@ const workspace=fs.readFileSync(path.join(root,'workspace','index.html'),'utf8')
 const moduleViews={
  accounting:['overview','journals','invoices','bills','payments','bank','accounts','tax','statements'],
  sales:['overview','quotes','orders','invoices','deliveries','proof','returns','return_case','customers'],
- purchasing:['overview','requests','orders','receiving','returns','return_case','bills','suppliers'],
- inventory:['overview','products','receipts','picking','deliveries','quality','returns','quarantine','return_case','transfers','warehouses','valuation'],
+ purchasing:['overview','requests','orders','receiving','returns','return_case','bills','three_way','suppliers'],
+ inventory:['overview','products','receipts','picking','deliveries','quality','returns','quarantine','return_case','transfers','warehouses','valuation','reconciliation'],
  crm:['overview','leads','pipeline','activities','contacts'],
  healthcare:['overview','rooms','patients','appointments','doctors','lab','radiology','pharmacy','meals'],
  hr:['overview','employees','attendance','payroll','leaves','contracts'],
@@ -92,7 +92,7 @@ test('every module page renders top modules, own page, back and contextual links
    }
   }
  }
- assert.equal(cases,128);
+ assert.equal(cases,132);
 });
 
 test('homepage shows all eight horizontal modules and navigable links',()=>{
@@ -301,5 +301,29 @@ test('unified returns display separate stock and finance status across business 
      }
      assert.equal(r.document.documentElement.dir,lang==='ar'?'rtl':'ltr');
    }
+ }
+});
+
+test('source-backed finance stock and vendor match sample pages cross-navigate',()=>{
+ for(const lang of ['ar','en']){
+  const valued=setup({page:'workspace',module:'inventory',view:'reconciliation',lang});
+  const stock=setup({page:'workspace',module:'inventory',view:'valuation',lang});
+  const buyer=setup({page:'workspace',module:'purchasing',view:'three_way',lang});
+  assert.match(valued.main,/STK-2026-015/);
+  assert.match(stock.main,/COGS-2026-015/);
+  assert.match(valued.main,/GRNI-2026-015/);
+  assert.match(buyer.main,/PO-2026-015/);
+  assert.match(buyer.main,/REC-2026-015/);
+  assert.match(buyer.main,/VB-2026-015/);
+  assert.match(valued.main,/module=purchasing&view=three_way/);
+  assert.match(buyer.main,/module=inventory&view=reconciliation/);
+  assert.match(buyer.main,/module=accounting&view=journals/);
+  for(const r of [valued,stock,buyer]){
+    assert.match(r.main,/DEMO DATA/);
+    assert.match(r.main,/id="backBtn"/);
+    assert.match(r.main,/id="recordSearch"/);
+    assert.match(r.main,/class="related-workflow"/);
+    assert.equal(r.document.documentElement.dir,lang==='ar'?'rtl':'ltr');
+  }
  }
 });
