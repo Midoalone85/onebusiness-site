@@ -37,9 +37,9 @@ class IndependentCompanyDatabasesTests(unittest.TestCase):
         cls.tenant_ids=[uuid4(),uuid4()]
         cls.actor=uuid4()
         cls.admin.execute(
-            sql.SQL("CREATE ROLE {} LOGIN PASSWORD %s NOSUPERUSER NOBYPASSRLS").format(
-                sql.Identifier(cls.user)
-            ),(cls.password,),
+            sql.SQL("CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS").format(
+                sql.Identifier(cls.user), sql.Literal(cls.password)
+            )
         )
         for name,tenant,company in zip(
             cls.db_names,cls.tenant_ids,("Alpha CI","Beta CI")
