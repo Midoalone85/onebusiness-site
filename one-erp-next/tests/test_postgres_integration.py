@@ -68,6 +68,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             .read_text(encoding="utf-8"), prepare=False,
         )
         cls.admin.execute(
+            (migration_dir.parent / "control_plane" / "004_attested_transition_role.sql")
+            .read_text(encoding="utf-8"), prepare=False,
+        )
+        cls.admin.execute(
             "CREATE ROLE one_erp_auth_ci LOGIN PASSWORD 'ci_auth_only' "
             "NOSUPERUSER NOBYPASSRLS"
         )
@@ -78,6 +82,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         )
         cls.admin.execute(
             "GRANT one_erp_auth_provisioner TO one_erp_auth_provision_ci"
+        )
+        cls.admin.execute(
+            "CREATE ROLE one_erp_auth_attestor_ci LOGIN PASSWORD 'ci_attestor_only' "
+            "NOSUPERUSER NOBYPASSRLS"
+        )
+        cls.admin.execute(
+            "GRANT one_erp_auth_attestor TO one_erp_auth_attestor_ci"
         )
 
         cls.admin.execute(
@@ -866,6 +877,16 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             autocommit=True,
         )
 
+    def attestor_connection(self):
+        # Separate credential from the ordinary control-plane provisioner.
+        return self.psycopg.connect(
+            host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
+            port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
+            dbname=os.environ.get("ONE_TEST_PG_DB", "one_erp_test"),
+            user="one_erp_auth_attestor_ci", password="ci_attestor_only",
+            autocommit=True,
+        )
+
     def _complete_ci_bootstrap(self, conn, tenant, operator):
         # Synthetic CI stage evidence only. In production the trusted backend
         # MUST independently verify each real infrastructure checkpoint;
@@ -875,15 +896,16 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT one_auth.begin_tenant_bootstrap(%s,%s,%s,%s,%s)",
             (tenant, job, operator, "CI-APPROVAL-ONLY", uuid4()),
         )
-        for stage in (
-            "database_created", "schema_migrated", "isolation_verified",
-            "restore_verified", "route_verified", "ready",
-        ):
-            digest = sha256(("fictional-ci-" + stage).encode()).digest()
-            conn.execute(
-                "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
-                (job, operator, stage, digest, uuid4()),
-            )
+        with self.attestor_connection() as verified_conn:
+            for stage in (
+                "database_created", "schema_migrated", "isolation_verified",
+                "restore_verified", "route_verified", "ready",
+            ):
+                digest = sha256(("fictional-ci-" + stage).encode()).digest()
+                verified_conn.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (job, operator, stage, digest, uuid4()),
+                )
         return job
 
     def test_signed_checkpoint_bridge_requires_independent_valid_attestation(self):
@@ -953,13 +975,24 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 ).fetchone()[0],
                 "requested",
             )
-            status, proof = record_signed_checkpoint(connection=conn, **base)
+            with self.assertRaises(self.psycopg.errors.InsufficientPrivilege):
+                conn.execute(
+                    "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
+                    (job, operator, "database_created",
+                     bytes.fromhex(claims["evidence_sha256"]), uuid4()),
+                )
+            with self.attestor_connection() as verified_conn:
+                status, proof = record_signed_checkpoint(
+                    connection=verified_conn, **base
+                )
             self.assertEqual(status, "database_created")
             self.assertEqual(proof.tenant_id, tenant)
             self.assertEqual(proof.evidence_digest,
                              bytes.fromhex(claims["evidence_sha256"]))
             # An exact resend is a no-op, without a duplicated audit record.
-            repeat, _ = record_signed_checkpoint(connection=conn, **base)
+                repeat, _ = record_signed_checkpoint(
+                    connection=verified_conn, **base
+                )
             self.assertEqual(repeat, "database_created")
         self.assertFalse(self.admin.execute(
             "SELECT active FROM one_auth.tenant_registry WHERE tenant_id=%s",
@@ -979,7 +1012,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         issuer = "https://identity.example.test"
         begin_event = uuid4()
         proof = sha256(b"ci-only-checkpoint").digest()
-        with self.provisioning_connection() as conn:
+        with self.provisioning_connection() as conn, self.attestor_connection() as verified_conn:
             conn.execute(
                 "SELECT one_auth.register_tenant(%s,%s,%s)",
                 (tenant, operator, uuid4()),
@@ -1012,17 +1045,17 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 (tenant, job, operator, "CI-CHANGE-1234", begin_event),
             ).fetchone()[0], "requested")
             with self.assertRaises(self.psycopg.Error):
-                conn.execute(
+                verified_conn.execute(
                     "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
                     (job, operator, "ready", proof, uuid4()),
                 )
             with self.assertRaises(self.psycopg.Error):
-                conn.execute(
+                verified_conn.execute(
                     "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
                     (job, operator, "database_created", b"short", uuid4()),
                 )
             with self.assertRaises(self.psycopg.Error):
-                conn.execute(
+                verified_conn.execute(
                     "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
                     (job, uuid4(), "database_created", proof, uuid4()),
                 )
@@ -1036,11 +1069,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             )
             for stage in stages:
                 event = uuid4()
-                self.assertEqual(conn.execute(
+                self.assertEqual(verified_conn.execute(
                     "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
                     (job, operator, stage, proof, event),
                 ).fetchone()[0], stage)
-                self.assertEqual(conn.execute(
+                self.assertEqual(verified_conn.execute(
                     "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
                     (job, operator, stage, proof, event),
                 ).fetchone()[0], stage)
@@ -1054,7 +1087,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 (tenant,),
             ).fetchone()[0])
             with self.assertRaises(self.psycopg.Error):
-                conn.execute(
+                verified_conn.execute(
                     "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
                     (job, operator, "ready", proof, uuid4()),
                 )
@@ -1078,7 +1111,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         tenant, operator, job = uuid4(), uuid4(), uuid4()
         proof = sha256(b"ci-only-checkpoint").digest()
         failure = uuid4()
-        with self.provisioning_connection() as conn:
+        with self.provisioning_connection() as conn, self.attestor_connection() as verified_conn:
             conn.execute(
                 "SELECT one_auth.register_tenant(%s,%s,%s)",
                 (tenant, operator, uuid4()),
@@ -1087,7 +1120,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 "SELECT one_auth.begin_tenant_bootstrap(%s,%s,%s,%s,%s)",
                 (tenant, job, operator, "CI-FAIL-12345", uuid4()),
             )
-            conn.execute(
+            verified_conn.execute(
                 "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
                 (job, operator, "database_created", proof, uuid4()),
             )
@@ -1100,7 +1133,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 (job, operator, "RESTORE_CHECK_FAILED", failure),
             ).fetchone()[0], "failed")
             with self.assertRaises(self.psycopg.Error):
-                conn.execute(
+                verified_conn.execute(
                     "SELECT one_auth.advance_tenant_bootstrap(%s,%s,%s,%s,%s)",
                     (job, operator, "schema_migrated", proof, uuid4()),
                 )
