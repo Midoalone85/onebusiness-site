@@ -38,20 +38,20 @@ class FakeCursor:
     def __exit__(self, *args):
         return False
 
-    def execute(self, query, args):
+    def execute(self, query, args=None):
         self.query = query
         self.connection.calls.append((query, args))
         if self.connection.fail:
             raise RuntimeError("PRIVATE SQL password and database details")
         if query.startswith("SELECT set_config("):
             return
-        if "SELECT 1 FROM one_soft_adjustment_requests" in query:
+        if "SELECT 1 FROM public.one_soft_adjustment_requests" in query:
             return
 
     def fetchone(self):
-        if "SELECT 1 FROM one_soft_adjustment_requests" in self.query:
+        if "SELECT 1 FROM public.one_soft_adjustment_requests" in self.query:
             return (1,) if self.connection.can_post else None
-        if self.query.startswith("SELECT one_"):
+        if self.query.startswith("SELECT public.one_"):
             query_args = self.connection.calls[-1][1]
             # The returned ID is the domain function's source identifier.
             return (query_args[1],)
@@ -196,14 +196,18 @@ class FinanceCommandsHTTPTests(unittest.TestCase):
         self.assertEqual(self.db.rollbacks,0)
         self.assertEqual(self.dir.calls,1)
         self.assertIn("no-store",headers["Cache-Control"])
-        self.assertEqual(self.db.calls[:2],[
+        self.assertEqual(
+            self.db.calls[0],
+            ("SET LOCAL search_path = pg_catalog, public, pg_temp",None)
+        )
+        self.assertEqual(self.db.calls[1:3],[
             ("SELECT set_config('one.tenant_id',%s,true)",
              (str(self.tenant),)),
             ("SELECT set_config('one.actor_id',%s,true)",
              (str(self.actor),)),
         ])
-        self.assertEqual(self.db.calls[2],(
-            "SELECT one_request_period_soft_close(%s,%s,%s)",
+        self.assertEqual(self.db.calls[3],(
+            "SELECT public.one_request_period_soft_close(%s,%s,%s)",
             (self.tenant,self.period,self.actor),
         ))
 
@@ -276,8 +280,8 @@ class FinanceCommandsHTTPTests(unittest.TestCase):
         self.assertEqual(self.db.commits,0)
         self.assertEqual(self.db.rollbacks,1)
         self.assertTrue(self.db.closed)
-        self.assertEqual(len(self.db.calls),3)
-        self.assertEqual(self.db.calls[2][1],
+        self.assertEqual(len(self.db.calls),4)
+        self.assertEqual(self.db.calls[3][1],
                          (self.tenant,journal,self.actor))
 
     def test_exact_decimal_json_and_parameterized_sql_for_multiline(self):
@@ -296,8 +300,8 @@ class FinanceCommandsHTTPTests(unittest.TestCase):
         }
         status,_,_=self.call(payload)
         self.assertEqual(status,"200 OK")
-        self.assertEqual(len(self.db.calls),3)
-        statement,args=self.db.calls[2]
+        self.assertEqual(len(self.db.calls),4)
+        statement,args=self.db.calls[3]
         self.assertEqual(args[-1],self.actor)
         self.assertEqual(args[1],request)
         self.assertEqual(args[3],journal)
@@ -380,6 +384,18 @@ class FinanceCommandsHTTPTests(unittest.TestCase):
                 fake,identity=invalid,command=item
             )
         self.assertEqual(fake.calls,[])
+
+    def test_054_rejects_inherited_untrusted_search_path(self):
+        status,_,_=self.call()
+        self.assertEqual(status,"200 OK")
+        self.assertEqual(
+            self.db.calls[0][0],
+            "SET LOCAL search_path = pg_catalog, public, pg_temp"
+        )
+        for sql,args in self.db.calls:
+            if sql.startswith("SELECT public.one_"):
+                self.assertEqual(sql.count(";"),0)
+                self.assertNotIn("attacker_schema",sql)
 
 
 if __name__ == "__main__":
