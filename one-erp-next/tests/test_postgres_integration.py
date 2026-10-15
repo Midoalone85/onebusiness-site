@@ -6647,12 +6647,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         return pid,admin
 
     def refund_close_preflight(self,tenant,admin,period):
-        return self.commerce_execute(
-            tenant,admin,
-            "SELECT * FROM one_refund_period_close_preflight(%s,%s,%s)",
-            (tenant,period,admin),
-            fetch_all=True
-        )
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(admin),))
+            return self.db.execute(
+                "SELECT * FROM one_refund_period_close_preflight(%s,%s,%s)",
+                (tenant,period,admin)).fetchall()
 
     def test_close_period_seals_audited_refund_snapshot_with_unpaid_claims(self):
         # Legitimately outstanding refund liabilities never masquerade as
