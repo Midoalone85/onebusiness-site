@@ -29,6 +29,11 @@ from one_erp_core.report_repository import load_finance_snapshot
 from one_erp_core.finance_http_boundary import (
     AuthenticatedFinanceIdentity,render_private_dashboard_response,
 )
+from hashlib import sha256
+from datetime import datetime, timedelta, timezone
+from one_erp_core.control_plane_identity import (
+    ControlPlaneIdentityDirectory, ControlPlaneRevocationChecker,
+)
 from one_erp_core.statement_details import balance_sheet, general_ledger_detail
 from one_erp_core.tenancy import Membership, Role
 
@@ -48,6 +53,16 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (migration_dir.parent / "ops" / "report_reader_privileges.sql").read_text(encoding="utf-8"),
             prepare=False,
         )
+        cls.admin.execute(
+            (migration_dir.parent / "control_plane" / "001_identity_registry.sql")
+            .read_text(encoding="utf-8"), prepare=False,
+        )
+        cls.admin.execute(
+            "CREATE ROLE one_erp_auth_ci LOGIN PASSWORD 'ci_auth_only' "
+            "NOSUPERUSER NOBYPASSRLS"
+        )
+        cls.admin.execute("GRANT one_erp_auth_lookup TO one_erp_auth_ci")
+
         cls.admin.execute(
             "CREATE ROLE one_erp_report_ci LOGIN PASSWORD 'ci_report_only' "
             "NOSUPERUSER NOBYPASSRLS"
@@ -93,6 +108,17 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             user="one_erp_report_ci", password="ci_report_only", autocommit=True,
         )
         cls.tenant_a, cls.tenant_b, cls.actor = uuid4(), uuid4(), uuid4()
+        cls.admin.execute(
+            """INSERT INTO one_auth.subject_links(issuer,subject,actor_id)
+               VALUES (%s,%s,%s)""",
+            ("https://identity.example.test","ci_subject",cls.actor),
+        )
+        cls.admin.execute(
+            """INSERT INTO one_auth.tenant_entitlements(actor_id,tenant_id)
+               VALUES (%s,%s)""",
+            (cls.actor,cls.tenant_a),
+        )
+
         cls.period_id = uuid4()
         for tid in (cls.tenant_a, cls.tenant_b):
             cls.admin.execute(
@@ -625,6 +651,64 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 self.reporting_db, tenant_id=self.tenant_b,
                 actor_id=self.actor, as_of=date(2026,10,15),
             )
+
+
+
+    def auth_connection(self):
+        return self.psycopg.connect(
+            host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
+            port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
+            dbname=os.environ.get("ONE_TEST_PG_DB", "one_erp_test"),
+            user="one_erp_auth_ci", password="ci_auth_only", autocommit=True,
+        )
+
+    def test_verified_identity_resolves_server_side_tenant_grants(self):
+        directory=ControlPlaneIdentityDirectory(self.auth_connection)
+        identity=directory.resolve("https://identity.example.test","ci_subject")
+        self.assertEqual(identity.actor_id,self.actor)
+        self.assertEqual(identity.allowed_tenants,frozenset({self.tenant_a}))
+        with self.assertRaises(Exception):
+            directory.resolve("https://identity.example.test","invalid-subject")
+        with self.assertRaises(Exception):
+            directory.resolve("https://other-issuer.test","ci_subject")
+
+    def test_identity_control_plane_role_is_read_only(self):
+        db=self.auth_connection()
+        try:
+            with db.transaction():
+                privileges=db.execute(
+                    """SELECT has_table_privilege(current_user,
+                         'one_auth.subject_links','SELECT'),
+                              has_table_privilege(current_user,
+                         'one_auth.subject_links','INSERT'),
+                              has_table_privilege(current_user,
+                         'one_journal_entries','SELECT')"""
+                ).fetchone()
+                self.assertEqual(privileges,(True,False,False))
+            with self.assertRaises(self.psycopg.Error):
+                with db.transaction():
+                    db.execute(
+                        """INSERT INTO one_auth.tenant_entitlements(actor_id,tenant_id)
+                           VALUES (%s,%s)""",(uuid4(),uuid4()),
+                    )
+        finally:
+            db.close()
+
+    def test_hashed_revocation_flags_blocked_token_without_plaintext_storage(self):
+        issuer="https://identity.example.test"
+        blocked_id="revoked-ci-demo"
+        digest=sha256((issuer+"\0"+blocked_id).encode("utf-8")).digest()
+        self.admin.execute(
+            """INSERT INTO one_auth.revoked_jti(token_digest,expires_at)
+               VALUES (%s,%s)""",
+            (digest, datetime.now(timezone.utc)+timedelta(hours=1)),
+        )
+        checker=ControlPlaneRevocationChecker(self.auth_connection)
+        self.assertTrue(checker.is_revoked(issuer,blocked_id))
+        self.assertFalse(checker.is_revoked(issuer,"other-jti"))
+        self.assertFalse(checker.is_revoked("https://another.example.test",blocked_id))
+        with self.assertRaises(Exception):
+            checker.is_revoked(issuer,"")
 
 
 
