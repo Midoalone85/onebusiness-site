@@ -50,8 +50,10 @@ BEGIN
  WHERE o.tenant_id=p_tenant
    AND (
       (o.source_id=j.id AND o.event_type LIKE 'returns.%')
+      OR (o.source_id=j.source_event_id
+          AND o.event_type IN ('stock.sale_dispatched','stock.purchase_received'))
       OR (o.source_id=j.processed_event_id
-          AND o.event_type='stock.customer_returned')
+          AND o.event_type IN ('stock.customer_returned','stock.vendor_returned'))
       OR EXISTS (
          SELECT 1 FROM one_return_dispositions d
          WHERE d.tenant_id=j.tenant_id AND d.return_job_id=j.id
