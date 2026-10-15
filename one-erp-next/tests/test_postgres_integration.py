@@ -20,6 +20,11 @@ from one_erp_core.invoicing import (
     DocumentType, TaxCategory, InvoiceLine, InvoiceDocument, InvoiceLedgerAccounts,
 )
 from one_erp_core.invoice_persistence import persist_invoice_with_journal
+from one_erp_core.payments import (
+    PaymentRequest, PaymentDirection, PaymentLedgerAccounts,
+    PaymentAllocation, OpenInvoice,
+)
+from one_erp_core.payment_persistence import persist_payment_with_allocations
 from one_erp_core.tenancy import Membership, Role
 
 DSN = os.environ.get("ONE_TEST_PG_DSN")
@@ -53,6 +58,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         )
         cls.admin.execute(
             "GRANT EXECUTE ON FUNCTION one_issue_invoice(uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_apply_payment(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
         cls.db = psycopg.connect(
@@ -372,6 +381,91 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 (bill.id,credit.id),
             ).fetchone()[0]
         self.assertEqual(count,2)
+
+
+
+    def make_payment(self, source, amount, *, bank_reference=None,
+                     occurred_on=date(2026,10,16)):
+        return PaymentRequest(
+            uuid4(),self.tenant_a,source.partner_id,occurred_on,"SAR",
+            PaymentDirection.CUSTOMER_RECEIPT,amount,
+            (PaymentAllocation(source.id,amount),),
+            bank_reference or str(uuid4()),
+        )
+
+    def post_payment(self, payment, source, *, outstanding=None):
+        remaining=source.lines[0].unit_price * source.lines[0].quantity
+        remaining=(remaining * Decimal("1.15")).quantize(Decimal("0.01"))
+        prior=OpenInvoice(
+            source.id,self.tenant_a,source.partner_id,"SAR",source.issued_on,
+            remaining if outstanding is None else outstanding,True,
+        )
+        return persist_payment_with_allocations(
+            self.db,payment=payment,invoices=(prior,),
+            accounts=PaymentLedgerAccounts("cash","ar","ap"),chart=self.chart,
+            period=self.period,period_id=self.period_id,actor_id=self.actor,
+            memberships=self.memberships,
+        )
+
+    def test_partial_payments_use_db_outstanding_not_stale_python_data(self):
+        doc=self.invoice(price=Decimal("100.00"))
+        self.post_invoice(doc)
+        p1=self.make_payment(doc,Decimal("60.00"))
+        p2=self.make_payment(doc,Decimal("55.00"))
+        self.post_payment(p1,doc)
+        self.post_payment(p2,doc)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(self.tenant_a),))
+            count=self.db.execute(
+                "SELECT count(*) FROM one_payment_docs WHERE id IN (%s,%s) AND status='applied'",
+                (p1.id,p2.id),
+            ).fetchone()[0]
+        self.assertEqual(count,2)
+        # Fake stale Python snapshot still claims 115 due. DB catches overpay.
+        p3=self.make_payment(doc,Decimal("1.00"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_payment(p3,doc)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(self.tenant_a),))
+            count=self.db.execute(
+                "SELECT count(*) FROM one_journal_entries WHERE id=%s",
+                (p3.id,),
+            ).fetchone()[0]
+        self.assertEqual(count,0)
+
+    def test_payment_and_credit_note_cannot_exceed_same_invoice(self):
+        doc=self.invoice()
+        self.post_invoice(doc)
+        credit=self.invoice(kind=DocumentType.CUSTOMER_CREDIT,
+                            source_invoice_id=doc.id,price=Decimal("50.00"))
+        self.post_invoice(credit)  # 57.50 credited, 57.50 remains due
+        payment=self.make_payment(doc,Decimal("57.50"))
+        self.post_payment(payment,doc)
+        excess_credit=self.invoice(kind=DocumentType.CUSTOMER_CREDIT,
+                            source_invoice_id=doc.id,price=Decimal("1.00"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_invoice(excess_credit)
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(self.tenant_a),))
+            count=self.db.execute(
+                "SELECT count(*) FROM one_invoice_docs WHERE id=%s",
+                (excess_credit.id,),
+            ).fetchone()[0]
+        self.assertEqual(count,0)
+
+    def test_payment_is_immutable_after_internal_application(self):
+        doc=self.invoice()
+        self.post_invoice(doc)
+        payment=self.make_payment(doc,Decimal("50.00"))
+        self.post_payment(payment,doc)
+        with self.assertRaises(self.psycopg.Error):
+            with self.db.transaction():
+                self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(self.tenant_a),))
+                self.db.execute(
+                    """UPDATE one_payment_allocations SET amount=49
+                       WHERE tenant_id=%s AND payment_id=%s""",
+                    (self.tenant_a,payment.id),
+                )
 
 
 
