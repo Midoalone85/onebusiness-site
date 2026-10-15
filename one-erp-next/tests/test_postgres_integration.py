@@ -224,6 +224,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "uuid,uuid,numeric,uuid,uuid,uuid,text,text,uuid) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_resolve_and_value_customer_quarantine("
+            "uuid,uuid,uuid,text,numeric,uuid,uuid,uuid,uuid,text,text,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -4102,6 +4107,126 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(self.admin.execute(
             "SELECT status FROM one_return_jobs WHERE tenant_id=%s AND id=%s",
             (tenant,job)).fetchone()[0],"requested")
+
+
+
+    def costed_qa_disposition(self,tenant,actor,job,action,quantity,target=None,
+                              *,disposition=None,stock_out=None,stock_in=None,
+                              journal=None,period=None):
+        disposition=disposition or uuid4()
+        stock_out=stock_out or uuid4()
+        stock_in=(stock_in or uuid4()) if action=="restock" else None
+        journal=(journal or uuid4()) if action=="dispose" else None
+        result=self.commerce_execute(
+            tenant,actor,
+            "SELECT one_resolve_and_value_customer_quarantine("
+            "%s,%s,%s,%s,%s,%s,%s,%s,%s,'inventory','expense',%s,%s)",
+            (tenant,job,disposition,action,quantity,target,stock_out,stock_in,
+             period or self.period_id,journal,actor))
+        return disposition,stock_out,stock_in,journal,result
+
+    def test_costed_customer_restock_and_disposal_complete_full_qa_and_valuation(self):
+        tenant,admin,product,warehouse,sale,source,quarantine,job=(
+            self.prepare_costed_customer_return())
+        self.post_costed_customer_return(tenant,admin,job,Decimal("2"))
+        target=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name) "
+            "VALUES(%s,%s,%s,'Restock destination')",
+            (tenant,target,"RS-"+target.hex))
+        restock,*_=self.costed_qa_disposition(
+            tenant,admin,job,"restock",Decimal("1"),target)
+        dispose,_,_,expense_journal,_=self.costed_qa_disposition(
+            tenant,admin,job,"dispose",Decimal("1"))
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone(),(0,0))
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,target,product)).fetchone(),
+            (Decimal("1"),Decimal("12.50")))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,target,product)).fetchone()[0],Decimal("1"))
+        self.assertEqual(self.admin.execute(
+            "SELECT action,amount FROM one_return_disposition_costs "
+            "WHERE tenant_id=%s AND return_job_id=%s ORDER BY action",
+            (tenant,job)).fetchall(),[
+            ("dispose",Decimal("12.50")),("restock",Decimal("12.50"))])
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,expense_journal)).fetchall(),[
+            ("expense",Decimal("12.50"),Decimal("0")),
+            ("inventory",Decimal("0"),Decimal("12.50"))])
+        self.assertEqual(self.read_unified_return_case(tenant,admin,job)[1],
+                         "qa_resolved")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_ledger_audit WHERE tenant_id=%s "
+            "AND entry_id=%s",(tenant,expense_journal)).fetchone()[0],1)
+
+    def test_costed_qa_disposal_failure_rolls_back_physical_disposition(self):
+        tenant,admin,product,warehouse,sale,source,quarantine,job=(
+            self.prepare_costed_customer_return())
+        self.post_costed_customer_return(tenant,admin,job,Decimal("2"))
+        disposition,out=uuid4(),uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.costed_qa_disposition(
+                tenant,admin,job,"dispose",Decimal("1"),
+                disposition=disposition,stock_out=out,period=uuid4())
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone()[0],Decimal("2"))
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone(),
+            (Decimal("2"),Decimal("25")))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_return_dispositions "
+            "WHERE tenant_id=%s AND id=%s",(tenant,disposition)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s",(tenant,out)).fetchone()[0],0)
+        self.costed_qa_disposition(
+            tenant,admin,job,"dispose",Decimal("1"),
+            disposition=disposition,stock_out=out)
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone(),
+            (Decimal("1"),Decimal("12.50")))
+
+    def test_costed_qa_refuses_double_disposal_and_unvalued_legacy_returns(self):
+        tenant,admin,product,warehouse,sale,source,quarantine,job=(
+            self.prepare_costed_customer_return())
+        self.post_costed_customer_return(tenant,admin,job,Decimal("1"))
+        self.costed_qa_disposition(tenant,admin,job,"dispose",Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.costed_qa_disposition(tenant,admin,job,"dispose",Decimal("1"))
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(amount) FROM one_return_disposition_costs WHERE "
+            "tenant_id=%s AND return_job_id=%s",
+            (tenant,job)).fetchone()[0],Decimal("12.50"))
+        legacy=uuid4()
+        self.commerce_execute(
+            tenant,admin,
+            "SELECT one_request_return(%s,%s,%s,1,%s,%s,'Old uncoded return')",
+            (tenant,legacy,source,quarantine,admin))
+        self.commerce_execute(
+            tenant,admin,"SELECT one_finish_return(%s,%s,1,%s,%s)",
+            (tenant,legacy,uuid4(),admin))
+        with self.assertRaises(self.psycopg.Error):
+            self.costed_qa_disposition(
+                tenant,admin,legacy,"dispose",Decimal("1"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_return_disposition_costs WHERE "
+            "tenant_id=%s AND return_job_id=%s",
+            (tenant,legacy)).fetchone()[0],0)
 
 
 if __name__ == "__main__":
