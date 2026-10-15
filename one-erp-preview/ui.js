@@ -9,9 +9,9 @@ try{lang=localStorage.getItem('one_erp_preview_lang')==='en'?'en':'ar'}catch(e){
 var MODS=[
 {id:'accounting',ar:'المحاسبة',en:'Accounting',icon:'ledger',arSub:'الإدارة المالية والقيود والتقارير',enSub:'Financial management and reports',views:[
 ['overview','نظرة عامة','Overview'],['journals','القيود اليومية','Journal entries'],['invoices','فواتير العملاء','Customer invoices'],['bills','فواتير الموردين','Vendor bills'],['payments','القبض والصرف','Receipts & payments'],['bank','البنوك والتسويات','Banking & reconciliation'],['accounts','دليل الحسابات','Chart of accounts'],['tax','الضرائب والزكاة','VAT & Zakat'],['statements','القوائم المالية','Financial statements']]},
-{id:'sales',ar:'المبيعات',en:'Sales',icon:'cart',arSub:'من عروض الأسعار حتى التحصيل',enSub:'Quotes, orders and billing',views:[['overview','نظرة عامة','Overview'],['quotes','عروض الأسعار','Quotations'],['orders','أوامر البيع','Sales orders'],['invoices','فواتير المبيعات','Sales invoices'],['deliveries','أوامر التسليم','Delivery orders'],['proof','إثبات تسليم العميل','Proof of delivery'],['returns','مرتجعات العملاء','Customer returns'],['customers','العملاء','Customers']]},
-{id:'purchasing',ar:'المشتريات',en:'Purchasing',icon:'bag',arSub:'من طلب الشراء حتى فاتورة المورد',enSub:'Requisitions to vendor bills',views:[['overview','نظرة عامة','Overview'],['requests','طلبات عروض الأسعار','Requests for quotation'],['orders','أوامر الشراء','Purchase orders'],['receiving','فحص استلام المورد','Supplier receiving inspection'],['returns','مرتجعات الموردين','Vendor returns'],['bills','فواتير الموردين','Vendor bills'],['suppliers','الموردون','Suppliers']]},
-{id:'inventory',ar:'المخزون',en:'Inventory',icon:'package',arSub:'الأصناف والمستودعات وحركة المخزون',enSub:'Products, warehouses and transfers',views:[['overview','نظرة عامة','Overview'],['products','الأصناف','Products'],['receipts','الاستلامات','Receipts'],['picking','التجهيز والتعبئة','Pick & pack'],['deliveries','أوامر التسليم','Delivery orders'],['quality','فحص الوارد','Incoming quality checks'],['returns','المرتجعات','Returns'],['quarantine','مخزن الحجر والفحص','Quarantine warehouse'],['transfers','حركات المخزون','Transfers'],['warehouses','المستودعات','Warehouses'],['valuation','تقييم المخزون','Stock valuation']]},
+{id:'sales',ar:'المبيعات',en:'Sales',icon:'cart',arSub:'من عروض الأسعار حتى التحصيل',enSub:'Quotes, orders and billing',views:[['overview','نظرة عامة','Overview'],['quotes','عروض الأسعار','Quotations'],['orders','أوامر البيع','Sales orders'],['invoices','فواتير المبيعات','Sales invoices'],['deliveries','أوامر التسليم','Delivery orders'],['proof','إثبات تسليم العميل','Proof of delivery'],['returns','مرتجعات العملاء','Customer returns'],['return_case','ملف المرتجع الموحد','Return case'],['customers','العملاء','Customers']]},
+{id:'purchasing',ar:'المشتريات',en:'Purchasing',icon:'bag',arSub:'من طلب الشراء حتى فاتورة المورد',enSub:'Requisitions to vendor bills',views:[['overview','نظرة عامة','Overview'],['requests','طلبات عروض الأسعار','Requests for quotation'],['orders','أوامر الشراء','Purchase orders'],['receiving','فحص استلام المورد','Supplier receiving inspection'],['returns','مرتجعات الموردين','Vendor returns'],['return_case','ملف مرتجع المورد','Vendor return case'],['bills','فواتير الموردين','Vendor bills'],['suppliers','الموردون','Suppliers']]},
+{id:'inventory',ar:'المخزون',en:'Inventory',icon:'package',arSub:'الأصناف والمستودعات وحركة المخزون',enSub:'Products, warehouses and transfers',views:[['overview','نظرة عامة','Overview'],['products','الأصناف','Products'],['receipts','الاستلامات','Receipts'],['picking','التجهيز والتعبئة','Pick & pack'],['deliveries','أوامر التسليم','Delivery orders'],['quality','فحص الوارد','Incoming quality checks'],['returns','المرتجعات','Returns'],['quarantine','مخزن الحجر والفحص','Quarantine warehouse'],['return_case','ملف المرتجع الموحد','Return case'],['transfers','حركات المخزون','Transfers'],['warehouses','المستودعات','Warehouses'],['valuation','تقييم المخزون','Stock valuation']]},
 {id:'crm',ar:'علاقات العملاء',en:'CRM',icon:'users',arSub:'العملاء المحتملون وفرص المبيعات',enSub:'Leads, pipeline and follow-ups',views:[['overview','نظرة عامة','Overview'],['leads','العملاء المحتملون','Leads'],['pipeline','الفرص التجارية','Pipeline'],['activities','المتابعات','Activities'],['contacts','جهات الاتصال','Contacts']]},
 {id:'healthcare',ar:'القطاع الطبي',en:'Healthcare',icon:'medical',arSub:'المستشفيات والعيادات والمختبرات',enSub:'Hospitals, clinics and labs',views:[['overview','نظرة عامة','Overview'],['rooms','الغرف والأسرة','Rooms & beds'],['patients','ملفات المرضى','Patient records'],['appointments','الحجوزات والعيادات','Appointments'],['doctors','الأطباء والتمريض','Doctors & nursing'],['lab','التحاليل الطبية','Lab tests'],['radiology','الأشعة','Radiology'],['pharmacy','الصيدلية والأدوية','Pharmacy'],['meals','وجبات المرضى','Patient meals']]},
 {id:'hr',ar:'الموارد البشرية',en:'Human resources',icon:'people',arSub:'الموظفون والحضور والرواتب',enSub:'People, attendance and payroll',views:[['overview','نظرة عامة','Overview'],['employees','الموظفون','Employees'],['attendance','الحضور والانصراف','Attendance'],['payroll','الرواتب ومسيرات الأجور','Payroll'],['leaves','الإجازات','Leave requests'],['contracts','العقود','Contracts']]},
@@ -218,6 +218,35 @@ metrics=[[tx('مرتجعات المورد','Supplier returns'),'2','package'],
 actions=[[tx('إنشاء مرتجع تجريبي للمورد','Sample vendor return'),'plus'],
 [tx('فتح سجل الاستلام','View receipt history'),'file']];
 }
+// Unified return workspaces are static blueprints. The DB is intentionally disconnected.
+if(view==='return_case' && ['sales','purchasing','inventory'].includes(kind)){
+var vendor=kind==='purchasing';
+rows=vendor?[
+row('RMA-V-2026-004','2026-10-15',
+ tx('المخزون: أعيد للمورد · المالية: مطابقة فاتورة المورد لم تكتمل',
+    'Stock: sent to vendor · Finance: vendor bill matching not ready'),2,'pending')
+]:[
+row('RMA-C-2026-006','2026-10-15',
+ tx('المخزون: فحص وحجر · المالية: إشعار دائن جزئي',
+    'Stock: QA quarantine · Finance: partial credit'),1,'pending'),
+row('RMA-C-2026-007','2026-10-14',
+ tx('المخزون: بانتظار الفحص · المالية: بانتظار الاستلام',
+    'Stock: inspection pending · Finance: awaits inspection'),2,'draft')
+];
+metrics=vendor?[
+[tx('المرتجع الأصلي','Return case'),'RMA-V-2026-004','package'],
+[tx('حالة المخزون','Stock'),'2','shield'],
+[tx('مطابقة فاتورة المورد','Vendor bill match'),tx('غير مكتملة','Not ready'),'file'],
+[tx('حركات قابلة للتتبع','Traceable movements'),'1','chart']
+]:[
+[tx('رقم المرتجع','Return case'),'RMA-C-2026-006','package'],
+[tx('في الحجر','Quarantined'),'1','shield'],
+[tx('تم إصدار إشعار دائن','Credited'),'1','ledger'],
+[tx('قرار الفحص','QA decision'),tx('معاينة','Preview'),'file']
+];
+actions=[[tx('تاريخ حركة المرتجع','Return activity history'),'file'],
+[tx('قرار الفحص التجريبي','Sample QA decision'),'shield']];
+}
 if(kind==='crm'){
 rows=[row('CRM-2026-014','2026-10-15',tx('فرصة تجريبية لشركة النخبة','Sample Elite opportunity'),85000,'pending'),row('CRM-2026-013','2026-10-14',tx('متابعة عميل محتمل','Sample lead follow-up'),44000,'draft')];
 actions=[[tx('عميل محتمل','New lead'),'plus'],[tx('تسجيل نشاط','Log activity'),'calendar']];
@@ -242,6 +271,22 @@ return{rows:rows,metrics:metrics,actions:actions,columns:columns};
 }
 function tag(s){return '<span class="tag '+(s==='pending'?'warn':s==='draft'?'bad':'')+'">'+t(s)+'</span>'}
 function panelTitle(str,meta){return '<div class="panel-title"><h2>'+norm(str)+'</h2><small>'+norm(meta||t('sample'))+'</small></div>'}
+function returnCaseSummary(m,v){
+if(v[0]!=='return_case')return '';
+var vendor=m.id==='purchasing';
+var physical=vendor?tx('أعيد للمورد','Shipped to vendor'):tx('فحص وحجر / قرار إعادة تخزين','QA quarantine / restock decision');
+var finance=vendor?tx('مطابقة فاتورة المورد: لم تُنفذ','Vendor bill match: not implemented'):
+tx('إشعار دائن جزئي مرتبط بالمقبول','Partial credit linked to accepted units');
+return '<section class="return-dual-state" aria-label="'+
+norm(tx('ملف المرتجع الموحد','Unified return case'))+'">'+
+'<div><small>'+norm(tx('مرجع المرتجع','Return case'))+'</small>'+
+'<strong>'+(vendor?'RMA-V-2026-004':'RMA-C-2026-006')+'</strong></div>'+
+'<div><small>'+norm(tx('حالة المخزون','Warehouse status'))+'</small>'+
+'<strong>'+norm(physical)+'</strong></div>'+
+'<div><small>'+norm(tx('حالة المالية','Finance status'))+'</small>'+
+'<strong>'+norm(finance)+'</strong></div>'+
+'</section>';
+}
 function workspaceMarkup(){
 var m=currentModule,v=currentView,data=demoData(m,v);
 document.title=label(v)+' | '+name(m)+' | ONE ERP Next Preview';
@@ -262,13 +307,17 @@ related=[['inventory','receipts'],['inventory','quality'],['accounting','bills']
 if(m.id==='inventory' && ['receipts','quality'].includes(v[0]))
 related=[['purchasing','orders'],['purchasing','receiving'],['accounting','bills']];
 if(m.id==='sales' && v[0]==='returns')
-related=[['inventory','returns'],['inventory','quarantine'],['accounting','invoices']];
+related=[['sales','return_case'],['inventory','quarantine'],['accounting','invoices']];
 if(m.id==='purchasing' && v[0]==='returns')
-related=[['inventory','returns'],['purchasing','receiving'],['accounting','bills']];
+related=[['purchasing','return_case'],['purchasing','receiving'],['accounting','bills']];
 if(m.id==='inventory' && v[0]==='returns')
-related=[['sales','returns'],['purchasing','returns'],['inventory','quarantine']];
+related=[['inventory','return_case'],['purchasing','returns'],['inventory','quarantine']];
 if(m.id==='inventory' && v[0]==='quarantine')
 related=[['sales','returns'],['inventory','returns'],['inventory','quality']];
+if(['sales','inventory'].includes(m.id) && v[0]==='return_case')
+related=[['sales','returns'],['inventory','quarantine'],['accounting','invoices']];
+if(m.id==='purchasing' && v[0]==='return_case')
+related=[['purchasing','returns'],['inventory','returns'],['accounting','bills']];
 var relatedMarkup=related.length?
 '<div class="related-workflow" aria-label="'+norm(tx('مسارات مرتبطة للمعاينة','Related preview workflows'))+'">'+
 '<strong>'+norm(tx('مسارات مرتبطة','Related workflows'))+'</strong>'+
@@ -280,7 +329,7 @@ return toolbarNav(m)+'<main class="wrap">'+demoAlert()+
 '<a href="'+homeUrl()+'" class="workspace-back" id="backBtn">'+ico('arrow')+' '+t('back')+'</a>'+breadcrumb+
 '<header class="work-header"><div class="work-identity"><div class="work-emblem">'+ico(m.icon)+'</div><div><div class="eyebrow">ONE ERP NEXT / '+norm(name(m))+'</div><h1>'+norm(label(v))+'</h1><p>'+norm(tx(m.arSub,m.enSub))+' · '+t('highlight')+'</p></div></div><div class="hside"><span class="demo-pill">'+t('preview')+'</span><a class="btn" href="'+linkTo(m,m.views[0])+'">'+ico('home')+' '+t('applications')+'</a></div></header>'+
 '<section class="context"><div class="context-heading"><strong>'+t('context')+'</strong><small>'+t('workspace')+' / '+norm(name(m))+'</small></div><nav class="context-strip" aria-label="'+norm(name(m))+'">'+contexts+'</nav></section>'+
-relatedMarkup+
+relatedMarkup+returnCaseSummary(m,v)+
 '<div class="kpis">'+data.metrics.map(function(k){return kpi(k[0],k[1],k[2],t('sample'))}).join('')+'</div>'+
 '<div class="panel">'+panelTitle(label(v),t('period'))+'<div class="work-tools">'+actionMarkup+'<button class="btn" type="button" data-action="export">'+ico('download')+' '+t('export')+'</button><button class="btn" type="button" data-action="print">'+ico('printer')+' '+t('print')+'</button><button class="btn" type="button" data-action="demo" aria-label="'+t('refresh')+'">'+ico('filter')+' '+t('refresh')+'</button></div>'+
 '<div class="table-tools"><label style="display:flex;flex:1;gap:10px;align-items:center">'+ico('search')+' <input class="filter" type="search" id="recordSearch" placeholder="'+t('search')+'" aria-label="'+t('search')+'"></label><span class="demo-pill">'+t('fictional')+'</span></div>'+
