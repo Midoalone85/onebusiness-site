@@ -301,6 +301,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "one_nrv_customer_refund_liability_register(uuid,uuid,date,date) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_request_customer_refund_order(uuid,uuid,uuid,uuid,text,text) "
+            "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_approve_customer_refund_order(uuid,uuid,uuid,text) "
+            "TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -6214,6 +6222,108 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         ):
             with self.assertRaises(self.psycopg.Error):
                 self.nrv_refund_register(company,who,start=start,end=end)
+
+    # 038 | Maker-checker customer refund orders without any bank payout.
+    def prepare_refund_approval(self,amount=Decimal("10")):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,amount),
+                          invoice,outstanding=Decimal("25"))
+        self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        approver=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'company_admin')",(tenant,approver))
+        return tenant,admin,rma,invoice,approver
+
+    def nrv_request_approval(self,tenant,actor,rma,*,order=None,
+                             evidence="BENEFICIARY-REVIEW-CI",
+                             reason="Customer returned accepted faulty units"):
+        order=order or uuid4()
+        return order,self.commerce_execute(
+            tenant,actor,"SELECT one_request_customer_refund_order("
+            "%s,%s,%s,%s,%s,%s)",
+            (tenant,rma,order,actor,evidence,reason))
+
+    def nrv_approve_request(self,tenant,actor,order,*,evidence="INDEPENDENT-REVIEW-CI"):
+        return self.commerce_execute(
+            tenant,actor,"SELECT one_approve_customer_refund_order("
+            "%s,%s,%s,%s)",(tenant,order,actor,evidence))
+
+    def test_refund_maker_checker_requires_distinct_admin_and_immutable_audit(self):
+        tenant,admin,rma,invoice,reviewer=self.prepare_refund_approval()
+        order,request=self.nrv_request_approval(tenant,admin,rma)
+        self.assertEqual(request,order)
+        self.assertEqual(self.admin.execute(
+            "SELECT amount,currency,status,requested_by,approved_by "
+            "FROM one_customer_refund_orders WHERE tenant_id=%s AND id=%s",
+            (tenant,order)).fetchone(),
+            (Decimal("10"),"SAR","requested",admin,None))
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_approve_request(tenant,admin,order)
+        self.assertEqual(self.nrv_approve_request(tenant,reviewer,order),order)
+        self.assertEqual(self.admin.execute(
+            "SELECT status,approved_by FROM one_customer_refund_orders "
+            "WHERE tenant_id=%s AND id=%s",(tenant,order)).fetchone(),
+            ("approved",reviewer))
+        self.assertEqual(self.admin.execute(
+            "SELECT event,actor_id FROM one_customer_refund_approval_audit "
+            "WHERE tenant_id=%s AND order_id=%s ORDER BY id",
+            (tenant,order)).fetchall(),[
+               ("refund.requested",admin),("refund.approved",reviewer)])
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_approve_request(tenant,reviewer,order)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(tenant,admin,
+                "DELETE FROM one_customer_refund_orders "
+                "WHERE tenant_id=%s AND id=%s RETURNING id",(tenant,order))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries WHERE tenant_id=%s "
+            "AND reference LIKE 'refund-payout:%%'",
+            (tenant,)).fetchone()[0],0)
+
+    def test_refund_request_rejects_duplicate_and_other_tenant(self):
+        tenant,admin,rma,invoice,reviewer=self.prepare_refund_approval()
+        order,_=self.nrv_request_approval(tenant,admin,rma)
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_request_approval(tenant,admin,rma)
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_request_approval(self.tenant_b,admin,rma)
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_approve_request(tenant,uuid4(),order)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_customer_refund_approval_audit "
+            "WHERE tenant_id=%s AND order_id=%s",
+            (tenant,order)).fetchone()[0],1)
+
+    def test_refund_request_requires_posted_claim_and_supporting_evidence(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        with self.assertRaises(self.psycopg.Error):
+            self.nrv_request_approval(tenant,admin,rma)
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        for evidence in ("", "short"):
+            with self.assertRaises(self.psycopg.Error):
+                self.nrv_request_approval(tenant,admin,rma,evidence=evidence)
+        order,_=self.nrv_request_approval(tenant,admin,rma)
+        self.assertIsNotNone(order)
+
+    def test_refund_order_cannot_change_protected_identity_or_amount(self):
+        tenant,admin,rma,invoice,reviewer=self.prepare_refund_approval()
+        order,_=self.nrv_request_approval(tenant,admin,rma)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(tenant,admin,
+                "UPDATE one_customer_refund_orders SET amount=999 "
+                "WHERE tenant_id=%s AND id=%s RETURNING amount",(tenant,order))
+        self.assertEqual(self.admin.execute(
+            "SELECT amount,status FROM one_customer_refund_orders "
+            "WHERE tenant_id=%s AND id=%s",(tenant,order)).fetchone(),
+            (Decimal("10"),"requested"))
+        self.nrv_approve_request(tenant,reviewer,order)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(tenant,admin,
+                "UPDATE one_customer_refund_orders SET status='requested' "
+                "WHERE tenant_id=%s AND id=%s RETURNING status",(tenant,order))
 
 if __name__ == "__main__":
     unittest.main()
