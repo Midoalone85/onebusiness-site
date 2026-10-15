@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from one_erp_core.accounting import AccountingError
 from one_erp_core.tenant_readiness import verify_physical_tenant_database
+from one_erp_core.tenant_inventory import verify_exclusive_tenant_inventory
 
 DSN = os.environ.get("ONE_TEST_PG_DSN")
 PG_HOST = os.environ.get("ONE_TEST_PG_HOST", "localhost")
@@ -296,4 +297,106 @@ class PhysicallyIsolatedTenantDatabaseTests(unittest.TestCase):
                     expected_database=self.databases[0],
                     expected_reader_role="postgres",
                 )
+
+
+    def test_exclusive_inventory_checks_actual_rows_and_peer_connect_privileges(self):
+        for i in range(2):
+            with self._connection_to_database(self.databases[i]) as inspector:
+                evidence = verify_exclusive_tenant_inventory(
+                    inspector,
+                    expected_tenant=self.tenants[i],
+                    expected_database=self.databases[i],
+                    expected_reader_role=self.roles[i],
+                    forbidden_peer_roles=(self.roles[1-i],),
+                )
+                self.assertEqual(evidence.tenant_id, self.tenants[i])
+                self.assertEqual(evidence.reader_role, self.roles[i])
+                self.assertEqual(len(evidence.digest), 32)
+
+    def test_exclusive_inventory_detects_hidden_second_tenant(self):
+        rogue = uuid4()
+        with self._connection_to_database(self.databases[0]) as admin_db:
+            admin_db.execute(
+                "INSERT INTO one_tenants(id,company_name) VALUES (%s,%s)",
+                (rogue, "Synthetic stray tenant"),
+            )
+            try:
+                with self.assertRaises(AccountingError):
+                    verify_exclusive_tenant_inventory(
+                        admin_db,
+                        expected_tenant=self.tenants[0],
+                        expected_database=self.databases[0],
+                        expected_reader_role=self.roles[0],
+                        forbidden_peer_roles=(self.roles[1],),
+                    )
+            finally:
+                admin_db.execute("DELETE FROM one_tenants WHERE id=%s", (rogue,))
+
+    def test_exclusive_inventory_denies_public_database_connect(self):
+        database = self.databases[0]
+        self.admin.execute(
+            self.sql.SQL("GRANT CONNECT ON DATABASE {} TO PUBLIC")
+            .format(self.sql.Identifier(database))
+        )
+        try:
+            with self._connection_to_database(database) as inspector:
+                with self.assertRaises(AccountingError):
+                    verify_exclusive_tenant_inventory(
+                        inspector,
+                        expected_tenant=self.tenants[0],
+                        expected_database=database,
+                        expected_reader_role=self.roles[0],
+                        forbidden_peer_roles=(self.roles[1],),
+                    )
+        finally:
+            self.admin.execute(
+                self.sql.SQL("REVOKE CONNECT ON DATABASE {} FROM PUBLIC")
+                .format(self.sql.Identifier(database))
+            )
+
+    def test_exclusive_inventory_denies_foreign_reader_connect(self):
+        database, foreign = self.databases[0], self.roles[1]
+        self.admin.execute(
+            self.sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+                self.sql.Identifier(database), self.sql.Identifier(foreign)
+            )
+        )
+        try:
+            with self._connection_to_database(database) as inspector:
+                with self.assertRaises(AccountingError):
+                    verify_exclusive_tenant_inventory(
+                        inspector,
+                        expected_tenant=self.tenants[0],
+                        expected_database=database,
+                        expected_reader_role=self.roles[0],
+                        forbidden_peer_roles=(foreign,),
+                    )
+        finally:
+            self.admin.execute(
+                self.sql.SQL("REVOKE CONNECT ON DATABASE {} FROM {}").format(
+                    self.sql.Identifier(database), self.sql.Identifier(foreign)
+                )
+            )
+
+    def test_exclusive_inventory_rejects_tenant_reader_and_bad_scope(self):
+        base = dict(
+            expected_tenant=self.tenants[0],
+            expected_database=self.databases[0],
+            expected_reader_role=self.roles[0],
+            forbidden_peer_roles=(self.roles[1],),
+        )
+        with self._reader(0) as reader:
+            with self.assertRaises(AccountingError):
+                verify_exclusive_tenant_inventory(reader, **base)
+        with self._connection_to_database(self.databases[0]) as inspector:
+            for override in (
+                {"expected_tenant": self.tenants[1]},
+                {"expected_database": self.databases[1]},
+                {"expected_reader_role": self.roles[1]},
+                {"forbidden_peer_roles": ()},
+                {"forbidden_peer_roles": (self.roles[0],)},
+                {"forbidden_peer_roles": ("invalid;identifier",)},
+            ):
+                with self.subTest(override=override), self.assertRaises(AccountingError):
+                    verify_exclusive_tenant_inventory(inspector, **(base | override))
 
