@@ -413,6 +413,18 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION "
             "one_inventory_period_close_preflight(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci")
+        # 054: CI-only execution after all previous role function grants:
+        # globally remove PUBLIC EXECUTE on public routines, then explicitly
+        # restore old broad test-runtime rights ONLY in disposable CI.
+        cls.admin.execute(
+            (migration_dir.parent / "ops" /
+             "finance_command_execute_lockdown.sql")
+            .read_text(encoding="utf-8"), prepare=False,
+        )
+        cls.admin.execute(
+            "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -8336,6 +8348,102 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 db.execute("SELECT * FROM one_invoice_docs")
             with self.assertRaises(self.psycopg.Error):
                 db.execute("DELETE FROM one_journal_entries")
+
+
+    def test_054_public_execute_is_denied_and_command_role_is_exactly_allowlisted(self):
+        # Full effective privilege scan catches PUBLIC, role memberships,
+        # indirect grants, not just direct one_erp_finance_command_executor ACL.
+        allowed=frozenset((
+            "one_actor_has_permission",
+            "one_actor_soft_adjust_limit",
+            "one_request_period_soft_close",
+            "one_approve_period_soft_close",
+            "one_request_soft_adjustment_lines",
+            "one_approve_soft_adjustment",
+            "one_post_journal",
+            "one_soft_adjustment_statement_comparison",
+        ))
+        statements=self.admin.execute(
+            """
+            SELECT p.proname,
+                has_function_privilege(
+                    'one_erp_finance_command_executor',p.oid,'EXECUTE'),
+                EXISTS (
+                  SELECT 1 FROM aclexplode(
+                    coalesce(p.proacl,acldefault('f',p.proowner))) a
+                   WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+             FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+            WHERE ns.nspname='public'
+            """
+        ).fetchall()
+        self.assertGreater(len(statements),80)
+        permitted={name for name,can_run,_ in statements if can_run}
+        self.assertEqual(permitted,allowed)
+        self.assertFalse(any(public_can for _,_,public_can in statements))
+        with self.command_role_053() as db:
+            self.assertTrue(db.execute(
+                "SELECT has_function_privilege(current_user,"
+                "'public.one_post_journal(uuid,uuid,uuid)','EXECUTE')"
+            ).fetchone()[0])
+            for signature in (
+                "public.one_close_period(uuid,uuid,uuid)",
+                "public.one_issue_invoice(uuid,uuid,uuid)",
+                "public.one_request_permission_change("
+                "uuid,uuid,uuid,text,text,text,date,date,uuid)",
+            ):
+                self.assertFalse(db.execute(
+                    "SELECT has_function_privilege(current_user,"
+                    "%s,'EXECUTE')",(signature,)
+                ).fetchone()[0],signature)
+
+    def test_054_future_default_routines_are_not_public_callable(self):
+        # Newly created routines inherit the NEW owner-specific global
+        # defaults and cannot silently expose more administrative actions.
+        self.admin.execute(
+            "CREATE FUNCTION public.one_ci_054_future_private() "
+            "RETURNS integer LANGUAGE sql AS $$SELECT 1$$")
+        try:
+            self.assertFalse(self.admin.execute(
+                "SELECT has_function_privilege("
+                "'one_erp_finance_command_executor',"
+                "'public.one_ci_054_future_private()','EXECUTE')"
+            ).fetchone()[0])
+            self.assertFalse(self.admin.execute(
+                "SELECT EXISTS(SELECT 1 FROM pg_proc p "
+                "WHERE p.oid='public.one_ci_054_future_private()'::regprocedure "
+                "AND EXISTS(SELECT 1 FROM aclexplode("
+                "coalesce(p.proacl,acldefault('f',p.proowner))) a "
+                "WHERE a.grantee=0 AND a.privilege_type='EXECUTE'))"
+            ).fetchone()[0])
+        finally:
+            self.admin.execute(
+                "DROP FUNCTION public.one_ci_054_future_private()")
+
+    def test_054_public_grant_leak_is_detectable_before_deployment(self):
+        # Simulates a migration accidentally restoring PUBLIC EXECUTE:
+        # effective SQL privilege audit must detect leakage, then restore
+        # the CI database state in a finally block.
+        signature="public.one_close_period(uuid,uuid,uuid)"
+        self.assertFalse(self.admin.execute(
+            "SELECT has_function_privilege("
+            "'one_erp_finance_command_executor',%s,'EXECUTE')",
+            (signature,)).fetchone()[0])
+        self.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "public.one_close_period(uuid,uuid,uuid) TO PUBLIC")
+        try:
+            self.assertTrue(self.admin.execute(
+                "SELECT has_function_privilege("
+                "'one_erp_finance_command_executor',%s,'EXECUTE')",
+                (signature,)).fetchone()[0])
+        finally:
+            self.admin.execute(
+                "REVOKE EXECUTE ON FUNCTION "
+                "public.one_close_period(uuid,uuid,uuid) FROM PUBLIC")
+        self.assertFalse(self.admin.execute(
+            "SELECT has_function_privilege("
+            "'one_erp_finance_command_executor',%s,'EXECUTE')",
+            (signature,)).fetchone()[0])
 
 if __name__ == "__main__":
     unittest.main()
