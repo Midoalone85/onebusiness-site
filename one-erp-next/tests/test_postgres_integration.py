@@ -60,10 +60,21 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             .read_text(encoding="utf-8"), prepare=False,
         )
         cls.admin.execute(
+            (migration_dir.parent / "control_plane" / "002_audited_provisioning.sql")
+            .read_text(encoding="utf-8"), prepare=False,
+        )
+        cls.admin.execute(
             "CREATE ROLE one_erp_auth_ci LOGIN PASSWORD 'ci_auth_only' "
             "NOSUPERUSER NOBYPASSRLS"
         )
         cls.admin.execute("GRANT one_erp_auth_lookup TO one_erp_auth_ci")
+        cls.admin.execute(
+            "CREATE ROLE one_erp_auth_provision_ci LOGIN PASSWORD 'ci_provision_only' "
+            "NOSUPERUSER NOBYPASSRLS"
+        )
+        cls.admin.execute(
+            "GRANT one_erp_auth_provisioner TO one_erp_auth_provision_ci"
+        )
 
         cls.admin.execute(
             "CREATE ROLE one_erp_report_ci LOGIN PASSWORD 'ci_report_only' "
@@ -119,6 +130,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             """INSERT INTO one_auth.tenant_entitlements(actor_id,tenant_id)
                VALUES (%s,%s)""",
             (cls.actor,cls.tenant_a),
+        )
+        cls.admin.execute(
+            """INSERT INTO one_auth.tenant_registry(tenant_id,active)
+               VALUES (%s,true),(%s,true)""",
+            (cls.tenant_a,cls.tenant_b),
         )
 
         cls.period_id = uuid4()
