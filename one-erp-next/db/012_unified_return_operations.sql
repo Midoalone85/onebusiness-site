@@ -72,7 +72,7 @@ CREATE FUNCTION one_resolve_return_quarantine(
 ) RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER AS $$
 DECLARE
   r one_return_jobs%ROWTYPE;
-  s one_stock_events%ROWTYPE;
+  v_stock one_stock_events%ROWTYPE;
   source_order uuid;
   processed_qty numeric(24,3);
 BEGIN
@@ -93,9 +93,9 @@ BEGIN
     RAISE EXCEPTION 'Invalid restock or disposal destinations and events';
   END IF;
 
-  SELECT s.order_id INTO source_order
-    FROM one_return_jobs r JOIN one_stock_events s
-      ON s.tenant_id=r.tenant_id AND s.id=r.source_event_id
+  SELECT evt.order_id INTO source_order
+    FROM one_return_jobs r JOIN one_stock_events evt
+      ON evt.tenant_id=r.tenant_id AND evt.id=r.source_event_id
     WHERE r.tenant_id=p_tenant AND r.id=p_return;
   IF source_order IS NULL THEN RAISE EXCEPTION 'Unknown return source'; END IF;
   PERFORM 1 FROM one_commercial_orders
@@ -106,9 +106,9 @@ BEGIN
      OR r.accepted_qty<=0 THEN
     RAISE EXCEPTION 'Only accepted customer return is eligible for QA disposition';
   END IF;
-  SELECT * INTO s FROM one_stock_events
+  SELECT * INTO v_stock FROM one_stock_events
     WHERE tenant_id=p_tenant AND id=r.source_event_id;
-  IF NOT FOUND OR s.movement_kind<>'sale_dispatch'
+  IF NOT FOUND OR v_stock.movement_kind<>'sale_dispatch'
      OR NOT EXISTS (SELECT 1 FROM one_warehouses
          WHERE tenant_id=p_tenant AND id=r.destination_warehouse_id
            AND warehouse_type='quarantine' AND active) THEN
@@ -134,22 +134,22 @@ BEGIN
   UPDATE one_stock_balances
     SET on_hand=on_hand-p_qty
     WHERE tenant_id=p_tenant AND warehouse_id=r.destination_warehouse_id
-      AND product_id=s.product_id AND on_hand-reserved>=p_qty;
+      AND product_id=v_stock.product_id AND on_hand-reserved>=p_qty;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Quarantined stock is absent, reserved, or insufficient';
   END IF;
   IF p_action='restock' THEN
     INSERT INTO one_stock_balances(tenant_id,warehouse_id,product_id)
-      VALUES(p_tenant,p_target,s.product_id)
+      VALUES(p_tenant,p_target,v_stock.product_id)
       ON CONFLICT (tenant_id,warehouse_id,product_id) DO NOTHING;
     UPDATE one_stock_balances SET on_hand=on_hand+p_qty
-      WHERE tenant_id=p_tenant AND warehouse_id=p_target AND product_id=s.product_id;
+      WHERE tenant_id=p_tenant AND warehouse_id=p_target AND product_id=v_stock.product_id;
   END IF;
   INSERT INTO one_stock_events
     (tenant_id,id,order_id,line_no,warehouse_id,product_id,
      movement_kind,quantity,actor_id)
-  VALUES(p_tenant,p_event_out,s.order_id,s.line_no,r.destination_warehouse_id,
-         s.product_id,
+  VALUES(p_tenant,p_event_out,v_stock.order_id,v_stock.line_no,r.destination_warehouse_id,
+         v_stock.product_id,
          CASE WHEN p_action='restock' THEN 'return_restock_out'
            ELSE 'return_disposal' END,
          p_qty,p_actor);
@@ -157,7 +157,7 @@ BEGIN
     INSERT INTO one_stock_events
       (tenant_id,id,order_id,line_no,warehouse_id,product_id,
        movement_kind,quantity,actor_id)
-    VALUES(p_tenant,p_event_in,s.order_id,s.line_no,p_target,s.product_id,
+    VALUES(p_tenant,p_event_in,v_stock.order_id,v_stock.line_no,p_target,v_stock.product_id,
            'return_restock_in',p_qty,p_actor);
   END IF;
   INSERT INTO one_return_dispositions(
