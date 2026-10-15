@@ -20,6 +20,7 @@ from one_erp_core.invoicing import (
     DocumentType, TaxCategory, InvoiceLine, InvoiceDocument, InvoiceLedgerAccounts,
 )
 from one_erp_core.invoice_persistence import persist_invoice_with_journal
+from one_erp_core.sales_invoice_bridge import persist_dispatch_backed_sales_invoice
 from one_erp_core.payments import (
     PaymentRequest, PaymentDirection, PaymentLedgerAccounts,
     PaymentAllocation, OpenInvoice,
@@ -146,6 +147,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         cls.admin.execute(
             "GRANT EXECUTE ON FUNCTION "
             "one_dispatch_reserved_sale_line(uuid,uuid,integer,numeric,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
+        # Source linkage is accessible only in the disposable CI DB.
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_link_sales_invoice(uuid,uuid,uuid,uuid,integer[]) "
             "TO one_erp_runtime_ci"
         )
         cls.db = psycopg.connect(
@@ -1718,6 +1725,140 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT count(*) FROM one_reservation_events "
             "WHERE tenant_id=%s AND order_id IN (%s,%s)",
             (tenant,outgoing,competitor)).fetchone()[0],1)
+
+
+
+    def sale_source_invoice(self, tenant, quantity, *,
+                            partner="TEST-PARTNER", price=Decimal("12.50")):
+        return InvoiceDocument(
+            uuid4(), tenant, "SI-"+uuid4().hex, partner,
+            DocumentType.CUSTOMER_INVOICE, date(2026,10,15),
+            date(2026,11,15), "SAR",
+            (InvoiceLine("Stockable item", "sales", quantity, price),),
+        )
+
+    def post_dispatched_sale_invoice(self, order, actor, doc,
+                                    line_numbers=(1,)):
+        return persist_dispatch_backed_sales_invoice(
+            self.db, order_id=order, order_line_numbers=line_numbers,
+            document=doc, accounts=self.invoice_accounts, chart=self.chart,
+            period=self.period, period_id=self.period_id, actor_id=actor,
+            memberships=(Membership(actor,self.tenant_a,Role.COMPANY_ADMIN),),
+        )
+
+    def test_sales_dispatch_to_invoice_journal_has_traceable_source(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,4,%s,%s)",
+            (tenant,purchase,uuid4(),actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,sale,uuid4(),actor))
+        doc=self.sale_source_invoice(tenant,Decimal("2"))
+        proposal=self.post_dispatched_sale_invoice(sale,actor,doc)
+        self.assertEqual(proposal.totals.net,Decimal("25.00"))
+        self.assertEqual(self.admin.execute(
+            "SELECT d.status,j.status FROM one_invoice_docs d "
+            "JOIN one_journal_entries j ON j.tenant_id=d.tenant_id AND j.id=d.journal_id "
+            "WHERE d.tenant_id=%s AND d.id=%s",(tenant,doc.id)
+        ).fetchone(),("issued","posted"))
+        self.assertEqual(self.admin.execute(
+            "SELECT order_id,order_line_no,billed_qty "
+            "FROM one_sales_invoice_allocations "
+            "WHERE tenant_id=%s AND invoice_id=%s",(tenant,doc.id)
+        ).fetchone(),(sale,1,Decimal("2")))
+        second=self.sale_source_invoice(tenant,Decimal("1"))
+        self.post_dispatched_sale_invoice(sale,actor,second)
+        self.assertEqual(self.admin.execute(
+            "SELECT sum(billed_qty) FROM one_sales_invoice_allocations "
+            "WHERE tenant_id=%s AND order_id=%s",(tenant,sale)
+        ).fetchone()[0],Decimal("3"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_audit "
+            "WHERE tenant_id=%s AND doc_id IN (%s,%s)",
+            (tenant,doc.id,second.id)).fetchone()[0],2)
+
+    def test_sales_invoice_cannot_bill_undelivered_quantity_or_leave_partial_gl(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,purchase,uuid4(),actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,uuid4(),actor))
+        self.post_dispatched_sale_invoice(
+            sale,actor,self.sale_source_invoice(tenant,Decimal("1")))
+        bad=self.sale_source_invoice(tenant,Decimal("2"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_dispatched_sale_invoice(sale,actor,bad)
+        for table,where in (
+            ("one_invoice_docs","id"),
+            ("one_journal_entries","id"),
+            ("one_invoice_audit","doc_id"),
+            ("one_sales_invoice_allocations","invoice_id"),
+        ):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+" WHERE tenant_id=%s AND "
+                +where+"=%s",(tenant,bad.id)).fetchone()[0],0)
+
+    def test_sales_invoice_rejects_wrong_partner_and_price_atomically(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,purchase,uuid4(),actor))
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,uuid4(),actor))
+        docs=(
+            self.sale_source_invoice(tenant,Decimal("1"),partner="OTHER-BUYER"),
+            self.sale_source_invoice(tenant,Decimal("1"),price=Decimal("14.00")),
+        )
+        for doc in docs:
+            with self.subTest(id=doc.id), self.assertRaises(self.psycopg.Error):
+                self.post_dispatched_sale_invoice(sale,actor,doc)
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM one_journal_entries "
+                "WHERE tenant_id=%s AND id=%s",
+                (tenant,doc.id)).fetchone()[0],0)
+
+    def test_sales_invoice_requires_dispatched_and_confirmed_sale(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        first=self.sale_source_invoice(tenant,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_dispatched_sale_invoice(sale,actor,first)
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,actor))
+        second=self.sale_source_invoice(tenant,Decimal("1"))
+        with self.assertRaises(self.psycopg.Error):
+            self.post_dispatched_sale_invoice(sale,actor,second)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_docs "
+            "WHERE tenant_id=%s AND id IN (%s,%s)",
+            (tenant,first.id,second.id)).fetchone()[0],0)
+
+    def test_sales_invoice_rejects_invalid_source_map_before_mutation(self):
+        from one_erp_core.accounting import AccountingError
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        doc=self.sale_source_invoice(tenant,Decimal("1"))
+        for mapping in ((),(0,),(True,),(1,1),[1]):
+            with self.subTest(mapping=mapping),self.assertRaises(AccountingError):
+                self.post_dispatched_sale_invoice(sale,actor,doc,mapping)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_invoice_docs WHERE tenant_id=%s AND id=%s",
+            (tenant,doc.id)).fetchone()[0],0)
 
 
 if __name__ == "__main__":
