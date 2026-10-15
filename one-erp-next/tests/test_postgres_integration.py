@@ -6496,6 +6496,63 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "WHERE tenant_id=%s AND order_id=%s",
             (tenant,order)).fetchone()[0],1)
 
+    def test_bank_candidate_duplicate_transaction_cannot_cover_two_refunds(self):
+        tenant,preparer,reviewer,clerk1,order1=self.prepare_bank_candidate_order()
+        tenant2,preparer2,reviewer2,clerk2,order2=self.prepare_bank_candidate_order()
+        self.assertEqual(tenant,tenant2)
+        self.register_bank_candidate(
+            tenant,clerk1,order1,transaction_ref="TX-REUSED-BANK-001")
+        with self.assertRaises(self.psycopg.Error):
+            self.register_bank_candidate(
+                tenant,clerk2,order2,transaction_ref="TX-REUSED-BANK-001")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_refund_bank_debit_candidates "
+            "WHERE tenant_id=%s AND bank_transaction_ref=%s",
+            (tenant,"TX-REUSED-BANK-001")).fetchone()[0],1)
+
+    def test_parallel_bank_candidate_submission_has_one_winner_and_no_duplicate(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,preparer,reviewer,clerk,order=self.prepare_bank_candidate_order()
+        start=Barrier(2)
+        def attempt():
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(tenant),))
+                        conn.execute("SELECT set_config('one.actor_id',%s,true)",
+                                     (str(clerk),))
+                        start.wait(timeout=10)
+                        line_id=uuid4()
+                        conn.execute(
+                            "SELECT one_register_refund_bank_candidate("
+                            "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                            (tenant,order,line_id,clerk,"BANK-ACCOUNT-DEMO",
+                             "STATEMENT-TEST-20261015","TX-"+line_id.hex,
+                             "ORDER-"+str(order),"BENEFICIARY-REVIEW-CI",
+                             "SAR",Decimal("10"),date(2026,10,16)))
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first=pool.submit(attempt)
+            second=pool.submit(attempt)
+            outcomes=(first.result(timeout=35),second.result(timeout=35))
+        self.assertEqual(sorted(outcomes),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_refund_bank_debit_candidates "
+            "WHERE tenant_id=%s AND order_id=%s",
+            (tenant,order)).fetchone()[0],1)
+        self.assertEqual(self.bank_candidate_company_report(
+            tenant,self.actor)[-1],"candidates_unverified_no_disbursement")
+
     def test_bank_candidate_rejects_incorrect_amount_currency_and_evidence(self):
         tenant,preparer,reviewer,bank_clerk,order=self.prepare_bank_candidate_order()
         for options in (
