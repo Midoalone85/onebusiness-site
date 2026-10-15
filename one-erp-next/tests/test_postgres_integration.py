@@ -264,6 +264,9 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_dispatch_reserved_or_delivery_with_nrv("
             "uuid,uuid,integer,uuid,numeric,uuid,uuid,uuid,uuid,"
             "text,text,text,uuid) TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION one_nrv_adjusted_sales_activity("
+            "uuid,uuid,date,date) TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -5369,6 +5372,116 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,stock)).fetchone()[0],1)
         self.assertEqual(self.nrv_report(tenant,admin,warehouse,product)[3],
                          Decimal("10.50"))
+
+    # 029 | IAS 2 NRV sale cost audit and source-aware customer-return gate.
+    def nrv_sales_activity(self,tenant,actor,*,start=date(2026,1,1),
+                           end=date(2027,1,1)):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_nrv_adjusted_sales_activity(%s,%s,%s,%s)",
+                (tenant,actor,start,end)).fetchone()
+
+    def test_ias2_sale_cost_activity_reconciles_dispatch_and_net_cogs(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        before=self.nrv_sales_activity(tenant,self.actor)
+        self.nrv_post(tenant,admin,warehouse,product)
+        self.commerce_execute(tenant,admin,
+            "SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,admin))
+        self.sell_nrv_adjusted(tenant,admin,sale,Decimal("2"))
+        after=self.nrv_sales_activity(tenant,self.actor)
+        self.assertEqual(tuple(x-y for x,y in zip(after[:5],before[:5])),(
+            1,Decimal("2"),Decimal("25"),Decimal("7"),Decimal("18")))
+        self.assertEqual(after[5]-before[5],0)
+        self.assertTrue(after[6])
+        later=self.nrv_sales_activity(tenant,self.actor,
+            start=date(2026,10,16),end=date(2026,11,1))
+        self.assertEqual(later[:6],(
+            0,Decimal("0"),Decimal("0"),Decimal("0"),Decimal("0"),0))
+        self.assertTrue(later[6])
+
+    def test_ias2_cost_activity_includes_packed_delivery_without_double_count(self):
+        tenant,admin,product,warehouse,sale=self.prepare_nrv_reserved_sale()
+        job=uuid4()
+        self.commerce_execute(tenant,admin,
+            "SELECT one_create_delivery(%s,%s,%s,1,3,%s)",
+            (tenant,job,sale,admin))
+        self.delivery_stage(tenant,admin,job,"picked")
+        self.delivery_stage(tenant,admin,job,"packed")
+        before=self.nrv_sales_activity(tenant,self.actor)
+        self.dispatch_nrv_reserved(tenant,admin,sale,Decimal("3"),job=job)
+        after=self.nrv_sales_activity(tenant,self.actor)
+        self.assertEqual(tuple(x-y for x,y in zip(after[:5],before[:5])),(
+            1,Decimal("3"),Decimal("37.50"),Decimal("10.50"),Decimal("27")))
+        self.assertTrue(after[6])
+
+    def test_ias2_adjusted_sale_return_stays_requested_if_accounted_without_policy(self):
+        tenant,admin,product,warehouse,purchase,sale,receipt=(
+            self.valued_receipt_for_vendor_bill())
+        self.nrv_post(tenant,admin,warehouse,product)
+        self.commerce_execute(tenant,admin,
+            "SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,sale,admin))
+        sold_event,gross,release,_=self.sell_nrv_adjusted(
+            tenant,admin,sale,Decimal("2"))
+        quarantine=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_warehouses(tenant_id,id,code,name,warehouse_type) "
+            "VALUES(%s,%s,%s,'NRV return test quarantine','quarantine')",
+            (tenant,quarantine,"Q-NRV-"+quarantine.hex))
+        job=uuid4()
+        self.commerce_execute(tenant,admin,
+            "SELECT one_request_return(%s,%s,%s,2,%s,%s,'NRV sale refund')",
+            (tenant,job,sold_event,quarantine,admin))
+        attempt_event,attempt_journal=uuid4(),uuid4()
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(tenant,admin,
+                "SELECT one_finish_return(%s,%s,2,%s,%s)",
+                (tenant,job,attempt_event,admin))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(tenant,admin,
+                "SELECT one_accept_and_value_customer_return("
+                "%s,%s,2,%s,%s,%s,'inventory','cogs',%s)",
+                (tenant,job,attempt_event,attempt_journal,self.period_id,admin))
+        self.assertEqual(self.admin.execute(
+            "SELECT status,processed_event_id FROM one_return_jobs "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,job)).fetchone(),("requested",None))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,attempt_event)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,attempt_journal)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("3"))
+        # Rejecting an RMA remains a permitted non-stock/no-credit outcome.
+        self.commerce_execute(tenant,admin,
+            "SELECT one_finish_return(%s,%s,0,NULL,%s)",
+            (tenant,job,admin))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_return_jobs WHERE tenant_id=%s AND id=%s",
+            (tenant,job)).fetchone()[0],"rejected")
+
+    def test_ias2_sale_cost_activity_requires_authorized_company_period(self):
+        for tid,person,begin,end in (
+            (self.tenant_a,uuid4(),date(2026,1,1),date(2027,1,1)),
+            (self.tenant_b,self.actor,date(2026,1,1),date(2027,1,1)),
+            (self.tenant_a,self.actor,date(2027,1,1),date(2026,1,1)),
+        ):
+            with self.assertRaises(self.psycopg.Error):
+                self.commerce_execute(tid,person,
+                    "SELECT * FROM one_nrv_adjusted_sales_activity(%s,%s,%s,%s)",
+                    (tid,person,begin,end))
 
 if __name__ == "__main__":
     unittest.main()
