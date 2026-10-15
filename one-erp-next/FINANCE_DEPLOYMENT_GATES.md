@@ -63,3 +63,13 @@ The pipeline `.github/workflows/one-erp-next-finance-tests.yml` runs Python test
 - The presentation module creates escaped, responsive Arabic RTL and English LTR HTML with print-oriented A4 layout and a visible accounting-equation discrepancy indicator. No PDF server, reporting endpoint or final graphical web dashboard is deployed.
 - Comparative P&L inspects adjacent equal-duration periods and highlights expense growth, revenue decline and loss based on caller-chosen Decimal thresholds. These are rule-based explanatory flags, NOT fraud accusations, forecasts or AI certainties.
 - Publishing production financial statements requires legal entity name/identity, reporting currency rules, opening/closing balances, treatment of prior-year earnings and equity, consolidation, audit approvals, backups, user-role security and end-to-end browser tests.
+
+## Private financial reporting connection (prototype only)
+
+- report_repository.load_finance_snapshot reads posted journal headers and lines, company name, chart and active DB membership in one PostgreSQL REPEATABLE READ / READ ONLY transaction. It uses tenant RLS, rejects privileged DB roles and catches journals with missing lines. This is not a substitute for isolated tenant databases.
+- finance_dashboard.build_finance_dashboard composes balance sheet, trial balance, comparative P&L and source references from the same in-memory snapshot; refuses invalid or imbalanced data.
+- dashboard_presentation.render_finance_dashboard_html generates blue-themed RTL Arabic/LTR English standalone HTML, KPI cards, comparison bars, source drill-down details and conservative financial flags. This is NOT a deployed browser application or authenticated customer web route.
+- finance_http_boundary.render_private_dashboard_response is an integration building block only. It requires an injected trusted server-side identity verifier (not implemented), denies disallowed tenants before database access, rechecks active membership in PostgreSQL, reads the company name from the database and sets no-store/cache and restrictive CSP HTTP headers.
+- Before production implement real session or access-token verification (signature, issuer, audience, expiry, revocation), trusted backend routing and storage, MFA policy, tenant-specific DB provisioning, least-privilege SQL grants, HTTPS, CSRF protection if cookie auth, rate limiting and browser/HTTP tests.
+- PostgreSQL custom session parameters can be spoofed by clients with arbitrary SQL access. Never expose the database, table writes or functions directly to customers.
+- Do not publish financial report data to GitHub Pages. Private HTML responses containing sensitive financial details must require authenticated HTTPS and no-store.
