@@ -14,9 +14,9 @@ const workspace=fs.readFileSync(path.join(root,'workspace','index.html'),'utf8')
 
 const moduleViews={
  accounting:['overview','journals','invoices','bills','payments','bank','accounts','tax','statements'],
- sales:['overview','quotes','orders','invoices','deliveries','proof','returns','customers'],
- purchasing:['overview','requests','orders','receiving','returns','bills','suppliers'],
- inventory:['overview','products','receipts','picking','deliveries','quality','returns','quarantine','transfers','warehouses','valuation'],
+ sales:['overview','quotes','orders','invoices','deliveries','proof','returns','return_case','customers'],
+ purchasing:['overview','requests','orders','receiving','returns','return_case','bills','suppliers'],
+ inventory:['overview','products','receipts','picking','deliveries','quality','returns','quarantine','return_case','transfers','warehouses','valuation'],
  crm:['overview','leads','pipeline','activities','contacts'],
  healthcare:['overview','rooms','patients','appointments','doctors','lab','radiology','pharmacy','meals'],
  hr:['overview','employees','attendance','payroll','leaves','contracts'],
@@ -92,7 +92,7 @@ test('every module page renders top modules, own page, back and contextual links
    }
   }
  }
- assert.equal(cases,122);
+ assert.equal(cases,128);
 });
 
 test('homepage shows all eight horizontal modules and navigable links',()=>{
@@ -276,6 +276,30 @@ test('returns and quarantine show consistent immutable sample references',()=>{
      assert.match(r.main,/id="backBtn"/);
      assert.match(r.main,/data-action="demo"/);
      assert.match(r.main,/role="status"/);
+   }
+ }
+});
+
+
+test('unified returns display separate stock and finance status across business modules',()=>{
+ for(const lang of ['ar','en']){
+   for(const module of ['sales','purchasing','inventory']){
+     const r=setup({page:'workspace',module,view:'return_case',lang});
+     assert.match(r.main,/class="return-dual-state"/);
+     assert.match(r.main,/id="backBtn"/);
+     assert.match(r.main,/id="recordCount"/);
+     assert.match(r.main,/DEMO DATA/);
+     assert.match(r.main,/module='+module+'&view=return_case/);
+     assert.match(r.main,/class="related-workflow"/);
+     if(module==='purchasing'){
+       assert.match(r.main,/RMA-V-2026-004/);
+       assert.match(r.main,/accounting&view=bills/);
+     }else{
+       assert.match(r.main,/RMA-C-2026-006/);
+       assert.match(r.main,/inventory&view=quarantine/);
+       assert.match(r.main,/accounting&view=invoices/);
+     }
+     assert.equal(r.document.documentElement.dir,lang==='ar'?'rtl':'ltr');
    }
  }
 });
