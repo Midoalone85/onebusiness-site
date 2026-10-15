@@ -58,6 +58,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (migration_dir.parent / "ops" / "report_reader_privileges.sql").read_text(encoding="utf-8"),
             prepare=False,
         )
+        # 053: explicitly opt-in separately reviewed restricted command role.
+        cls.admin.execute(
+            (migration_dir.parent / "ops" / "finance_command_privileges.sql")
+            .read_text(encoding="utf-8"), prepare=False,
+        )
         cls.admin.execute(
             (migration_dir.parent / "control_plane" / "001_identity_registry.sql")
             .read_text(encoding="utf-8"), prepare=False,
@@ -100,6 +105,16 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         )
         cls.admin.execute(
             "GRANT one_erp_finance_report_reader TO one_erp_report_ci"
+        )
+        # 053: dedicated CI LOGIN inherits ONLY vetted NOLOGIN command grants.
+        # Never share this password outside the disposable PG14 CI database.
+        cls.admin.execute(
+            "CREATE ROLE one_erp_command_ci LOGIN "
+            "PASSWORD 'ci_command_only' NOSUPERUSER NOBYPASSRLS "
+            "NOCREATEDB NOCREATEROLE"
+        )
+        cls.admin.execute(
+            "GRANT one_erp_finance_command_executor TO one_erp_command_ci"
         )
         # Ephemeral CI-only role. The broad DML grants below allow tests to
         # verify RLS and triggers; never copy them into production grants.
@@ -8143,7 +8158,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
                 port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
                 dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
-                user="one_erp_runtime_ci",password="ci_only_password",
+                user="one_erp_command_ci",password="ci_command_only",
                 autocommit=True,
             )
         app=OneFinanceCommandsWSGI(
@@ -8213,6 +8228,114 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "WHERE tenant_id=%s AND journal_id=%s AND posted_by=%s",
             (tenant,journal,owner)
         ).fetchone()[0],1)
+
+
+    def command_role_053(self):
+        return self.psycopg.connect(
+            host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+            port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+            dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+            user="one_erp_command_ci",password="ci_command_only",
+            autocommit=True,
+        )
+
+    def test_053_command_login_has_grants_only_for_finance_workflow(self):
+        with self.command_role_053() as db:
+            grants=db.execute(
+                "SELECT rolcanlogin,rolsuper,rolbypassrls,rolcreatedb,"
+                "rolcreaterole FROM pg_roles WHERE rolname=current_user"
+            ).fetchone()
+            self.assertEqual(grants,(True,False,False,False,False))
+            self.assertEqual(db.execute(
+                "SELECT has_schema_privilege(current_user,'public','CREATE')"
+            ).fetchone()[0],False)
+            for name in (
+                "one_tenants","one_memberships","one_invoice_docs",
+                "one_payment_docs","one_stock_events",
+                "one_permission_change_requests",
+                "one_soft_adjustment_approval_evidence",
+                "one_soft_adjustment_statement_approval_seals",
+                "one_ledger_audit",
+            ):
+                self.assertFalse(db.execute(
+                    "SELECT has_table_privilege(current_user,%s,'DELETE')",
+                    (name,)).fetchone()[0],name)
+                self.assertFalse(db.execute(
+                    "SELECT has_table_privilege(current_user,%s,'TRUNCATE')",
+                    (name,)).fetchone()[0],name)
+            for name in (
+                "one_memberships","one_invoice_docs","one_payment_docs",
+                "one_stock_events","one_permission_change_requests",
+            ):
+                self.assertFalse(db.execute(
+                    "SELECT has_table_privilege(current_user,%s,'INSERT')",
+                    (name,)).fetchone()[0],name)
+                self.assertFalse(db.execute(
+                    "SELECT has_table_privilege(current_user,%s,'UPDATE')",
+                    (name,)).fetchone()[0],name)
+            self.assertFalse(db.execute(
+                "SELECT has_table_privilege("
+                "current_user,'one_invoice_docs','SELECT')"
+            ).fetchone()[0])
+            self.assertFalse(db.execute(
+                "SELECT has_table_privilege("
+                "current_user,'one_stock_balances','SELECT')"
+            ).fetchone()[0])
+            self.assertTrue(db.execute(
+                "SELECT has_table_privilege("
+                "current_user,'one_soft_adjustment_requests','INSERT')"
+            ).fetchone()[0])
+            self.assertTrue(db.execute(
+                "SELECT has_column_privilege(current_user,"
+                "'one_journal_entries','status','UPDATE')"
+            ).fetchone()[0])
+            self.assertFalse(db.execute(
+                "SELECT has_column_privilege(current_user,"
+                "'one_journal_entries','occurred_on','UPDATE')"
+            ).fetchone()[0])
+            self.assertFalse(db.execute(
+                "SELECT has_function_privilege(current_user,"
+                "'one_close_period(uuid,uuid,uuid)','EXECUTE')"
+            ).fetchone()[0])
+            self.assertFalse(db.execute(
+                "SELECT has_function_privilege(current_user,"
+                "'one_request_permission_change("
+                "uuid,uuid,uuid,text,text,text,date,date,uuid)','EXECUTE')"
+            ).fetchone()[0])
+            self.assertTrue(db.execute(
+                "SELECT has_function_privilege(current_user,"
+                "'one_post_journal(uuid,uuid,uuid)','EXECUTE')"
+            ).fetchone()[0])
+            with self.assertRaises(self.psycopg.Error):
+                db.execute("CREATE TABLE unauthorized_command_probe(x integer)")
+
+    def test_053_command_role_blocks_other_company_reads_and_direct_mutation(self):
+        tenant,owner,reviewer,product,warehouse,period,purchase,sale=(
+            self.inventory_history_046_fixture())
+        with self.command_role_053() as db:
+            with db.transaction():
+                db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                           (str(tenant),))
+                db.execute("SELECT set_config('one.actor_id',%s,true)",
+                           (str(owner),))
+                self.assertEqual(db.execute(
+                    "SELECT count(*) FROM one_memberships "
+                    "WHERE tenant_id=%s",(tenant,)).fetchone()[0],2)
+                self.assertFalse(db.execute(
+                    "SELECT EXISTS(SELECT 1 FROM one_memberships "
+                    "WHERE tenant_id=%s)",(self.tenant_a,)).fetchone()[0])
+                self.assertTrue(db.execute(
+                    "SELECT one_actor_has_permission(%s,%s,"
+                    "'finance.period.soft_close.request')",
+                    (tenant,owner)).fetchone()[0])
+            with self.assertRaises(self.psycopg.Error):
+                db.execute(
+                    "INSERT INTO one_memberships(tenant_id,actor_id,role)"
+                    " VALUES(%s,%s,'company_admin')",(tenant,uuid4()))
+            with self.assertRaises(self.psycopg.Error):
+                db.execute("SELECT * FROM one_invoice_docs")
+            with self.assertRaises(self.psycopg.Error):
+                db.execute("DELETE FROM one_journal_entries")
 
 if __name__ == "__main__":
     unittest.main()
