@@ -37,7 +37,7 @@ DECLARE
  v_bill_line one_invoice_lines%ROWTYPE;
  allowed_qty numeric(24,3);
  already_qty numeric(24,3);
- line_number integer;
+ loop_ix integer;
  line_count integer;
 BEGIN
  IF p_tenant IS NULL OR p_bill IS NULL OR p_order IS NULL OR
@@ -81,13 +81,13 @@ BEGIN
               WHERE tenant_id=p_tenant AND bill_id=p_bill) THEN
   RAISE EXCEPTION 'Source mapping must cover each invoice line only once';
  END IF;
- FOR line_number IN 1..cardinality(p_order_lines) LOOP
+ FOR loop_ix IN 1..cardinality(p_order_lines) LOOP
   SELECT * INTO v_line FROM one_commercial_order_lines
     WHERE tenant_id=p_tenant AND order_id=p_order
-      AND line_no=p_order_lines[line_number] FOR UPDATE;
+      AND line_no=p_order_lines[loop_ix] FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Missing PO source line'; END IF;
   SELECT * INTO v_bill_line FROM one_invoice_lines
-    WHERE tenant_id=p_tenant AND doc_id=p_bill AND line_number=line_number;
+    WHERE tenant_id=p_tenant AND doc_id=p_bill AND line_number=loop_ix;
   IF NOT FOUND OR v_bill_line.account_id<>p_grni OR
      v_bill_line.quantity<>round(v_bill_line.quantity,3) OR
      v_bill_line.unit_price<>v_line.unit_price OR
@@ -115,7 +115,7 @@ BEGIN
   END IF;
   INSERT INTO one_goods_bill_allocations(
     tenant_id,bill_id,bill_line_no,order_id,order_line_no,billed_qty,actor_id)
-  VALUES(p_tenant,p_bill,line_number,p_order,v_line.line_no,
+  VALUES(p_tenant,p_bill,loop_ix,p_order,v_line.line_no,
          v_bill_line.quantity,p_actor);
  END LOOP;
  RETURN p_bill;
