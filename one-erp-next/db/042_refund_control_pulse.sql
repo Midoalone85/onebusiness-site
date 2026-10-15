@@ -71,7 +71,7 @@ BEGIN
          AND b.beneficiary_evidence_ref=o.beneficiary_evidence_ref
          AND b.verification_status='unverified'))
     ),true)::boolean,
-  'not_disbursed_no_authenticated_bank_feed'::text
+  'bank_settlement_unknown_no_authenticated_feed'::text
  FROM one_nrv_refund_claims c
  JOIN one_invoice_docs original ON original.tenant_id=c.tenant_id
     AND original.id=c.original_invoice_id
