@@ -23,7 +23,7 @@ As of 2026-10-11 current public records observed:
    @ 185.199.109.153
    @ 185.199.110.153
    @ 185.199.111.153
-   www CNAME midoalone85.github.io (the DNS target is a provider alias, not customer branding).
+   www CNAME <verified-github-pages-hostname> (replace this placeholder with the current GitHub Pages target from repository Pages settings; never deploy the placeholder as a real DNS record).
    Keep MX, SPF/TXT, any business mail verification and DNS records not related to the site.
 3. Validate using independent resolvers (1.1.1.1, 8.8.8.8), 200 response for
    https://onebusiness.site/ and /one-erp/plans/ and no browser certificate warning.
