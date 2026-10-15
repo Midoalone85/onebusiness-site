@@ -193,6 +193,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION one_return_case_timeline(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci"
         )
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_value_physical_stock_event(uuid,uuid,uuid,text,text,uuid,uuid) "
+            "TO one_erp_runtime_ci"
+        )
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -251,6 +256,9 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             ("ar","120",AccountKind.ASSET),
             ("ap","220",AccountKind.LIABILITY),
             ("expense","500",AccountKind.EXPENSE),
+            ("inventory","140",AccountKind.ASSET),
+            ("grni","240",AccountKind.LIABILITY),
+            ("cogs","510",AccountKind.EXPENSE),
             ("vatout","230",AccountKind.LIABILITY),
             ("vatin","130",AccountKind.ASSET),
         ):
@@ -3235,6 +3243,234 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                          sorted(pos for pos,_,_ in log))
         self.assertEqual(self.read_unified_return_case(tenant,actor,rma)[1],
                          "vendor_stock_returned")
+
+
+
+    def value_stock_event(self,tenant,actor,stock_event,offset,journal=None,
+                          inventory="inventory",period_id=None):
+        journal=journal or uuid4()
+        return journal,self.commerce_execute(
+            tenant,actor,"SELECT one_value_physical_stock_event("
+            "%s,%s,%s,%s,%s,%s,%s)",
+            (tenant,stock_event,period_id or self.period_id,
+             inventory,offset,journal,actor))
+
+    def test_real_valuation_receipt_then_sale_posts_grni_cogs_and_source_link(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        receipt=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,receipt,actor))
+        j1,result=self.value_stock_event(tenant,actor,receipt,"grni")
+        self.assertEqual(j1,result)
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value,currency FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("5"),Decimal("62.50"),"SAR"))
+        ship=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,sale,ship,actor))
+        j2,result=self.value_stock_event(tenant,actor,ship,"cogs")
+        self.assertEqual(j2,result)
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("3"),Decimal("37.50")))
+        self.assertEqual(self.admin.execute(
+            "SELECT movement_kind,qty,amount,journal_id FROM one_stock_value_events "
+            "WHERE tenant_id=%s AND stock_event_id=%s",
+            (tenant,ship)).fetchone(),
+            ("sale_dispatch",Decimal("2"),Decimal("25.00"),j2))
+        self.assertEqual(self.admin.execute(
+            "SELECT status FROM one_journal_entries WHERE tenant_id=%s "
+            "AND id=%s",(tenant,j2)).fetchone()[0],"posted")
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,j2)).fetchall(),
+            [("cogs",Decimal("25"),Decimal("0")),
+             ("inventory",Decimal("0"),Decimal("25"))])
+        self.assertEqual(self.admin.execute(
+            "SELECT account_id,debit,credit FROM one_journal_lines "
+            "WHERE tenant_id=%s AND entry_id=%s ORDER BY line_number",
+            (tenant,j1)).fetchall(),
+            [("inventory",Decimal("62.50"),Decimal("0")),
+             ("grni",Decimal("0"),Decimal("62.50"))])
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_ledger_audit WHERE tenant_id=%s "
+            "AND entry_id IN (%s,%s)",
+            (tenant,j1,j2)).fetchone()[0],2)
+
+    def test_full_sale_empties_book_value_and_is_not_double_costed(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        first=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,first,actor))
+        self.value_stock_event(tenant,actor,first,"grni")
+        ship=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,sale,ship,actor))
+        journal,_=self.value_stock_event(tenant,actor,ship,"cogs")
+        self.assertEqual(self.admin.execute(
+            "SELECT qty,book_value FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),(0,0))
+        with self.assertRaises(self.psycopg.Error):
+            self.value_stock_event(tenant,actor,ship,"cogs")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_value_events WHERE "
+            "tenant_id=%s AND stock_event_id=%s",
+            (tenant,ship)).fetchone()[0],1)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_journal_entries "
+            "WHERE tenant_id=%s AND id=%s",(tenant,journal)).fetchone()[0],1)
+
+    def test_value_ledger_refuses_old_stock_event_when_multiple_unvalued(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        for order in (purchase,sale):
+            self.commerce_execute(
+                tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+                (tenant,order,actor))
+        receipt=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,5,%s,%s)",
+            (tenant,purchase,receipt,actor))
+        ship=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,1,%s,%s)",
+            (tenant,sale,ship,actor))
+        for evt,offset in ((receipt,"grni"),(ship,"cogs")):
+            with self.assertRaises(self.psycopg.Error):
+                self.value_stock_event(tenant,actor,evt,offset)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_value_positions WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],0)
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_value_events "
+            "WHERE tenant_id=%s AND stock_event_id IN (%s,%s)",
+            (tenant,receipt,ship)).fetchone()[0],0)
+
+    def test_valuation_fail_closed_wrong_account_role_or_closed_period(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        evt=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,purchase,evt,actor))
+        closed=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive,closed) "
+            "VALUES (%s,%s,%s,%s,true)",
+            (tenant,closed,date(2026,1,1),date(2027,1,1)))
+        for args in (
+            {"offset":"cogs"},
+            {"offset":"grni","inventory":"sales"},
+            {"offset":"grni","period_id":closed},
+        ):
+            with self.subTest(args=args),self.assertRaises(self.psycopg.Error):
+                self.value_stock_event(tenant,actor,evt,**args)
+        with self.assertRaises(self.psycopg.Error):
+            self.value_stock_event(tenant,self.actor,evt,"grni")
+        with self.assertRaises(self.psycopg.Error):
+            self.value_stock_event(self.tenant_b,actor,evt,"grni")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_value_positions WHERE "
+            "tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],0)
+        self.value_stock_event(tenant,actor,evt,"grni")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_value_events WHERE "
+            "tenant_id=%s AND stock_event_id=%s",
+            (tenant,evt)).fetchone()[0],1)
+
+    def test_valuation_position_and_source_events_are_append_only(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        evt=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,1,%s,%s)",
+            (tenant,purchase,evt,actor))
+        self.value_stock_event(tenant,actor,evt,"grni")
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(tenant,actor,
+                "UPDATE one_stock_value_positions SET book_value=999 "
+                "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s "
+                "RETURNING qty",(tenant,warehouse,product))
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(tenant,actor,
+                "DELETE FROM one_stock_value_events "
+                "WHERE tenant_id=%s AND stock_event_id=%s RETURNING journal_id",
+                (tenant,evt))
+        self.assertEqual(self.admin.execute(
+            "SELECT book_value FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone()[0],Decimal("12.50"))
+
+    def test_two_transactions_cannot_value_the_same_receipt_twice(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        receipt=uuid4()
+        self.commerce_execute(
+            tenant,actor,"SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,purchase,receipt,actor))
+        gate=Barrier(2)
+        def attempt(journal):
+            with self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_runtime_ci",password="ci_only_password",
+                autocommit=True,
+            ) as conn:
+                try:
+                    with conn.transaction():
+                        conn.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(tenant),))
+                        conn.execute("SELECT set_config('one.actor_id',%s,true)",
+                                     (str(actor),))
+                        gate.wait(timeout=10)
+                        conn.execute(
+                            "SELECT one_value_physical_stock_event("
+                            "%s,%s,%s,'inventory','grni',%s,%s)",
+                            (tenant,receipt,self.period_id,journal,actor))
+                    return True
+                except self.psycopg.Error:
+                    return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            one=pool.submit(attempt,uuid4())
+            two=pool.submit(attempt,uuid4())
+            outcomes=(one.result(timeout=25),two.result(timeout=25))
+        self.assertEqual(sorted(outcomes),[False,True])
+        self.assertEqual(self.admin.execute(
+            "SELECT book_value,qty FROM one_stock_value_positions "
+            "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
+            (tenant,warehouse,product)).fetchone(),
+            (Decimal("37.50"),Decimal("3")))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_value_events WHERE tenant_id=%s "
+            "AND stock_event_id=%s",(tenant,receipt)).fetchone()[0],1)
 
 
 if __name__ == "__main__":
