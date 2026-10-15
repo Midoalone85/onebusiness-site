@@ -40,8 +40,10 @@ class ControlPlaneIdentityDirectory:
                         raise AccountingError("Unknown or disabled identity")
                     actor=row[0]
                     cur.execute(
-                        """SELECT tenant_id FROM one_auth.tenant_entitlements
-                           WHERE actor_id=%s AND active ORDER BY tenant_id""",
+                        """SELECT e.tenant_id FROM one_auth.tenant_entitlements e
+                           JOIN one_auth.tenant_registry t
+                             ON t.tenant_id=e.tenant_id AND t.active
+                           WHERE e.actor_id=%s AND e.active ORDER BY e.tenant_id""",
                         (actor,),
                     )
                     tenants=frozenset(row[0] for row in cur.fetchall())
