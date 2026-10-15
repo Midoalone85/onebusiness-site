@@ -9,9 +9,9 @@ try{lang=localStorage.getItem('one_erp_preview_lang')==='en'?'en':'ar'}catch(e){
 var MODS=[
 {id:'accounting',ar:'المحاسبة',en:'Accounting',icon:'ledger',arSub:'الإدارة المالية والقيود والتقارير',enSub:'Financial management and reports',views:[
 ['overview','نظرة عامة','Overview'],['journals','القيود اليومية','Journal entries'],['invoices','فواتير العملاء','Customer invoices'],['bills','فواتير الموردين','Vendor bills'],['payments','القبض والصرف','Receipts & payments'],['bank','البنوك والتسويات','Banking & reconciliation'],['accounts','دليل الحسابات','Chart of accounts'],['tax','الضرائب والزكاة','VAT & Zakat'],['statements','القوائم المالية','Financial statements']]},
-{id:'sales',ar:'المبيعات',en:'Sales',icon:'cart',arSub:'من عروض الأسعار حتى التحصيل',enSub:'Quotes, orders and billing',views:[['overview','نظرة عامة','Overview'],['quotes','عروض الأسعار','Quotations'],['orders','أوامر البيع','Sales orders'],['invoices','فواتير المبيعات','Sales invoices'],['deliveries','أوامر التسليم','Delivery orders'],['proof','إثبات تسليم العميل','Proof of delivery'],['customers','العملاء','Customers']]},
-{id:'purchasing',ar:'المشتريات',en:'Purchasing',icon:'bag',arSub:'من طلب الشراء حتى فاتورة المورد',enSub:'Requisitions to vendor bills',views:[['overview','نظرة عامة','Overview'],['requests','طلبات عروض الأسعار','Requests for quotation'],['orders','أوامر الشراء','Purchase orders'],['receiving','فحص استلام المورد','Supplier receiving inspection'],['bills','فواتير الموردين','Vendor bills'],['suppliers','الموردون','Suppliers']]},
-{id:'inventory',ar:'المخزون',en:'Inventory',icon:'package',arSub:'الأصناف والمستودعات وحركة المخزون',enSub:'Products, warehouses and transfers',views:[['overview','نظرة عامة','Overview'],['products','الأصناف','Products'],['receipts','الاستلامات','Receipts'],['picking','التجهيز والتعبئة','Pick & pack'],['deliveries','أوامر التسليم','Delivery orders'],['quality','فحص الوارد','Incoming quality checks'],['transfers','حركات المخزون','Transfers'],['warehouses','المستودعات','Warehouses'],['valuation','تقييم المخزون','Stock valuation']]},
+{id:'sales',ar:'المبيعات',en:'Sales',icon:'cart',arSub:'من عروض الأسعار حتى التحصيل',enSub:'Quotes, orders and billing',views:[['overview','نظرة عامة','Overview'],['quotes','عروض الأسعار','Quotations'],['orders','أوامر البيع','Sales orders'],['invoices','فواتير المبيعات','Sales invoices'],['deliveries','أوامر التسليم','Delivery orders'],['proof','إثبات تسليم العميل','Proof of delivery'],['returns','مرتجعات العملاء','Customer returns'],['customers','العملاء','Customers']]},
+{id:'purchasing',ar:'المشتريات',en:'Purchasing',icon:'bag',arSub:'من طلب الشراء حتى فاتورة المورد',enSub:'Requisitions to vendor bills',views:[['overview','نظرة عامة','Overview'],['requests','طلبات عروض الأسعار','Requests for quotation'],['orders','أوامر الشراء','Purchase orders'],['receiving','فحص استلام المورد','Supplier receiving inspection'],['returns','مرتجعات الموردين','Vendor returns'],['bills','فواتير الموردين','Vendor bills'],['suppliers','الموردون','Suppliers']]},
+{id:'inventory',ar:'المخزون',en:'Inventory',icon:'package',arSub:'الأصناف والمستودعات وحركة المخزون',enSub:'Products, warehouses and transfers',views:[['overview','نظرة عامة','Overview'],['products','الأصناف','Products'],['receipts','الاستلامات','Receipts'],['picking','التجهيز والتعبئة','Pick & pack'],['deliveries','أوامر التسليم','Delivery orders'],['quality','فحص الوارد','Incoming quality checks'],['returns','المرتجعات','Returns'],['quarantine','مخزن الحجر والفحص','Quarantine warehouse'],['transfers','حركات المخزون','Transfers'],['warehouses','المستودعات','Warehouses'],['valuation','تقييم المخزون','Stock valuation']]},
 {id:'crm',ar:'علاقات العملاء',en:'CRM',icon:'users',arSub:'العملاء المحتملون وفرص المبيعات',enSub:'Leads, pipeline and follow-ups',views:[['overview','نظرة عامة','Overview'],['leads','العملاء المحتملون','Leads'],['pipeline','الفرص التجارية','Pipeline'],['activities','المتابعات','Activities'],['contacts','جهات الاتصال','Contacts']]},
 {id:'healthcare',ar:'القطاع الطبي',en:'Healthcare',icon:'medical',arSub:'المستشفيات والعيادات والمختبرات',enSub:'Hospitals, clinics and labs',views:[['overview','نظرة عامة','Overview'],['rooms','الغرف والأسرة','Rooms & beds'],['patients','ملفات المرضى','Patient records'],['appointments','الحجوزات والعيادات','Appointments'],['doctors','الأطباء والتمريض','Doctors & nursing'],['lab','التحاليل الطبية','Lab tests'],['radiology','الأشعة','Radiology'],['pharmacy','الصيدلية والأدوية','Pharmacy'],['meals','وجبات المرضى','Patient meals']]},
 {id:'hr',ar:'الموارد البشرية',en:'Human resources',icon:'people',arSub:'الموظفون والحضور والرواتب',enSub:'People, attendance and payroll',views:[['overview','نظرة عامة','Overview'],['employees','الموظفون','Employees'],['attendance','الحضور والانصراف','Attendance'],['payroll','الرواتب ومسيرات الأجور','Payroll'],['leaves','الإجازات','Leave requests'],['contracts','العقود','Contracts']]},
@@ -184,6 +184,40 @@ metrics=[[tx('فحوص الاستلام','Receiving inspections'),'3','package']
 actions=[[tx('فحص استلام تجريبي','Sample receiving inspection'),'package'],
 [tx('عرض أمر الشراء','View purchase order'),'bag']];
 }
+// Unified fictional return references, scoped views. Never live customer data.
+if((kind==='sales' && view==='returns') ||
+   (kind==='inventory' && (view==='returns'||view==='quarantine'))){
+rows=[
+row('RMA-C-2026-006','2026-10-15',
+  tx('DEL-2026-006 · مستلم بالحجر وفحصه التجريبي مكتمل',
+     'DEL-2026-006 · fictional accepted customer return in quarantine'),1,'posted'),
+row('RMA-C-2026-007','2026-10-15',
+  tx('DEL-2026-007 · طلب مرتجع قيد الفحص','DEL-2026-007 · pending return inspection'),2,'pending'),
+row('RMA-C-2026-008','2026-10-14',
+  tx('طلب مرتجع مرفوض تجريبياً','Fictional declined return'),1,'draft')
+];
+metrics=[[tx('مرتجعات العملاء','Customer returns'),'3','package'],
+[tx('محجوز بالفحص','In quarantine'),'1','shield'],
+[tx('تحت الفحص','Under review'),'2','calendar'],
+[tx('متاح للبيع بعد الفحص','Sellable after review'),'0','home']];
+actions=[[tx('طلب مرتجع تجريبي','Sample return request'),'plus'],
+[tx('فتح مخزن الحجر','View quarantine warehouse'),'package']];
+}
+if(kind==='purchasing' && view==='returns'){
+rows=[
+row('RMA-V-2026-004','2026-10-15',
+  tx('REC-2026-003 · إعادة كمية غير محجوزة للمورد',
+     'REC-2026-003 · returned unreserved stock to vendor'),2,'posted'),
+row('RMA-V-2026-005','2026-10-14',
+  tx('REC-2026-004 · مراجعة مرتجع المورد','REC-2026-004 · return pending review'),1,'pending')
+];
+metrics=[[tx('مرتجعات المورد','Supplier returns'),'2','package'],
+[tx('تم إرجاعه','Returned'),'2','shield'],
+[tx('محجوز لعميل آخر','Customer-reserved'),'0','home'],
+[tx('بانتظار الاعتماد','Awaiting approval'),'1','calendar']];
+actions=[[tx('إنشاء مرتجع تجريبي للمورد','Sample vendor return'),'plus'],
+[tx('فتح سجل الاستلام','View receipt history'),'file']];
+}
 if(kind==='crm'){
 rows=[row('CRM-2026-014','2026-10-15',tx('فرصة تجريبية لشركة النخبة','Sample Elite opportunity'),85000,'pending'),row('CRM-2026-013','2026-10-14',tx('متابعة عميل محتمل','Sample lead follow-up'),44000,'draft')];
 actions=[[tx('عميل محتمل','New lead'),'plus'],[tx('تسجيل نشاط','Log activity'),'calendar']];
@@ -227,6 +261,14 @@ if(m.id==='purchasing' && ['orders','receiving'].includes(v[0]))
 related=[['inventory','receipts'],['inventory','quality'],['accounting','bills']];
 if(m.id==='inventory' && ['receipts','quality'].includes(v[0]))
 related=[['purchasing','orders'],['purchasing','receiving'],['accounting','bills']];
+if(m.id==='sales' && v[0]==='returns')
+related=[['inventory','returns'],['inventory','quarantine'],['accounting','invoices']];
+if(m.id==='purchasing' && v[0]==='returns')
+related=[['inventory','returns'],['purchasing','receiving'],['accounting','bills']];
+if(m.id==='inventory' && v[0]==='returns')
+related=[['sales','returns'],['purchasing','returns'],['inventory','quarantine']];
+if(m.id==='inventory' && v[0]==='quarantine')
+related=[['sales','returns'],['inventory','returns'],['inventory','quality']];
 var relatedMarkup=related.length?
 '<div class="related-workflow" aria-label="'+norm(tx('مسارات مرتبطة للمعاينة','Related preview workflows'))+'">'+
 '<strong>'+norm(tx('مسارات مرتبطة','Related workflows'))+'</strong>'+
