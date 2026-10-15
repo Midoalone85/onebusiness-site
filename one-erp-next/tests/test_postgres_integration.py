@@ -333,6 +333,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "GRANT EXECUTE ON FUNCTION "
             "one_refund_period_close_preflight(uuid,uuid,uuid) "
             "TO one_erp_runtime_ci")
+        cls.admin.execute(
+            "GRANT EXECUTE ON FUNCTION "
+            "one_inventory_period_close_preflight(uuid,uuid,uuid) "
+            "TO one_erp_runtime_ci")
         cls.db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
@@ -6732,6 +6736,96 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT count(*) FROM one_period_close_audit "
             "WHERE tenant_id=%s AND period_id=%s",
             (self.tenant_a,pid)).fetchone()[0],0)
+
+    # 044 | Stock/valuation preflight and independently immutable close facts.
+    def inventory_close_preflight(self, tenant, actor, period):
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                            (str(actor),))
+            return self.db.execute(
+                "SELECT * FROM one_inventory_period_close_preflight(%s,%s,%s)",
+                (tenant,period,actor)).fetchone()
+
+    def test_close_inventory_empty_company_seals_both_audit_evidences(self):
+        period, admin = uuid4(), uuid4()
+        self.admin.execute(
+            "INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive) "
+            "VALUES(%s,%s,%s,%s)",
+            (self.tenant_b,period,date(2034,1,1),date(2035,1,1)))
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role) "
+            "VALUES(%s,%s,'company_admin')",
+            (self.tenant_b,admin))
+        check=self.inventory_close_preflight(self.tenant_b,admin,period)
+        self.assertEqual(check[0:3],(0,0,0))
+        self.assertTrue(check[3])
+        self.assertEqual(self.commerce_execute(
+            self.tenant_b,admin,"SELECT one_close_period(%s,%s,%s)",
+            (self.tenant_b,period,admin)),period)
+        evidence=self.admin.execute(
+            "SELECT inspected_positions,unreconciled_positions,"
+            "unvalued_movements FROM one_period_inventory_close_evidence "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (self.tenant_b,period)).fetchone()
+        self.assertEqual(evidence,(0,0,0))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_period_refund_close_evidence "
+            "WHERE tenant_id=%s AND period_id=%s",
+            (self.tenant_b,period)).fetchone()[0],1)
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                self.tenant_b,admin,
+                "UPDATE one_period_inventory_close_evidence "
+                "SET inspected_positions=1 WHERE tenant_id=%s AND period_id=%s",
+                (self.tenant_b,period))
+
+    def test_inventory_close_unvalued_receipt_blocks_atomic_period_close(self):
+        tenant,actor,product,warehouse,purchase,_=self.commerce_fixture()
+        pid,admin=self.new_period_for_close(
+            date(2035,1,1),date(2036,1,1))
+        before=self.inventory_close_preflight(tenant,admin,pid)
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        event=uuid4()
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,2,%s,%s)",
+            (tenant,purchase,event,actor))
+        inspection=self.inventory_close_preflight(tenant,admin,pid)
+        self.assertEqual(inspection[0],before[0]+1)
+        self.assertGreaterEqual(inspection[1],before[1]+1)
+        self.assertGreaterEqual(inspection[2],before[2]+1)
+        self.assertFalse(inspection[3])
+        with self.assertRaises(self.psycopg.Error):
+            self.commerce_execute(
+                tenant,admin,"SELECT one_close_period(%s,%s,%s)",
+                (tenant,pid,admin))
+        self.assertFalse(self.admin.execute(
+            "SELECT closed FROM one_periods WHERE tenant_id=%s AND id=%s",
+            (tenant,pid)).fetchone()[0])
+        for table in ("one_period_close_audit",
+                      "one_period_inventory_close_evidence",
+                      "one_period_refund_close_evidence"):
+            self.assertEqual(self.admin.execute(
+                "SELECT count(*) FROM "+table+
+                " WHERE tenant_id=%s AND period_id=%s",
+                (tenant,pid)).fetchone()[0],0)
+        # Rectify this test's receipt before continuing other tests.
+        self.value_stock_event(tenant,actor,event,"grni")
+        repaired=self.inventory_close_preflight(tenant,admin,pid)
+        self.assertEqual(repaired[2],before[2])
+
+    def test_inventory_close_preflight_refuses_cross_tenant_or_non_admin(self):
+        pid,admin=self.new_period_for_close(
+            date(2036,1,1),date(2037,1,1))
+        for tenant,actor in ((self.tenant_b,admin),
+                             (self.tenant_a,self.actor),
+                             (self.tenant_a,uuid4())):
+            with self.assertRaises(self.psycopg.Error):
+                self.inventory_close_preflight(tenant,actor,pid)
 
 if __name__ == "__main__":
     unittest.main()
