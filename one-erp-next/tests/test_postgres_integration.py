@@ -25,6 +25,8 @@ from one_erp_core.payments import (
     PaymentAllocation, OpenInvoice,
 )
 from one_erp_core.payment_persistence import persist_payment_with_allocations
+from one_erp_core.report_repository import load_finance_snapshot
+from one_erp_core.statement_details import balance_sheet, general_ledger_detail
 from one_erp_core.tenancy import Membership, Role
 
 DSN = os.environ.get("ONE_TEST_PG_DSN")
@@ -466,6 +468,66 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                        WHERE tenant_id=%s AND payment_id=%s""",
                     (self.tenant_a,payment.id),
                 )
+
+
+
+    def test_real_db_reporting_snapshot_is_consistent_and_traceable(self):
+        posted=self.post(self.fresh_entry())
+        snapshot=load_finance_snapshot(
+            self.db,tenant_id=self.tenant_a,actor_id=self.actor,
+            as_of=date(2026,10,15),
+        )
+        self.assertIn(posted.id,{entry.id for entry in snapshot.entries})
+        self.assertEqual(snapshot.tenant_id,self.tenant_a)
+        self.assertEqual(snapshot.actor_id,self.actor)
+        self.assertEqual(snapshot.memberships[0].role,Role.ACCOUNTANT)
+        self.assertEqual(snapshot.chart["cash"].kind,AccountKind.ASSET)
+        for e in snapshot.entries:
+            self.assertEqual(e.status.value,"posted")
+            self.assertGreaterEqual(len(e.lines),2)
+            self.assertEqual(sum(l.debit for l in e.lines),
+                             sum(l.credit for l in e.lines))
+        report=balance_sheet(
+            tenant_id=self.tenant_a,as_of=date(2026,10,15),currency="SAR",
+            chart=snapshot.chart,entries=snapshot.entries,
+            actor_id=self.actor,memberships=snapshot.memberships,
+        )
+        self.assertTrue(report.balanced)
+        self.assertIn(posted.id,report.source_entry_ids)
+
+    def test_db_snapshot_denies_actor_without_membership(self):
+        with self.assertRaises(Exception):
+            load_finance_snapshot(
+                self.db,tenant_id=self.tenant_a,actor_id=uuid4(),
+                as_of=date(2026,10,15),
+            )
+
+    def test_db_snapshot_enforces_tenant_scope(self):
+        with self.assertRaises(Exception):
+            load_finance_snapshot(
+                self.db,tenant_id=self.tenant_b,actor_id=self.actor,
+                as_of=date(2026,10,15),
+            )
+
+    def test_db_snapshot_deny_superuser_role(self):
+        with self.assertRaises(Exception):
+            load_finance_snapshot(
+                self.admin,tenant_id=self.tenant_a,actor_id=self.actor,
+                as_of=date(2026,10,15),
+            )
+
+    def test_db_snapshot_respects_asof_cutoff(self):
+        later=self.post(self.fresh_entry())
+        old=load_finance_snapshot(
+            self.db,tenant_id=self.tenant_a,actor_id=self.actor,
+            as_of=date(2026,10,14),
+        )
+        today=load_finance_snapshot(
+            self.db,tenant_id=self.tenant_a,actor_id=self.actor,
+            as_of=date(2026,10,15),
+        )
+        self.assertNotIn(later.id,{e.id for e in old.entries})
+        self.assertIn(later.id,{e.id for e in today.entries})
 
 
 
