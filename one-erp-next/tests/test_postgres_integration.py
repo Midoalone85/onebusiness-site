@@ -985,10 +985,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 status, proof = record_signed_checkpoint(
                     connection=verified_conn, **base
                 )
-            self.assertEqual(status, "database_created")
-            self.assertEqual(proof.tenant_id, tenant)
-            self.assertEqual(proof.evidence_digest,
-                             bytes.fromhex(claims["evidence_sha256"]))
+                self.assertEqual(status, "database_created")
+                self.assertEqual(proof.tenant_id, tenant)
+                self.assertEqual(
+                    proof.evidence_digest,
+                    bytes.fromhex(claims["evidence_sha256"]),
+                )
                 # An exact resend is a no-op, without a duplicate audit row.
                 repeat, _ = record_signed_checkpoint(
                     connection=verified_conn, **base
