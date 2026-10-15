@@ -83,6 +83,7 @@ DECLARE
   acctkind text;
   offsetkind text;
   unvalued bigint;
+  source_order uuid;
 BEGIN
  IF p_tenant IS NULL OR p_source IS NULL OR p_period IS NULL OR
     p_inventory_acct IS NULL OR p_offset_acct IS NULL OR
@@ -96,11 +97,11 @@ BEGIN
     RAISE EXCEPTION 'Valid tenant admin and distinct stock journal required';
  END IF;
  -- Standard lock hierarchy: order -> stock bucket -> valuation bucket.
- SELECT order_id INTO o.id FROM one_stock_events
+ SELECT order_id INTO source_order FROM one_stock_events
   WHERE tenant_id=p_tenant AND id=p_source;
  IF NOT FOUND THEN RAISE EXCEPTION 'Physical stock source not found'; END IF;
  SELECT * INTO o FROM one_commercial_orders
-  WHERE tenant_id=p_tenant AND id=o.id FOR UPDATE;
+  WHERE tenant_id=p_tenant AND id=source_order FOR UPDATE;
  SELECT * INTO ev FROM one_stock_events
   WHERE tenant_id=p_tenant AND id=p_source FOR UPDATE;
  IF NOT FOUND OR ev.movement_kind NOT IN ('purchase_receipt','sale_dispatch') THEN
