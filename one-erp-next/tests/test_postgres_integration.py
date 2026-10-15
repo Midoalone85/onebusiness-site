@@ -3032,5 +3032,51 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,job)).fetchone()[0],0)
 
 
+
+    def test_quarantine_warehouse_cannot_supply_customer_sales(self):
+        tenant,actor,invoice,job=self.complete_customer_return_for_invoice(
+            acceptance=Decimal("1"))
+        quarantine=self.admin.execute(
+            "SELECT destination_warehouse_id FROM one_return_jobs "
+            "WHERE tenant_id=%s AND id=%s",(tenant,job)).fetchone()[0]
+        product=self.admin.execute(
+            "SELECT product_id FROM one_stock_events e "
+            "JOIN one_return_jobs r ON r.tenant_id=e.tenant_id "
+            "AND r.source_event_id=e.id "
+            "WHERE r.tenant_id=%s AND r.id=%s",
+            (tenant,job)).fetchone()[0]
+        new_order=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_commercial_orders "
+            "(tenant_id,id,kind,number,partner_id,currency) "
+            "VALUES (%s,%s,'sale',%s,'DEMO-CUSTOMER','SAR')",
+            (tenant,new_order,"QUAR-"+new_order.hex))
+        with self.assertRaises(self.psycopg.Error):
+            self.admin.execute(
+                "INSERT INTO one_commercial_order_lines "
+                "(tenant_id,order_id,line_no,product_id,warehouse_id,"
+                "ordered_qty,unit_price) VALUES (%s,%s,1,%s,%s,1,10)",
+                (tenant,new_order,product,quarantine))
+        self.assertEqual(self.admin.execute(
+            "SELECT on_hand FROM one_stock_balances WHERE tenant_id=%s "
+            "AND warehouse_id=%s AND product_id=%s",
+            (tenant,quarantine,product)).fetchone()[0],Decimal("1"))
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_commercial_order_lines "
+            "WHERE tenant_id=%s AND order_id=%s",
+            (tenant,new_order)).fetchone()[0],0)
+
+    def test_warehouse_classification_is_immutable_after_creation(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        with self.assertRaises(self.psycopg.Error):
+            self.admin.execute(
+                "UPDATE one_warehouses SET warehouse_type='quarantine' "
+                "WHERE tenant_id=%s AND id=%s",(tenant,warehouse))
+        self.assertEqual(self.admin.execute(
+            "SELECT warehouse_type FROM one_warehouses "
+            "WHERE tenant_id=%s AND id=%s",
+            (tenant,warehouse)).fetchone()[0],"sellable")
+
+
 if __name__ == "__main__":
     unittest.main()
