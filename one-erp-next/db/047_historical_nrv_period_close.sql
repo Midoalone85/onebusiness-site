@@ -308,7 +308,8 @@ BEGIN
  -- Conservative global locking is CI-only; replace with per-tenant locks.
  LOCK TABLE one_inventory_effective_dates,one_inventory_date_requests,
    one_inventory_nrv_sale_releases,one_return_dispositions,
-   one_return_disposition_costs,one_journal_entries IN SHARE MODE;
+   one_return_disposition_costs,one_journal_entries,
+   one_historical_close_enrollments IN SHARE MODE;
 
  SELECT * INTO p FROM one_periods
    WHERE tenant_id=p_tenant AND id=p_period FOR UPDATE;
