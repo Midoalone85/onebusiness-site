@@ -10,8 +10,8 @@ var MODS=[
 {id:'accounting',ar:'المحاسبة',en:'Accounting',icon:'ledger',arSub:'الإدارة المالية والقيود والتقارير',enSub:'Financial management and reports',views:[
 ['overview','نظرة عامة','Overview'],['journals','القيود اليومية','Journal entries'],['invoices','فواتير العملاء','Customer invoices'],['bills','فواتير الموردين','Vendor bills'],['payments','القبض والصرف','Receipts & payments'],['bank','البنوك والتسويات','Banking & reconciliation'],['accounts','دليل الحسابات','Chart of accounts'],['tax','الضرائب والزكاة','VAT & Zakat'],['statements','القوائم المالية','Financial statements']]},
 {id:'sales',ar:'المبيعات',en:'Sales',icon:'cart',arSub:'من عروض الأسعار حتى التحصيل',enSub:'Quotes, orders and billing',views:[['overview','نظرة عامة','Overview'],['quotes','عروض الأسعار','Quotations'],['orders','أوامر البيع','Sales orders'],['invoices','فواتير المبيعات','Sales invoices'],['deliveries','أوامر التسليم','Delivery orders'],['proof','إثبات تسليم العميل','Proof of delivery'],['returns','مرتجعات العملاء','Customer returns'],['return_case','ملف المرتجع الموحد','Return case'],['customers','العملاء','Customers']]},
-{id:'purchasing',ar:'المشتريات',en:'Purchasing',icon:'bag',arSub:'من طلب الشراء حتى فاتورة المورد',enSub:'Requisitions to vendor bills',views:[['overview','نظرة عامة','Overview'],['requests','طلبات عروض الأسعار','Requests for quotation'],['orders','أوامر الشراء','Purchase orders'],['receiving','فحص استلام المورد','Supplier receiving inspection'],['returns','مرتجعات الموردين','Vendor returns'],['return_case','ملف مرتجع المورد','Vendor return case'],['bills','فواتير الموردين','Vendor bills'],['suppliers','الموردون','Suppliers']]},
-{id:'inventory',ar:'المخزون',en:'Inventory',icon:'package',arSub:'الأصناف والمستودعات وحركة المخزون',enSub:'Products, warehouses and transfers',views:[['overview','نظرة عامة','Overview'],['products','الأصناف','Products'],['receipts','الاستلامات','Receipts'],['picking','التجهيز والتعبئة','Pick & pack'],['deliveries','أوامر التسليم','Delivery orders'],['quality','فحص الوارد','Incoming quality checks'],['returns','المرتجعات','Returns'],['quarantine','مخزن الحجر والفحص','Quarantine warehouse'],['return_case','ملف المرتجع الموحد','Return case'],['transfers','حركات المخزون','Transfers'],['warehouses','المستودعات','Warehouses'],['valuation','تقييم المخزون','Stock valuation']]},
+{id:'purchasing',ar:'المشتريات',en:'Purchasing',icon:'bag',arSub:'من طلب الشراء حتى فاتورة المورد',enSub:'Requisitions to vendor bills',views:[['overview','نظرة عامة','Overview'],['requests','طلبات عروض الأسعار','Requests for quotation'],['orders','أوامر الشراء','Purchase orders'],['receiving','فحص استلام المورد','Supplier receiving inspection'],['returns','مرتجعات الموردين','Vendor returns'],['return_case','ملف مرتجع المورد','Vendor return case'],['bills','فواتير الموردين','Vendor bills'],['three_way','مطابقة المشتريات الثلاثية','Three-way match'],['suppliers','الموردون','Suppliers']]},
+{id:'inventory',ar:'المخزون',en:'Inventory',icon:'package',arSub:'الأصناف والمستودعات وحركة المخزون',enSub:'Products, warehouses and transfers',views:[['overview','نظرة عامة','Overview'],['products','الأصناف','Products'],['receipts','الاستلامات','Receipts'],['picking','التجهيز والتعبئة','Pick & pack'],['deliveries','أوامر التسليم','Delivery orders'],['quality','فحص الوارد','Incoming quality checks'],['returns','المرتجعات','Returns'],['quarantine','مخزن الحجر والفحص','Quarantine warehouse'],['return_case','ملف المرتجع الموحد','Return case'],['transfers','حركات المخزون','Transfers'],['warehouses','المستودعات','Warehouses'],['valuation','تقييم المخزون','Stock valuation'],['reconciliation','مطابقة المخزون والمالية','Stock finance reconciliation']]},
 {id:'crm',ar:'علاقات العملاء',en:'CRM',icon:'users',arSub:'العملاء المحتملون وفرص المبيعات',enSub:'Leads, pipeline and follow-ups',views:[['overview','نظرة عامة','Overview'],['leads','العملاء المحتملون','Leads'],['pipeline','الفرص التجارية','Pipeline'],['activities','المتابعات','Activities'],['contacts','جهات الاتصال','Contacts']]},
 {id:'healthcare',ar:'القطاع الطبي',en:'Healthcare',icon:'medical',arSub:'المستشفيات والعيادات والمختبرات',enSub:'Hospitals, clinics and labs',views:[['overview','نظرة عامة','Overview'],['rooms','الغرف والأسرة','Rooms & beds'],['patients','ملفات المرضى','Patient records'],['appointments','الحجوزات والعيادات','Appointments'],['doctors','الأطباء والتمريض','Doctors & nursing'],['lab','التحاليل الطبية','Lab tests'],['radiology','الأشعة','Radiology'],['pharmacy','الصيدلية والأدوية','Pharmacy'],['meals','وجبات المرضى','Patient meals']]},
 {id:'hr',ar:'الموارد البشرية',en:'Human resources',icon:'people',arSub:'الموظفون والحضور والرواتب',enSub:'People, attendance and payroll',views:[['overview','نظرة عامة','Overview'],['employees','الموظفون','Employees'],['attendance','الحضور والانصراف','Attendance'],['payroll','الرواتب ومسيرات الأجور','Payroll'],['leaves','الإجازات','Leave requests'],['contracts','العقود','Contracts']]},
@@ -247,6 +247,46 @@ metrics=vendor?[
 actions=[[tx('تاريخ حركة المرتجع','Return activity history'),'file'],
 [tx('قرار الفحص التجريبي','Sample QA decision'),'shield']];
 }
+// Fictitious ONE PULSE demonstration; real PostgreSQL metrics are not wired.
+if(kind==='inventory' && ['valuation','reconciliation'].includes(view)){
+rows=[
+row('STK-2026-015','2026-10-15',
+tx('5 واردة، 2 مصروفة، 3 باقية · مقيمة','5 received, 2 shipped, 3 valued remain'),
+37.50,'posted'),
+row('COGS-2026-015','2026-10-15',
+tx('تكلفة قطعتين منصرفتين من نفس حركة المخزون',
+   'COGS for two dispatched items from traceable source'),25.00,'posted'),
+row('GRNI-2026-015','2026-10-15',
+tx('5 واردة، 3 مفوترة، 2 في انتظار فاتورة المورد',
+   '5 received, 3 billed, 2 awaiting vendor bill'),25.00,'pending')
+];
+metrics=[
+[tx('المخزون المقيم','Valued inventory'),money(37.50),'ledger'],
+[tx('التكلفة المصروفة','COGS'),money(25.00),'file'],
+[tx('الوارد غير المفوتر','GRNI outstanding'),money(25.00),'bag'],
+[tx('حركات غير مقيمة','Unvalued events'),'0','shield']
+];
+actions=[[tx('فتح تقرير تجريبي','View sample reconciliation'),'file'],
+[tx('مراجعة سجل المخزون','View stock movements'),'package']];
+}
+if(kind==='purchasing' && view==='three_way'){
+rows=[
+row('PO-2026-015','2026-10-15',
+tx('أمر شراء: 5 قطع بقيمة 62.50','Purchase order: 5 units / 62.50'),62.50,'posted'),
+row('REC-2026-015','2026-10-15',
+tx('استلام مقيم: 5 قطع','Accepted and valued receipt: 5 units'),62.50,'posted'),
+row('VB-2026-015','2026-10-15',
+tx('فاتورة مورد مطابقة: 3 قطع، متبقي 2','Matched supplier bill: 3 units, 2 open'),37.50,'pending')
+];
+metrics=[
+[tx('أوامر الشراء','Purchase order'),money(62.50),'bag'],
+[tx('المستلم المقيم','Valued receipt'),money(62.50),'package'],
+[tx('فاتورة المورد','Matched bill'),money(37.50),'ledger'],
+[tx('GRNI المتبقي','Remaining GRNI'),money(25.00),'shield']
+];
+actions=[[tx('مراجعة المطابقة التجريبية','View sample goods match'),'file'],
+[tx('سجل فواتير الموردين','Vendor bill history'),'bag']];
+}
 if(kind==='crm'){
 rows=[row('CRM-2026-014','2026-10-15',tx('فرصة تجريبية لشركة النخبة','Sample Elite opportunity'),85000,'pending'),row('CRM-2026-013','2026-10-14',tx('متابعة عميل محتمل','Sample lead follow-up'),44000,'draft')];
 actions=[[tx('عميل محتمل','New lead'),'plus'],[tx('تسجيل نشاط','Log activity'),'calendar']];
@@ -318,6 +358,12 @@ if(['sales','inventory'].includes(m.id) && v[0]==='return_case')
 related=[['sales','returns'],['inventory','quarantine'],['accounting','invoices']];
 if(m.id==='purchasing' && v[0]==='return_case')
 related=[['purchasing','returns'],['inventory','returns'],['accounting','bills']];
+if(m.id==='purchasing' && v[0]==='three_way')
+related=[['purchasing','receiving'],['inventory','reconciliation'],['accounting','journals']];
+if(m.id==='inventory' && ['reconciliation','valuation'].includes(v[0]))
+related=[['purchasing','three_way'],['inventory','receipts'],['accounting','journals']];
+if(m.id==='purchasing' && v[0]==='bills')
+related=[['purchasing','three_way'],['purchasing','receiving'],['accounting','bills']];
 var relatedMarkup=related.length?
 '<div class="related-workflow" aria-label="'+norm(tx('مسارات مرتبطة للمعاينة','Related preview workflows'))+'">'+
 '<strong>'+norm(tx('مسارات مرتبطة','Related workflows'))+'</strong>'+
