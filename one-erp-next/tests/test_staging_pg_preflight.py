@@ -24,7 +24,9 @@ class FakeCursor:
         self.queries.append((sql,params))
         if self.s["error"]:
             raise RuntimeError("Do not expose db://secret-password")
-        if "current_database()" in sql:
+        if "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY" in sql:
+            self.answer=None
+        elif "current_database()" in sql:
             self.answer=(
                 self.s["database"], self.s["role"], *self.s["flags"])
         elif "has_table_privilege" in sql:
