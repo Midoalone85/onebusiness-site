@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Test release gate logic
+        run: python -m unittest discover -s one-erp-next-integration -p 'test_release_gates.py' -v
       - name: Verify inherited main assets and finance prerequisites
         run: python one-erp-next-integration/verify_integration.py
   preview:
