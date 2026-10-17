@@ -2,6 +2,8 @@
 import {readActivity} from "./activity-client.mjs";
 const ACTIONS=Object.freeze({
   ar:{
+    "sales_order.confirmed":"تأكيد أمر البيع",
+    "purchase_order.confirmed":"تأكيد أمر الشراء",
     "invoice.issued":"إصدار الفاتورة",
     "invoice.source_requested":"إنشاء طلب اعتماد الفاتورة",
     "invoice.source_approved":"اعتماد مصدر الفاتورة بمراجع مستقل","payment.applied":"إثبات تخصيص دفعة داخلي",
@@ -16,6 +18,8 @@ const ACTIONS=Object.freeze({
     "receiving.inspection_completed":"اكتمال فحص الوارد",
   },
   en:{
+    "sales_order.confirmed":"Sales order confirmed",
+    "purchase_order.confirmed":"Purchase order confirmed",
     "invoice.issued":"Invoice issued",
     "invoice.source_requested":"Invoice approval requested",
     "invoice.source_approved":"Invoice source independently approved","payment.applied":"Internal payment applied",
