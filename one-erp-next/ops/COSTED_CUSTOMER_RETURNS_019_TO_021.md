@@ -68,7 +68,7 @@ A stock item with original unit cost SAR 12.50 is sold, then 2 units return.
   unvalued legacy return. The RMA timeline includes accepted return and
   disposal cost postings.
 - **327/327 tests pass on EACH Python 3.11 and 3.13**, disposable PostgreSQL 14:
-  https://github.com/Midoalone85/onebusiness-site/actions/runs/38715894903
+  https://github.com/REPOSITORY_OWNER/onebusiness-site/actions/runs/38715894903
 
 ## IMPORTANT: remaining production blockers
 
