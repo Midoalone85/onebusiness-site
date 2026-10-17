@@ -21,6 +21,7 @@ from .finance_replay_commands_wsgi import (
 )
 from .operations_read_wsgi import OneOperationsWSGI
 from .invoice_approval_wsgi import OneInvoiceApprovalWSGI
+from .invoice_review_wsgi import OneInvoiceReviewWSGI
 from .staging_health import OneERPStagingHealthWSGI, StagingReadiness
 
 _OPERATIONS = frozenset((
@@ -34,6 +35,7 @@ _REPORT = "/api/v1/finance/dashboard"
 _AR_REPORT = "/api/v1/operations/receivables"
 _COMMAND = "/api/v1/finance/internal-documents"
 _APPROVAL = "/api/v1/finance/internal-invoice-approvals"
+_REVIEW = "/api/v1/finance/internal-invoice-source"
 
 
 class OneERPStagingRouter:
@@ -51,6 +53,8 @@ class OneERPStagingRouter:
         finance_report_connections: TenantFinanceConnections,
         finance_write_connections: TenantFinanceConnections | None = None,
         approval_connections: TenantFinanceConnections | None = None,
+        invoice_review_connections: TenantFinanceConnections | None = None,
+        enable_invoice_source_review_read: bool = False,
         enable_invoice_source_approvals: bool = False,
         readiness_probe: Callable[[], StagingReadiness] | None = None,
         approved_source_loader: ApprovedFinanceSourceLoader | None = None,
@@ -61,7 +65,8 @@ class OneERPStagingRouter:
             operations_connections is finance_report_connections):
             raise ValueError("Independent pinned operation and finance reader registries required")
         if (type(enable_internal_finance_writes) is not bool or
-            type(enable_invoice_source_approvals) is not bool):
+            type(enable_invoice_source_approvals) is not bool or
+            type(enable_invoice_source_review_read) is not bool):
             raise ValueError("Financial action activation must be explicit")
         if enable_invoice_source_approvals and (
             not isinstance(approval_connections,TenantFinanceConnections) or
@@ -79,6 +84,15 @@ class OneERPStagingRouter:
             raise ValueError("Finance writes require isolated authorizer and write role registry")
         if not enable_internal_finance_writes and finance_write_connections is not None:
             raise ValueError("Write-capable tenant connection must not be mounted by default")
+        if enable_invoice_source_review_read and (
+            not isinstance(invoice_review_connections,TenantFinanceConnections) or
+            invoice_review_connections in (
+                operations_connections,finance_report_connections,
+                finance_write_connections,approval_connections)
+        ):
+            raise ValueError("Independent read-only invoice review SQL registry required")
+        if not enable_invoice_source_review_read and invoice_review_connections is not None:
+            raise ValueError("Review reader requires explicit secure activation")
         self._health = OneERPStagingHealthWSGI(
             allowed_hosts=allowed_hosts, deployed_sha=deployed_sha,
             readiness_probe=readiness_probe,
@@ -101,6 +115,12 @@ class OneERPStagingRouter:
         if enable_invoice_source_approvals:
             self._approvals = OneInvoiceApprovalWSGI(
                 verifier=verifier,approval_connections=approval_connections,
+                allowed_hosts=allowed_hosts,
+            )
+        self._invoice_review = None
+        if enable_invoice_source_review_read:
+            self._invoice_review = OneInvoiceReviewWSGI(
+                verifier=verifier,review_connections=invoice_review_connections,
                 allowed_hosts=allowed_hosts,
             )
         self._commands = None
@@ -134,7 +154,8 @@ class OneERPStagingRouter:
         if (path not in _OPERATIONS and path != _REPORT and
             path != _AR_REPORT and
             (path != _COMMAND or self._commands is None) and
-            (path != _APPROVAL or self._approvals is None)):
+            (path != _APPROVAL or self._approvals is None) and
+            (path != _REVIEW or self._invoice_review is None)):
             return self._reject(start_response, "404 Not Found")
         # Readiness is a runtime precondition rather than just a UI color.
         # Both signed protected GET and explicitly activated internal POST
@@ -154,4 +175,6 @@ class OneERPStagingRouter:
             return self._finance(environ, start_response)
         if path == _APPROVAL:
             return self._approvals(environ, start_response)
+        if path == _REVIEW:
+            return self._invoice_review(environ, start_response)
         return self._commands(environ, start_response)
