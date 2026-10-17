@@ -73,6 +73,7 @@ export function mountOperationsPage({root,baseUrl,tenant,getToken,language="ar",
             clearActivity();historyRoot.hidden=false;
             activity=mountActivityTimeline({root:historyRoot,baseUrl,tenant,
               getToken,fetchImpl,language,timeZone});
+            historyRoot.setAttribute("class","one-activity-panel one-operations-activity");
             void activity.load(recordType,orderId);
           });
           cell.append(button);
