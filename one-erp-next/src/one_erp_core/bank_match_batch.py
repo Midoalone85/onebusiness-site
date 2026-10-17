@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Sequence
 from uuid import UUID
 
@@ -60,8 +60,14 @@ def propose_bank_batch(
         not 0<=day_tolerance<=31):
         raise AccountingError("Reviewed matching window required")
     def decimal_amount(value):
-        return (isinstance(value,Decimal) and value.is_finite() and
-                value!=0 and value==value.quantize(Decimal("0.001")))
+        if not isinstance(value, Decimal) or not value.is_finite() or value == 0:
+            return False
+        try:
+            return value == value.quantize(Decimal("0.001"))
+        except InvalidOperation:
+            # Extreme exponents/precision must be a controlled validation
+            # failure, never an uncaught 500 during financial reconciliation.
+            return False
     for obj in bank_lines:
         if (not isinstance(obj,BankMovement) or obj.tenant_id!=tenant_id or
             type(obj.id) is not str or not 1<=len(obj.id)<=160 or not obj.id.strip() or
