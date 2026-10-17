@@ -63,6 +63,12 @@ def privilege_template_checks():
         upper = sql.upper()
         if "NOLOGIN" not in upper or "NOBYPASSRLS" not in upper:
             errors.append(f"Missing minimum role protections: {path.name}")
+        # NOLOGIN roles must never be upgraded into broad privileged accounts.
+        forbidden = ("SUPERUSER;", "BYPASSRLS;", "CREATEDB;", "CREATEROLE;")
+        if any(token in upper.split("CREATE ROLE")[-1].split("END")[0] for token in forbidden):
+            errors.append(f"Unexpected privileged role flag: {path.name}")
+        if "GRANT ALL PRIVILEGES" in upper or "GRANT ALL ON" in upper:
+            errors.append(f"Unbounded GRANT ALL detected: {path.name}")
         if "BEGIN;" not in upper or "COMMIT;" not in upper:
             errors.append(f"Missing transactional scope: {path.name}")
     return errors
