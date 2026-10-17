@@ -68,7 +68,7 @@ def privilege_template_checks():
         role_ddl = upper.split("CREATE ROLE")[-1].split(";")[0]
         if re.search(r"(?<![A-Z_])(SUPERUSER|BYPASSRLS|CREATEDB|CREATEROLE)(?![A-Z_])", role_ddl):
             errors.append(f"Unexpected privileged role flag: {path.name}")
-        # Accept multiline SQL formatting, but do not mistake comment examples for executable grants.\n        executable = re.sub(r"--[^\\n]*", "", upper)\n        executable = re.sub(r"/\\*[\\s\\S]*?\\*/", "", executable)\n        if re.search(r"\\bGRANT\\s+ALL(?:\\s+PRIVILEGES)?\\s+ON\\b", executable):
+        # Accept multiline SQL formatting, but do not mistake comment examples for executable grants.\n        executable = re.sub(r"--[^\n]*", "", upper)\n        executable = re.sub(r"/\*[\s\S]*?\*/", "", executable)\n        if re.search(r"\bGRANT\s+ALL(?:\s+PRIVILEGES)?\s+ON\b", executable):
             errors.append(f"Unbounded GRANT ALL detected: {path.name}")
         if "BEGIN;" not in upper or "COMMIT;" not in upper:
             errors.append(f"Missing transactional scope: {path.name}")
