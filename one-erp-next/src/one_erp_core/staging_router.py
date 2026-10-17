@@ -44,17 +44,27 @@ class OneERPStagingRouter:
     def __init__(
         self, *, allowed_hosts: frozenset[str], deployed_sha: str,
         verifier: FinanceIdentityVerifier,
-        connections: TenantFinanceConnections,
+        operations_connections: TenantFinanceConnections,
+        finance_report_connections: TenantFinanceConnections,
+        finance_write_connections: TenantFinanceConnections | None = None,
         readiness_probe: Callable[[], StagingReadiness] | None = None,
         approved_source_loader: ApprovedFinanceSourceLoader | None = None,
         enable_internal_finance_writes: bool = False,
     ):
-        if not isinstance(connections, TenantFinanceConnections):
-            raise ValueError("Pinned tenant connection registry required")
+        if (not isinstance(operations_connections, TenantFinanceConnections) or
+            not isinstance(finance_report_connections, TenantFinanceConnections) or
+            operations_connections is finance_report_connections):
+            raise ValueError("Independent pinned operation and finance reader registries required")
         if type(enable_internal_finance_writes) is not bool:
             raise ValueError("Finance command activation must be explicit")
-        if enable_internal_finance_writes and approved_source_loader is None:
-            raise ValueError("Finance writes require server-owned source loader")
+        if enable_internal_finance_writes and (
+            approved_source_loader is None or
+            not isinstance(finance_write_connections, TenantFinanceConnections) or
+            finance_write_connections in (operations_connections, finance_report_connections)
+        ):
+            raise ValueError("Finance writes require isolated authorizer and write role registry")
+        if not enable_internal_finance_writes and finance_write_connections is not None:
+            raise ValueError("Write-capable tenant connection must not be mounted by default")
         self._health = OneERPStagingHealthWSGI(
             allowed_hosts=allowed_hosts, deployed_sha=deployed_sha,
             readiness_probe=readiness_probe,
@@ -62,15 +72,15 @@ class OneERPStagingRouter:
         self._hosts = allowed_hosts
         self._readiness_probe = readiness_probe
         self._operations = OneOperationsWSGI(
-            verifier=verifier, connections=connections, allowed_hosts=allowed_hosts,
+            verifier=verifier, connections=operations_connections, allowed_hosts=allowed_hosts,
         )
         self._finance = OneFinanceWSGI(
-            verifier=verifier, connections=connections, allowed_hosts=allowed_hosts,
+            verifier=verifier, connections=finance_report_connections, allowed_hosts=allowed_hosts,
         )
         self._commands = None
         if enable_internal_finance_writes:
             self._commands = OneFinanceInternalDocumentsWSGI(
-                verifier=verifier, connections=connections,
+                verifier=verifier, connections=finance_write_connections,
                 source_loader=approved_source_loader, allowed_hosts=allowed_hosts,
             )
 
