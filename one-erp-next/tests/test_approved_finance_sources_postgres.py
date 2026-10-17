@@ -655,5 +655,82 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             self.count("one_invoice_source_approvals","document_id"),0)
 
 
+
+    def test_approved_invoice_signin_review_http_then_post_once_real_postgres(self):
+        """HTTP approval accepts reference only, and SQL enforces different actor."""
+        from io import BytesIO
+        from one_erp_core.finance_wsgi import TenantFinanceConnections
+        from one_erp_core.invoice_approval_wsgi import OneInvoiceApprovalWSGI
+        from one_erp_core.invoice_source_workflow import (
+            BuiltInvoiceSource, create_trusted_invoice_source,
+        )
+
+        class Builder:
+            def build(builder_self,conn,*,tenant_id,document_id,actor_id):
+                if tenant_id!=self.tenant or actor_id!=self.actor:
+                    raise PermissionError("Wrong maker identity")
+                return BuiltInvoiceSource(self.period_id,self.payload)
+
+        with self.connect() as conn:
+            create_trusted_invoice_source(
+                conn,identity=AuthenticatedFinanceIdentity(
+                    self.actor,frozenset({self.tenant})),
+                tenant_id=self.tenant,document_id=self.doc_id,
+                builder=Builder())
+
+        class Verifier:
+            who=self.actor
+            def verify_access_token(verifier_self,token):
+                if token!="header.claims.signature":
+                    raise PermissionError("Expired/unknown token")
+                return AuthenticatedFinanceIdentity(
+                    verifier_self.who,frozenset({self.tenant}))
+        verifier=Verifier()
+        app=OneInvoiceApprovalWSGI(
+            verifier=verifier,
+            approval_connections=TenantFinanceConnections({
+                self.tenant:self.connect}),
+            allowed_hosts=frozenset({"staging.erp.example.net"}),
+        )
+
+        def call():
+            body=json.dumps({
+                "tenant":str(self.tenant),"document_id":str(self.doc_id),
+            }).encode()
+            status={}
+            response=b"".join(app({
+                "REQUEST_METHOD":"POST",
+                "PATH_INFO":"/api/v1/finance/internal-invoice-approvals",
+                "wsgi.url_scheme":"https",
+                "HTTP_HOST":"staging.erp.example.net",
+                "QUERY_STRING":"","HTTP_COOKIE":"",
+                "CONTENT_TYPE":"application/json",
+                "CONTENT_LENGTH":str(len(body)),
+                "HTTP_AUTHORIZATION":"Bearer header.claims.signature",
+                "wsgi.input":BytesIO(body),
+            },lambda code,headers:status.update(code=code,headers=dict(headers))))
+            return status,json.loads(response)
+
+        maker_code,_=call()
+        self.assertEqual(maker_code["code"],"403 Forbidden")
+        self.assertEqual(self.count("one_invoice_source_approvals","document_id"),0)
+        verifier.who=self.reviewer
+        checker_code,checker_body=call()
+        self.assertEqual(checker_code["code"],"200 OK")
+        self.assertEqual(checker_body["status"],"approved_internal_source")
+        self.assertEqual(self.count("one_invoice_source_approvals","document_id"),1)
+        duplicate_code,_=call()
+        self.assertEqual(duplicate_code["code"],"409 Conflict")
+        self.assertEqual(self.count("one_invoice_source_approvals","document_id"),1)
+        with self.connect() as conn:
+            first=self.execute(conn)
+        with self.connect() as conn:
+            replay=self.execute(conn)
+        self.assertFalse(first.replayed)
+        self.assertTrue(replay.replayed)
+        self.assertEqual(self.count("one_invoice_docs","id"),1)
+        self.assertEqual(self.count("one_journal_entries","id"),1)
+
+
 if __name__=="__main__":
     unittest.main()
