@@ -164,6 +164,60 @@ def run_staging_smoke(
     }
 
 
+
+def run_full_staging_smoke(
+    config: StagingSmokeConfig, *, transport: Callable = _network_get,
+) -> dict:
+    """Full 4-module private read acceptance; NO mutation and NO released status.
+
+    Preserve the baseline three probes and their token non-disclosure property,
+    then sample independently authorized source-backed reads for purchases,
+    inventory and returns. This is a contract smoke, not proof the underlying
+    tenant business data, SQL roles or ZATCA are production-ready.
+    """
+    baseline = run_staging_smoke(config, transport=transport)
+    checks = dict(baseline["checks"])
+    for module in ("purchases", "inventory", "returns"):
+        checks[module + "_read"] = False
+    if baseline["status"] != "SMOKE_PASS_NOT_PRODUCTION_APPROVAL":
+        return {
+            "status": "BLOCKED", "checks": checks,
+            "scope": "read_only_staging_four_modules",
+            "release_approved": False,
+        }
+    headers = {
+        "Accept": "application/json", "User-Agent": "one-erp-next-smoke",
+        "Authorization": "Bearer " + config.access_token,
+    }
+    for module in ("purchases", "inventory", "returns"):
+        path = "/api/v1/operations/" + module + "?" + urlencode({
+            "tenant": str(config.tenant_id), "limit": 1, "offset": 0,
+        })
+        try:
+            item = _read_json(
+                transport=transport, host=config.allowed_host, path=path,
+                headers=headers, timeout=config.timeout_seconds)
+            checks[module + "_read"] = bool(
+                item and item.get("module") == module and
+                item.get("tenant_id") == str(config.tenant_id) and
+                item.get("source") == "one_erp_next_postgresql" and
+                item.get("read_only") is True and
+                isinstance(item.get("items"), list) and
+                isinstance(item.get("page"), dict) and
+                item["page"].get("limit") == 1 and
+                item["page"].get("offset") == 0
+            )
+        except Exception:
+            checks[module + "_read"] = False
+    return {
+        "status": "SMOKE_PASS_NOT_PRODUCTION_APPROVAL" if all(checks.values())
+        else "BLOCKED",
+        "checks": checks,
+        "scope": "read_only_staging_four_modules",
+        "release_approved": False,
+    }
+
+
 def main() -> int:
     """Explicit opt-in; secrets stay in environment and never in output."""
     required = (
@@ -185,7 +239,7 @@ def main() -> int:
             tenant_id=UUID(os.environ["ONE_STAGING_TENANT_ID"]),
             access_token=os.environ["ONE_STAGING_ACCESS_TOKEN"],
         )
-        report = run_staging_smoke(config)
+        report = run_full_staging_smoke(config)
     except Exception:
         print(json.dumps({
             "status": "BLOCKED", "release_approved": False,

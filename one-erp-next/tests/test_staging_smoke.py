@@ -9,7 +9,7 @@ from unittest import TestCase, mock
 from uuid import uuid4
 
 from one_erp_core.staging_smoke import (
-    InvalidStagingConfiguration, StagingSmokeConfig, main, run_staging_smoke,
+    InvalidStagingConfiguration, StagingSmokeConfig, main, run_staging_smoke, run_full_staging_smoke,
 )
 
 HOST = "staging.erp.example.net"
@@ -226,6 +226,90 @@ class StagingSmokeTests(TestCase):
         result=run_staging_smoke(self.conf,transport=self.responder)
         self.assertFalse(result["release_approved"])
         self.assertEqual(result["scope"],"read_only_staging_http_only")
+
+
+
+    def test_full_smoke_requires_all_four_live_modules_and_safe_contract(self):
+        calls=[]
+        def transport(host,path,headers,timeout):
+            calls.append((host,path,dict(headers)))
+            if path=="/healthz":
+                payload=self.health
+            elif path=="/readyz":
+                payload=self.ready
+            else:
+                module=path.split("/api/v1/operations/")[1].split("?")[0]
+                payload={
+                    "module":module,"tenant_id":str(self.tenant),
+                    "items":[],"read_only":True,
+                    "source":"one_erp_next_postgresql",
+                    "page":{"limit":1,"offset":0,"has_more":False,
+                            "next_offset":None},
+                }
+            return 200,{"content-type":"application/json",
+                        "cache-control":"private, no-store"},json.dumps(payload).encode()
+        report=run_full_staging_smoke(self.conf,transport=transport)
+        self.assertEqual(report["status"],"SMOKE_PASS_NOT_PRODUCTION_APPROVAL")
+        self.assertEqual(len(report["checks"]),6)
+        self.assertTrue(all(report["checks"].values()))
+        self.assertFalse(report["release_approved"])
+        self.assertEqual(len(calls),6)
+        self.assertEqual([
+            c[1].split("/api/v1/operations/")[-1].split("?")[0]
+            for c in calls[2:]
+        ],["sales","purchases","inventory","returns"])
+        self.assertTrue(all("Authorization" not in headers
+                            for _,path,headers in calls[:2]))
+        self.assertTrue(all(headers.get("Authorization")=="Bearer "+TOKEN
+                            for _,path,headers in calls[2:]))
+        self.assertEqual(report["scope"],"read_only_staging_four_modules")
+
+    def test_full_smoke_never_sends_token_before_sha_and_readiness(self):
+        calls=[]
+        self.health["commit_sha"]="0"*40
+        def transport(host,path,headers,timeout):
+            calls.append((path,dict(headers)))
+            return self.responder(host,path,headers,timeout)
+        report=run_full_staging_smoke(self.conf,transport=transport)
+        self.assertEqual(report["status"],"BLOCKED")
+        self.assertTrue(all("Authorization" not in headers
+                            for _,headers in calls))
+        self.assertTrue(all(not path.startswith("/api/v1/operations/")
+                            for path,_ in calls))
+        self.assertFalse(report["checks"]["purchases_read"])
+        self.health["commit_sha"]=SHA
+        self.ready["ready"]=False
+        calls.clear()
+        report=run_full_staging_smoke(self.conf,transport=transport)
+        self.assertEqual(report["status"],"BLOCKED")
+        self.assertTrue(all("Authorization" not in headers
+                            for _,headers in calls))
+        self.assertTrue(all(not path.startswith("/api/v1/operations/")
+                            for path,_ in calls))
+
+    def test_full_smoke_rejects_single_module_fake_or_foreign_data(self):
+        for altered_module in ("purchases","inventory","returns"):
+            def transport(host,path,headers,timeout):
+                if path=="/healthz":
+                    payload=self.health
+                elif path=="/readyz":
+                    payload=self.ready
+                else:
+                    module=path.split("/api/v1/operations/")[1].split("?")[0]
+                    payload={
+                        "module":module,"tenant_id":str(self.tenant),"items":[],
+                        "read_only":True,"source":"one_erp_next_postgresql",
+                        "page":{"limit":1,"offset":0},
+                    }
+                    if module==altered_module:
+                        payload["tenant_id"]=str(uuid4())
+                return 200,{"content-type":"application/json",
+                            "cache-control":"private,no-store"},json.dumps(payload).encode()
+            with self.subTest(module=altered_module):
+                report=run_full_staging_smoke(self.conf,transport=transport)
+                self.assertEqual(report["status"],"BLOCKED")
+                self.assertFalse(report["checks"][altered_module+"_read"])
+                self.assertFalse(report["release_approved"])
 
 
 if __name__ == "__main__":
