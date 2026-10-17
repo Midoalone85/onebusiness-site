@@ -10,9 +10,10 @@ function safeText(v){return typeof v==="string"||typeof v==="number"?String(v):"
  * Missing loader or unreviewable source FAILS CLOSED. Server is final authority.
  * Never mount on the public preview, persist tokens or enable CORS wildcard.
  */
-export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetchImpl,language="ar"}) {
+export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetchImpl,onApproved,language="ar"}) {
   if(!root?.ownerDocument||typeof getToken!=="function"||
-     (loadSummary!=null&&typeof loadSummary!=="function"))
+     (loadSummary!=null&&typeof loadSummary!=="function")||
+     (onApproved!=null&&typeof onApproved!=="function"))
     throw new TypeError("Private root and verified session required");
   const verifiedLoader=loadSummary||((args)=>readInternalInvoiceSource({baseUrl,fetchImpl,...args}));
   trustedApprovalOrigin(baseUrl);
@@ -46,7 +47,13 @@ export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetc
       if(disposed||current!==revision)return;
       const result=await approveInternalInvoice({baseUrl,...ref,token,fetchImpl,signal:controller?.signal});
       if(disposed||current!==revision)return;
-      if(result.status==="approved_internal_source"){approved=true;status.textContent=words.approved;}
+      if(result.status==="approved_internal_source"){
+        approved=true;status.textContent=words.approved;
+        // Notify only after a verified server success; the shell must re-read
+        // persisted audit facts rather than insert a client-side action.
+        if(onApproved){try{onApproved({tenant:ref.tenant,document_id:ref.document_id});}
+          catch{/* Optional UI notification cannot reverse a committed approval. */}}
+      }
     }catch{if(!disposed&&current===revision)status.textContent=words.denied;}
     finally{if(!disposed&&current===revision){busy=false;update();}}
   });
