@@ -49,8 +49,8 @@ class ReceivablesAgingPolicyTests(unittest.TestCase):
         x=_aging_row(item(BASE-timedelta(days=120),"200.00","200.00","0"),BASE)
         self.assertEqual(x["outstanding"],"0.00")
         self.assertEqual(x["days_overdue"],0)
-        self.assertEqual(x["status"],"settled")
-        self.assertEqual(x["aging_bucket"],"settled")
+        self.assertEqual(x["status"],"internally_cleared")
+        self.assertEqual(x["aging_bucket"],"no_open_balance_internal")
 
     def test_overallocated_payments_and_credits_are_not_silently_hidden(self):
         for gross,paid,credit in (
