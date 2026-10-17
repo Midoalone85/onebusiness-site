@@ -1,5 +1,6 @@
 """Non-mutating release-blocking source and contract checks."""
 from pathlib import Path
+import re
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_MAIN = [
@@ -64,8 +65,8 @@ def privilege_template_checks():
         if "NOLOGIN" not in upper or "NOBYPASSRLS" not in upper:
             errors.append(f"Missing minimum role protections: {path.name}")
         # NOLOGIN roles must never be upgraded into broad privileged accounts.
-        forbidden = ("SUPERUSER;", "BYPASSRLS;", "CREATEDB;", "CREATEROLE;")
-        if any(token in upper.split("CREATE ROLE")[-1].split("END")[0] for token in forbidden):
+        role_ddl = upper.split("CREATE ROLE")[-1].split(";")[0]
+        if re.search(r"(?<![A-Z_])(SUPERUSER|BYPASSRLS|CREATEDB|CREATEROLE)(?![A-Z_])", role_ddl):
             errors.append(f"Unexpected privileged role flag: {path.name}")
         if "GRANT ALL PRIVILEGES" in upper or "GRANT ALL ON" in upper:
             errors.append(f"Unbounded GRANT ALL detected: {path.name}")
