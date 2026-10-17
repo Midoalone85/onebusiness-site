@@ -33,11 +33,11 @@ const LABELS={
   ar:{title:"سجل النشاط",note:"عمليات موثقة من سجل قاعدة البيانات. لا يشمل كل تعديل قبل اكتمال الربط.",
     empty:"لا توجد أحداث مسجلة لهذا المستند",loading:"جارٍ تحميل الأحداث الموثقة…",
     error:"تعذر عرض سجل النشاط المصرح به",user:"المستخدم (معرّف موثّق)",
-    next:"الأقدم",prev:"الأحدث"},
+    next:"الأقدم",prev:"الأحدث",refresh:"تحديث السجل"},
   en:{title:"Activity history",note:"Database audit facts only; not every edit is connected yet.",
     empty:"No recorded events for this document",loading:"Loading verified events…",
     error:"Authorized activity history unavailable",user:"Verified actor ID",
-    next:"Older",prev:"Newer"},
+    next:"Older",prev:"Newer",refresh:"Refresh history"},
 };
 export function mountActivityTimeline({root,tenant,baseUrl,getToken,fetchImpl,
     language="ar",timeZone="UTC"}){
@@ -58,9 +58,10 @@ export function mountActivityTimeline({root,tenant,baseUrl,getToken,fetchImpl,
   const nav=doc.createElement("nav");
   const prev=doc.createElement("button");prev.type="button";prev.textContent=words.prev;
   const next=doc.createElement("button");next.type="button";next.textContent=words.next;
-  nav.append(prev,next);
+  const refresh=doc.createElement("button");refresh.type="button";refresh.textContent=words.refresh;
+  nav.append(prev,next,refresh);
   root.append(title,note,status,events,nav);
-  function buttons(){prev.disabled=disposed||!active||offset===0;next.disabled=disposed||!active||!hasMore;}
+  function buttons(){prev.disabled=disposed||!active||offset===0;next.disabled=disposed||!active||!hasMore;refresh.disabled=disposed||!active;}
   function clear(){
     revision++;controller?.abort();controller=null;active=null;offset=0;hasMore=false;
     events.replaceChildren();status.textContent="";buttons();
@@ -103,6 +104,9 @@ export function mountActivityTimeline({root,tenant,baseUrl,getToken,fetchImpl,
   });
   next.addEventListener("click",()=>{
     if(active&&hasMore&&offset+20<=5000)void load(active.record_type,active.record_id,offset+20);
+  });
+  refresh.addEventListener("click",()=>{
+    if(!disposed&&active)void load(active.record_type,active.record_id,offset);
   });
   buttons();
   return {load,clear,dispose:()=>{if(disposed)return;clear();disposed=true;root.replaceChildren();},
