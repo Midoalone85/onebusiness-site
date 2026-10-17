@@ -191,3 +191,7 @@
   .one-private-finance .one-review-with-activity{grid-template-columns:minmax(0,1fr)}
   .one-private-finance .one-activity-panel{max-height:none}
 }
+
+/* Source-backed order history opens only on valid order references. */
+.one-private-finance .one-operations-activity{margin-top:12px;max-width:360px}
+.one-private-finance .one-operations-activity[hidden]{display:none}
