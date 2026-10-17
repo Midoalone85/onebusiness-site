@@ -9,7 +9,7 @@ Status: review-only source on 17 October 2026; not connected to Oracle or a live
 - Offline adverse tests for unsafe hosts, redirects, wrong SHA, wrong tenant, fake rows, revoked/missing access, cacheable data, network errors and secret hygiene.
 - Health reports only the service name, staging environment and exact code SHA.
 - Readiness is **false by default** and becomes true only when an operator-owned probe supplies all six exact boolean facts: trusted IdP; isolated tenant database routing; restricted SQL roles; approved migrations; independently restored backup; live HTTPS certificate.
-- Finance/sales protected data is never printed. The smoke only performs HTTPS GET health, readiness and one authorized sales read for a named staging company, and never sends its bearer token to health endpoints.
+- Finance/sales protected data is never printed. The smoke performs HTTPS GET health and readiness first, and sends the bearer token **only after** the exact expected staging SHA and readiness have passed. It never sends a bearer token to the health endpoints or to a mismatched/unready host. Only then may it do one authorized sales read for the named company.
 
 ## Required deployment work BEFORE a smoke can run
 
