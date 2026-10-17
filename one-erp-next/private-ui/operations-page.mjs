@@ -12,11 +12,11 @@ function safeText(v) {
 /** Caller supplies a trusted DOM element and a short-lived, memory-only token provider.
  * Never embed credentials in HTML or mount this into the public fictional-data preview.
  */
-export function mountOperationsPage({root,baseUrl,getToken,language="ar",fetchImpl}) {
+export function mountOperationsPage({root,baseUrl,tenant,getToken,language="ar",fetchImpl}) {
   if (!root || !root.ownerDocument || typeof getToken !== "function") throw new TypeError("Private root and token provider required");
   const document = root.ownerDocument;
   const words = LABELS[language === "en" ? "en" : "ar"];
-  const view = createOperationsView({baseUrl,getToken,fetchImpl});
+  const view = createOperationsView({baseUrl,tenant,getToken,fetchImpl});
   let generation=0, disposed=false;
   root.replaceChildren();
   root.setAttribute("dir",language==="en"?"ltr":"rtl");
@@ -37,7 +37,7 @@ export function mountOperationsPage({root,baseUrl,getToken,language="ar",fetchIm
   root.append(menu,clear,status,content);
   function render(data){
     content.replaceChildren();
-    const rows=Array.isArray(data?.rows)?data.rows:[];
+    const rows=Array.isArray(data?.items)?data.items:[];
     if(!rows.length){status.textContent=words.empty;return;}
     status.textContent="";
     const table=document.createElement("table");
