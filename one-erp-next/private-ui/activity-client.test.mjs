@@ -56,6 +56,18 @@ test("requires canonical references, authorized token and HTTPS before network",
   assert.equal(count,0);
 });
 
+test("commercial order activity requires canonical signed references",async()=>{
+  for(const record_type of ["sales_order","purchase_order"]){
+    const expected={...body,record_type,items:[{...item,action:record_type+".confirmed"}]};
+    const result=await readActivity({...args,record_type,
+      fetchImpl:async(url)=>{
+        assert.equal(url.searchParams.get("record_type"),record_type);
+        return ok(expected);
+      }});
+    assert.equal(result.items[0].action,record_type+".confirmed");
+  }
+});
+
 test("unauthorized, HTML and invalid JSON never become a timeline",async()=>{
   for(const failure of [
     {ok:false,status:403},
