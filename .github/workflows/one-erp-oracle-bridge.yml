@@ -86,7 +86,8 @@ jobs:
                 origin="$(git -C "$repo" remote get-url origin 2>/dev/null || true)"
                 case "$origin" in
                   */onebusiness-site|*/onebusiness-site.git)
-                    # Do not print path or remote; either may expose repository owner.
+                    # Keep the public diagnostic brand-only; the remote and
+                    # filesystem paths may contain private owner identifiers.
                     echo "ONE_ERP_REPOSITORY_FOUND=yes"
                     git -C "$repo" status --short --branch || true
                     ;;
