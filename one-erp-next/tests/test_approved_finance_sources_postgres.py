@@ -99,6 +99,7 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             for key,kind in (
                 ("ar","asset"),("ap","liability"),("sales","revenue"),
                 ("outputvat","liability"),("inputvat","asset"),
+                ("inventory","asset"),("grni","liability"),("cogs","expense"),
             ):
                 conn.execute(
                     """INSERT INTO one_accounts(tenant_id,id,code,name,kind)
@@ -733,11 +734,21 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
 
 
 
-    def prepare_real_dispatched_sale(self, *, dispatch_quantity="2.000"):
-        """Disposable source fixture: simulated starting warehouse stock."""
-        self.sales_order,self.sales_product,self.sales_warehouse=uuid4(),uuid4(),uuid4()
+    def prepare_real_dispatched_sale(
+        self, *, dispatch_quantity="2.000", value_dispatch=True,
+    ):
+        """Disposable *actual purchase receipt and costed sale* fixture.
+
+        No manually forged on-hand balance: a confirmed purchase increases
+        physical stock and posts GRNI/inventory. A confirmed sale dispatch
+        posts the separate COGS/inventory journal using WAC cost.
+        """
+        self.sales_order,self.purchase_order=uuid4(),uuid4()
+        self.sales_product,self.sales_warehouse=uuid4(),uuid4()
         self.sales_admin=uuid4()
         self.sales_event=uuid4()
+        self.purchase_event=uuid4()
+        self.purchase_journal,self.cost_journal=uuid4(),uuid4()
         with self.connect() as conn:
             with conn.transaction():
                 self.bind(conn,self.sales_admin)
@@ -756,43 +767,54 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                        VALUES(%s,%s,'STAGING','CI warehouse')""",
                     (self.tenant,self.sales_warehouse),
                 )
+                for kind,order,price,partner in (
+                    ("purchase",self.purchase_order,"50.00","supplier-ci"),
+                    ("sale",self.sales_order,"100.00","customer-ci"),
+                ):
+                    conn.execute(
+                        """INSERT INTO one_commercial_orders(
+                             tenant_id,id,kind,number,partner_id,currency)
+                           VALUES(%s,%s,%s,%s,%s,'SAR')""",
+                        (self.tenant,order,kind,
+                         "REAL-"+kind+"-"+uuid4().hex[:12],partner),
+                    )
+                    conn.execute(
+                        """INSERT INTO one_commercial_order_lines(
+                             tenant_id,order_id,line_no,product_id,warehouse_id,
+                             ordered_qty,unit_price)
+                           VALUES(%s,%s,1,%s,%s,%s,%s)""",
+                        (self.tenant,order,self.sales_product,
+                         self.sales_warehouse,Decimal("10") if kind=="purchase"
+                         else Decimal("5"),Decimal(price)),
+                    )
+                    conn.execute(
+                        "SELECT one_confirm_commercial_order(%s,%s,%s)",
+                        (self.tenant,order,self.sales_admin),
+                    )
+                # Real purchase receipt + WAC stock/GRNI postings.
                 conn.execute(
-                    """INSERT INTO one_commercial_orders(
-                         tenant_id,id,kind,number,partner_id,currency)
-                       VALUES(%s,%s,'sale',%s,'customer-ci','SAR')""",
-                    (self.tenant,self.sales_order,
-                     "REAL-SO-"+uuid4().hex[:12]),
-                )
-                conn.execute(
-                    """INSERT INTO one_commercial_order_lines(
-                         tenant_id,order_id,line_no,product_id,warehouse_id,
-                         ordered_qty,unit_price)
-                       VALUES(%s,%s,1,%s,%s,5.000,100.00)""",
-                    (self.tenant,self.sales_order,self.sales_product,
-                     self.sales_warehouse),
-                )
-                # This stock opening is an isolated test fixture ONLY.
-                # Production must receive and value goods through actual
-                # purchasing/warehouse accounting, not manual balance INSERT.
-                conn.execute("SELECT set_config('one.commerce_context','yes',true)")
-                conn.execute(
-                    """INSERT INTO one_stock_balances(
-                         tenant_id,warehouse_id,product_id,on_hand,reserved)
-                       VALUES(%s,%s,%s,10.000,0)""",
-                    (self.tenant,self.sales_warehouse,self.sales_product),
-                )
-                conn.execute(
-                    "SELECT one_confirm_commercial_order(%s,%s,%s)",
-                    (self.tenant,self.sales_order,self.sales_admin),
+                    """SELECT one_receive_and_value_goods(
+                       %s,%s,1,10,%s,%s,%s,'inventory','grni',%s)""",
+                    (self.tenant,self.purchase_order,self.purchase_event,
+                     self.purchase_journal,self.period_id,self.sales_admin),
                 )
                 if Decimal(dispatch_quantity)>0:
-                    conn.execute(
-                        """SELECT one_fulfill_commercial_line(
-                           %s,%s,1,%s,%s,%s)""",
-                        (self.tenant,self.sales_order,
-                         Decimal(dispatch_quantity),self.sales_event,
-                         self.sales_admin),
-                    )
+                    if value_dispatch:
+                        conn.execute(
+                            """SELECT one_ship_and_value_goods(
+                               %s,%s,1,%s,%s,%s,%s,'inventory','cogs',%s)""",
+                            (self.tenant,self.sales_order,Decimal(dispatch_quantity),
+                             self.sales_event,self.cost_journal,self.period_id,
+                             self.sales_admin),
+                        )
+                    else:
+                        conn.execute(
+                            """SELECT one_fulfill_commercial_line(
+                               %s,%s,1,%s,%s,%s)""",
+                            (self.tenant,self.sales_order,
+                             Decimal(dispatch_quantity),self.sales_event,
+                             self.sales_admin),
+                        )
 
     def prepare_reviewed_sales_intent(self, *, invoice_id=None, reviewer=None):
         invoice_id=invoice_id or self.doc_id
