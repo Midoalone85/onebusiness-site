@@ -3,8 +3,8 @@
 Base: main. This branch is NOT a deployable release.
 
 ## Verified status
-- Finance draft PR #36: https://github.com/Midoalone85/onebusiness-site/pull/36
-- Full finance suite for its source branch passed: 543 tests on Python 3.11 and 543 on Python 3.13 in https://github.com/Midoalone85/onebusiness-site/actions/runs/39012533223 .
+- Finance draft PR #36: Finance draft PR #36 (repository-local)
+- Full finance suite for its source branch passed: 543 tests on Python 3.11 and 543 on Python 3.13 in GitHub Actions run 39012533223 (repository-local) .
 - main and finance feature 056 have diverged: 19 commits unique to main, 359 unique to feature 056.
 - Reverse comparison identifies these main-side files to protect:
   - .github/workflows/one-erp-brand-guard.yml
