@@ -158,3 +158,54 @@ test("any stopped workspace blocks stale module transitions",async()=>{
   assert.equal(workspace.snapshot().disposed,true);
   assert.equal(root.children.length,0);
 });
+
+test("confirmed invoice approval refreshes only persisted activity for the current document",async()=>{
+  let approved=false,historyReads=0;
+  const paths=[];
+  const source={tenant,document_id,reviewable:true,source:"verified_internal_postgresql",
+    fields:[{label:"Amount",value:"115.00"}],lines:[{
+      line_number:1,description:"Goods",quantity:"1",unit_price:"100.00",
+      discount_amount:"0.00",tax_category:"standard",tax_rate:"0.150000",
+      tax_code:"KSA_STANDARD",net:"100.00",tax:"15.00",gross:"115.00",
+    }]};
+  const {root,workspace}=harness("ar",{fetchImpl:async(url,opts)=>{
+    paths.push(url.pathname);
+    if(url.pathname==="/api/v1/finance/internal-invoice-source")return success(source);
+    if(url.pathname==="/api/v1/finance/internal-invoice-approvals"){
+      assert.equal(opts.method,"POST");approved=true;
+      return success({tenant,document_id,status:"approved_internal_source",ok:true});
+    }
+    if(url.pathname==="/api/v1/activity/timeline"){
+      historyReads++;
+      return success({module:"activity",tenant_id:tenant,record_type:"invoice",record_id:document_id,
+        items:approved?[{event_id:"approved:"+document_id,
+          action:"invoice.source_approved",actor_id:tenant,
+          occurred_at:"2026-10-17T19:00:00.000000Z"}]:[],
+        page:{limit:20,offset:0,has_more:false,next_offset:null},
+        read_only:true,source:"one_erp_next_postgresql"});
+    }
+    return {ok:false,status:403};
+  }});
+  await workspace.select("review");
+  const panel=root.children[3].children[0];
+  const controls=panel.children[0],layout=panel.children[1];
+  controls.children[1].value=document_id;controls.children[2].listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(historyReads,1);
+  assert.equal(layout.children[1].children[3].children.length,0);
+  const review=layout.children[0];
+  review.children[6].checked=true;review.children[6].listeners.change();
+  await review.children[7].listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(historyReads,2);
+  assert.equal(layout.children[1].children[3].children.length,1);
+  assert.equal(layout.children[1].children[3].children[0].children[0].textContent,
+    "اعتماد مصدر الفاتورة بمراجع مستقل");
+  assert.deepEqual(paths,[
+    "/api/v1/finance/internal-invoice-source",
+    "/api/v1/activity/timeline",
+    "/api/v1/finance/internal-invoice-approvals",
+    "/api/v1/activity/timeline",
+  ]);
+  workspace.dispose();
+});
