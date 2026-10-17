@@ -1,0 +1,60 @@
+name: ONE ERP Next Finance Tests
+
+on:
+  push:
+    branches:
+      - feature/one-erp-smart-finance-20261015
+      - integration/one-erp-next-finance-20261017
+    paths:
+      - "one-erp-next/**"
+      - ".github/workflows/one-erp-next-finance-tests.yml"
+  pull_request:
+    paths:
+      - "one-erp-next/**"
+      - ".github/workflows/one-erp-next-finance-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  finance-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: ci_testing_only
+          POSTGRES_DB: one_erp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ONE_TEST_PG_DSN: "host=localhost port=5432 dbname=one_erp_test user=postgres password=ci_testing_only"
+      ONE_TEST_PG_HOST: localhost
+      ONE_TEST_PG_PORT: "5432"
+      ONE_TEST_PG_DB: one_erp_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install integration driver
+        run: python -m pip install "psycopg[binary]>=3.1,<4" "PyJWT[crypto]>=2.10,<3"
+      - name: Compile sources
+        working-directory: one-erp-next
+        run: python -m compileall -q src tests
+      - name: Run unit and isolated PostgreSQL integration tests
+        working-directory: one-erp-next
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v

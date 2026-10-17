@@ -1,0 +1,82 @@
+name: ONE ERP NEXT Integration Gates
+on:
+  push:
+    branches:
+      - integration/one-erp-next-finance-20261017
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "one-erp-next/**"
+      - "one-erp-next-integration/**"
+      - "one-erp-preview/**"
+      - ".github/workflows/one-erp-next-integration-gates.yml"
+permissions:
+  contents: read
+jobs:
+  integration-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test release gate logic
+        run: python -m unittest discover -s one-erp-next-integration -p 'test_release_gates.py' -v
+      - name: Inventory critical PostgreSQL regression coverage
+        run: python one-erp-next-integration/operational_acceptance.py
+      - name: Verify inherited main assets and finance prerequisites
+        run: python one-erp-next-integration/verify_integration.py
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check one-erp-preview/ui.js
+      - run: node --test one-erp-preview/tests/navigation.test.cjs
+      - name: Test private operations API client and view state
+        run: node --test one-erp-next/private-ui/*.test.mjs
+  finance-presence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stop integration until finance source exists
+        run: |
+          test -f one-erp-next/src/one_erp_core/accounting.py
+          test -f one-erp-next/tests/test_postgres_integration.py
+          test -f .github/workflows/one-erp-next-finance-tests.yml
+
+  merge-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test finance source merge, never commit or push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin refs/heads/feature/one-erp-next-live-operations-read-056-20261017:refs/remotes/origin/finance-source
+          git config user.name "ONE ERP CI"
+          git config user.email "ci@invalid.example"
+          protected_before="$(git hash-object .github/workflows/one-erp-oracle-bridge.yml)"
+          if ! git merge --no-commit --no-ff -X ours origin/finance-source; then
+            echo "::error::Merge conflicts detected; review unresolved paths below."
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+          protected_after="$(git hash-object .github/workflows/one-erp-oracle-bridge.yml)"
+          if [ "$protected_before" != "$protected_after" ]; then
+            echo "::error::Oracle bridge workflow changed during rehearsal."
+            exit 1
+          fi
+          echo "Temporary merge succeeded with protected Oracle bridge preserved; no push or commit."
+          python one-erp-next-integration/verify_integration.py
+          node --check one-erp-preview/ui.js
