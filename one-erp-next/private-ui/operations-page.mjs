@@ -55,14 +55,16 @@ export function mountOperationsPage({root,baseUrl,tenant,getToken,language="ar",
     table.append(body);content.append(table);
   }
   async function load(module){
-    if(disposed)return;
+    if(disposed)return false;
     const current=++generation;
     content.replaceChildren();
     status.textContent=words.loading;
     const result=await view.load(module);
-    if(disposed||current!==generation)return;
-    if(result.status==="ready")render(result.data);
-    else{content.replaceChildren();status.textContent=result.error==="unauthorized"?words.unauthorized:words.unavailable;}
+    if(disposed||current!==generation)return false;
+    if(result.status==="ready"){render(result.data);return true;}
+    content.replaceChildren();
+    status.textContent=result.error==="unauthorized"?words.unauthorized:words.unavailable;
+    return false;
   }
   return {load,clear:()=>{generation++;view.clear();content.replaceChildren();status.textContent="";},
     dispose:()=>{disposed=true;generation++;view.clear();root.replaceChildren();}};
