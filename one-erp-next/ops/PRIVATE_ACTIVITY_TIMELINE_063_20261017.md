@@ -40,3 +40,9 @@ All seven types use fixed allowlisted parameterized SQL. Read starts a REPEATABL
 6. Later phases: extend actor/action/time and before/after-safe summaries across commercial order create/update, inventory, accounting adjustments, approvals, expenses, HR, configuration, and superuser/security events. Configure retention and tamper-evidence under approved legal/accounting policy.
 
 **CI success is not production acceptance; the new endpoint remains off by default.**
+
+## Activity refresh after committed invoice approval (source-only continuation)
+
+The private invoice reviewer now accepts an optional synchronous `onApproved` hook. Only a successful, matching server-side `approved_internal_source` response invokes the hook. The workspace checks its active tenant, page generation, and validated document reference, then **re-reads** the PostgreSQL-backed activity API. The browser never inserts a claimed approval event. Failed/denied/stale replies do not notify. The activity panel also offers a manual Refresh history button for legitimate updates made by another authenticated actor; permission failures clear visible history.
+
+This is **not live deployment**, push updates, identity-directory attribution, or an every-action audit. Existing source-only, blocked-by-default staging constraints and independent verification requirements remain unchanged.
