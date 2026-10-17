@@ -53,11 +53,13 @@ const LABELS={
   ar:{title:"سجل النشاط",note:"عمليات موثقة من سجل قاعدة البيانات. لا يشمل كل تعديل قبل اكتمال الربط.",
     empty:"لا توجد أحداث مسجلة لهذا المستند",loading:"جارٍ تحميل الأحداث الموثقة…",
     error:"تعذر عرض سجل النشاط المصرح به",user:"المستخدم (معرّف موثّق)",
-    next:"الأقدم",prev:"الأحدث",refresh:"تحديث السجل"},
+    next:"الأقدم",prev:"الأحدث",refresh:"تحديث السجل",
+    details:"عرض التغييرات",before:"قبل",after:"بعد"},
   en:{title:"Activity history",note:"Database audit facts only; not every edit is connected yet.",
     empty:"No recorded events for this document",loading:"Loading verified events…",
     error:"Authorized activity history unavailable",user:"Verified actor ID",
-    next:"Older",prev:"Newer",refresh:"Refresh history"},
+    next:"Older",prev:"Newer",refresh:"Refresh history",
+    details:"Show changes",before:"Before",after:"After"},
 };
 export function mountActivityTimeline({root,tenant,baseUrl,getToken,fetchImpl,
     language="ar",timeZone="UTC"}){
@@ -79,24 +81,32 @@ export function mountActivityTimeline({root,tenant,baseUrl,getToken,fetchImpl,
   const prev=doc.createElement("button");prev.type="button";prev.textContent=words.prev;
   const next=doc.createElement("button");next.type="button";next.textContent=words.next;
   const refresh=doc.createElement("button");refresh.type="button";refresh.textContent=words.refresh;
-  nav.append(prev,next,refresh);
+  const details=doc.createElement("button");details.type="button";details.textContent=words.details;
+  nav.append(prev,next,refresh,details);
   root.append(title,note,status,events,nav);
-  function buttons(){prev.disabled=disposed||!active||offset===0;next.disabled=disposed||!active||!hasMore;refresh.disabled=disposed||!active;}
+  function buttons(){
+    prev.disabled=disposed||!active||offset===0;
+    next.disabled=disposed||!active||!hasMore;
+    refresh.disabled=disposed||!active;
+    details.disabled=disposed||!active||active?.withChanges||
+      !["sales_order","purchase_order"].includes(active?.record_type);
+  }
   function clear(){
     revision++;controller?.abort();controller=null;active=null;offset=0;hasMore=false;
     events.replaceChildren();status.textContent="";buttons();
   }
-  async function load(record_type,record_id,nextOffset=0){
+  async function load(record_type,record_id,nextOffset=0,withChanges=false){
     if(disposed)return false;
     const current=++revision;
     controller?.abort();controller=new AbortController();
-    active={record_type,record_id};hasMore=false;
+    active={record_type,record_id,withChanges};hasMore=false;
     status.textContent=words.loading;events.replaceChildren();buttons();
     try{
       const token=await getToken();
       if(disposed||current!==revision)return false;
       const data=await readActivity({baseUrl,tenant,record_type,record_id,token,
-        limit:20,offset:nextOffset,fetchImpl,signal:controller.signal});
+        limit:20,offset:nextOffset,include_changes:withChanges,
+        fetchImpl,signal:controller.signal});
       if(disposed||current!==revision)return false;
       offset=nextOffset;hasMore=data.page.has_more;
       status.textContent=data.items.length?"":words.empty;
@@ -108,7 +118,23 @@ export function mountActivityTimeline({root,tenant,baseUrl,getToken,fetchImpl,
         at.textContent=formatter.format(new Date(item.occurred_at))+" ("+timeZone+")";
         const actor=doc.createElement("span");
         actor.textContent=words.user+": "+item.actor_id;
-        li.append(action,at,actor);events.append(li);
+        li.append(action,at,actor);
+        if(item.changes){
+          const diff=doc.createElement("dl");
+          const keys=Object.keys({...item.changes.before,...item.changes.after});
+          for(const key of keys){
+            const row=doc.createElement("div");
+            const term=doc.createElement("dt");term.textContent=key;
+            const value=doc.createElement("dd");
+            const oldValue=item.changes.before[key]??"";
+            const newValue=item.changes.after[key]??"";
+            value.textContent=words.before+": "+String(oldValue)+" | "+
+              words.after+": "+String(newValue);
+            row.append(term,value);diff.append(row);
+          }
+          li.append(diff);
+        }
+        events.append(li);
       }
       buttons();return true;
     }catch{
@@ -120,13 +146,20 @@ export function mountActivityTimeline({root,tenant,baseUrl,getToken,fetchImpl,
     }
   }
   prev.addEventListener("click",()=>{
-    if(active&&offset>0)void load(active.record_type,active.record_id,Math.max(0,offset-20));
+    if(active&&offset>0)void load(active.record_type,active.record_id,
+      Math.max(0,offset-20),active.withChanges);
   });
   next.addEventListener("click",()=>{
-    if(active&&hasMore&&offset+20<=5000)void load(active.record_type,active.record_id,offset+20);
+    if(active&&hasMore&&offset+20<=5000)void load(active.record_type,active.record_id,
+      offset+20,active.withChanges);
   });
   refresh.addEventListener("click",()=>{
-    if(!disposed&&active)void load(active.record_type,active.record_id,offset);
+    if(!disposed&&active)void load(active.record_type,active.record_id,offset,active.withChanges);
+  });
+  details.addEventListener("click",()=>{
+    if(!disposed&&active&&!active.withChanges&&
+       ["sales_order","purchase_order"].includes(active.record_type))
+      void load(active.record_type,active.record_id,offset,true);
   });
   buttons();
   return {load,clear,dispose:()=>{if(disposed)return;clear();disposed=true;root.replaceChildren();},
