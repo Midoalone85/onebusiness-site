@@ -8698,5 +8698,106 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
             (tenant,quarantine,product)).fetchone()[0],Decimal("1"))
 
+    # 056 | Live source-backed READ ONLY operational pages atop latest 055 gates.
+    def private_operations(self,tenant,actor,module,*,limit=25,offset=0):
+        from one_erp_core.operations_read_repository import load_operations_page
+        return load_operations_page(
+            self.db,tenant_id=tenant,actor_id=actor,
+            module=module,limit=limit,offset=offset)
+
+    def test_056_real_postgres_sales_purchase_inventory_returns_view(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        for mod,order_id in (("sales",sale),("purchases",purchase)):
+            view=self.private_operations(tenant,actor,mod,limit=5)
+            self.assertEqual(view["tenant_id"],str(tenant))
+            self.assertEqual(view["source"],"one_erp_next_postgresql")
+            self.assertTrue(view["read_only"])
+            self.assertEqual(len(view["items"]),1)
+            line=view["items"][0]
+            self.assertEqual(line["order_id"],str(order_id))
+            self.assertEqual(line["ordered_quantity"],"5.000")
+            self.assertEqual(line["unit_price"],"12.500")
+            self.assertEqual(view["page"]["has_more"],False)
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,purchase,uuid4(),actor))
+        stock=self.private_operations(tenant,actor,"inventory")
+        self.assertEqual(len(stock["items"]),1)
+        self.assertEqual(stock["items"][0]["warehouse_id"],str(warehouse))
+        self.assertEqual(stock["items"][0]["on_hand"],"3.000")
+        self.assertEqual(stock["items"][0]["reserved"],"0.000")
+        self.assertEqual(stock["items"][0]["available"],"3.000")
+        self.assertEqual(self.private_operations(tenant,actor,"returns")["items"],[])
+        self.assertEqual(
+            self.private_operations(tenant,actor,"sales")["items"][0]["status"],
+            "draft")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s",
+            (tenant,)).fetchone()[0],1)
+
+    def test_056_user_view_permission_denial_revoked_independently(self):
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        reviewer=self.commerce_055_reviewers(tenant)
+        viewer=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role)"
+            " VALUES(%s,%s,'viewer')",(tenant,viewer))
+        self.assertEqual(
+            self.private_operations(tenant,viewer,"sales")["items"][0]["order_id"],
+            str(sale))
+        self.source_permission_055(
+            tenant,owner,reviewer,'sales.order.view','deny')
+        with self.assertRaises(PermissionError):
+            self.private_operations(tenant,owner,"sales")
+        # Separate purchase permission still allows reads even when sales
+        # has been denied to a company administrator.
+        self.assertEqual(
+            self.private_operations(tenant,owner,"purchases")["items"][0]["order_id"],
+            str(purchase))
+        with self.assertRaises(PermissionError):
+            self.private_operations(tenant,uuid4(),"inventory")
+        with self.assertRaises(PermissionError):
+            self.private_operations(self.tenant_b,owner,"sales")
+
+    def test_056_pagination_is_stable_limited_and_never_accepts_sql_fields(self):
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        second=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_commercial_orders "
+            "(tenant_id,id,kind,number,partner_id,currency) "
+            "VALUES(%s,%s,'sale',%s,'OTHER-CUSTOMER','SAR')",
+            (tenant,second,"ZZ-"+second.hex))
+        self.admin.execute(
+            "INSERT INTO one_commercial_order_lines "
+            "(tenant_id,order_id,line_no,product_id,warehouse_id,"
+            "ordered_qty,unit_price) VALUES(%s,%s,1,%s,%s,2,10)",
+            (tenant,second,product,warehouse))
+        first=self.private_operations(tenant,owner,"sales",limit=1,offset=0)
+        follow=self.private_operations(tenant,owner,"sales",limit=1,offset=1)
+        self.assertEqual(first["page"]["next_offset"],1)
+        self.assertTrue(first["page"]["has_more"])
+        self.assertNotEqual(first["items"][0]["order_id"],
+                            follow["items"][0]["order_id"])
+        self.assertFalse(follow["page"]["has_more"])
+        for module,limit,offset in (
+            ("sales;drop table",1,0),("sales",0,0),
+            ("inventory",51,0),("returns",1,-1),
+            ("sales",True,0),("sales",1,999999),
+        ):
+            with self.assertRaises(ValueError):
+                self.private_operations(
+                    tenant,owner,module,limit=limit,offset=offset)
+
+    def test_056_privileged_connection_cannot_read_synthetic_company(self):
+        from one_erp_core.operations_read_repository import load_operations_page
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        with self.assertRaises(PermissionError):
+            load_operations_page(
+                self.admin,tenant_id=tenant,actor_id=owner,module="sales")
+
 if __name__ == "__main__":
     unittest.main()
