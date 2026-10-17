@@ -56,8 +56,8 @@ test("full private Arabic navigation opens separate module pages under one compa
   assert.match(calls[0].url,/tenant=11111111/);
   const page=root.children[3].children[0];
   assert.equal(page.attributes["aria-label"],"المبيعات");
-  assert.equal(page.children[0].children[0].hidden,true);
-  assert.equal(page.children[0].children[3].children[0].tagName,"table");
+  assert.equal(page.children[0].hidden,true);
+  assert.equal(page.children[3].children[0].tagName,"table");
   assert.equal(await workspace.select("inventory"),true);
   assert.equal(workspace.snapshot().active,"inventory");
   assert.equal(root.children[3].children.length,1);
@@ -73,7 +73,7 @@ test("receivables view is source-only, has currency note and is read-only",async
   assert.equal(await workspace.select("receivables"),true);
   const panel=root.children[3].children[0];
   assert.equal(panel.attributes["aria-label"],"Receivables aging");
-  assert.match(panel.children[0].children[1].textContent,/NOT verified bank deposits/);
+  assert.match(panel.children[1].textContent,/NOT verified bank deposits/);
   assert.equal(calls.length,0);
   await workspace.select("sales");
   assert.equal(calls.length,1);
