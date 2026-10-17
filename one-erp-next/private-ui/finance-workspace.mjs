@@ -113,8 +113,8 @@ export function mountPrivateFinanceWorkspace({
     child=mountOperationsPage({root:panel,baseUrl,tenant,getToken,language:lang,
       fetchImpl,showNavigation:false});
     const opened=child;
-    await opened.load(module);
-    return !disposed&&revision===generation;
+    const loaded=await opened.load(module);
+    return Boolean(loaded)&&!disposed&&revision===generation;
   }
   return {
     select,clear:reset,
