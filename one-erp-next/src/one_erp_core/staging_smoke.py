@@ -129,6 +129,10 @@ def run_staging_smoke(
         }),
     ]
     for name, path, headers in paths:
+        # Never release the bearer token to a host that has not first
+        # attested the exact expected staging SHA and a ready backend.
+        if name == "sales_read" and not (results["health_sha"] and results["ready"]):
+            break
         try:
             item = _read_json(
                 transport=transport, host=host, path=path, headers=headers,
