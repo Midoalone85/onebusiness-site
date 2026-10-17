@@ -12,7 +12,7 @@ function safeText(v) {
 /** Caller supplies a trusted DOM element and a short-lived, memory-only token provider.
  * Never embed credentials in HTML or mount this into the public fictional-data preview.
  */
-export function mountOperationsPage({root,baseUrl,tenant,getToken,language="ar",fetchImpl}) {
+export function mountOperationsPage({root,baseUrl,tenant,getToken,language="ar",fetchImpl,showNavigation=true}) {
   if (!root || !root.ownerDocument || typeof getToken !== "function") throw new TypeError("Private root and token provider required");
   const document = root.ownerDocument;
   const words = LABELS[language === "en" ? "en" : "ar"];
@@ -22,6 +22,7 @@ export function mountOperationsPage({root,baseUrl,tenant,getToken,language="ar",
   root.setAttribute("dir",language==="en"?"ltr":"rtl");
   const menu=document.createElement("nav");
   menu.setAttribute("aria-label","ONE ERP operations");
+  menu.hidden=!showNavigation;
   const status=document.createElement("p");
   status.setAttribute("role","status");
   const content=document.createElement("section");
