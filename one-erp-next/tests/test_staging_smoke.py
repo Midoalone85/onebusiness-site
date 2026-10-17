@@ -110,6 +110,28 @@ class StagingSmokeTests(TestCase):
         self.assertFalse(report["checks"]["health_sha"])
         self.assertFalse(report["release_approved"])
 
+    def test_bearer_token_is_never_sent_if_version_or_readiness_fails(self):
+        self.health["commit_sha"] = "b" * 40
+        result = run_staging_smoke(self.conf,transport=self.responder)
+        self.assertEqual(result["status"],"BLOCKED")
+        self.assertTrue(all(
+            not path.startswith("/api/v1/operations/")
+            for _,path,*_ in self.calls))
+        self.assertTrue(all(
+            "Authorization" not in headers
+            for _,_,headers,_ in self.calls))
+        self.calls.clear()
+        self.health["commit_sha"] = SHA
+        self.ready["ready"] = False
+        result = run_staging_smoke(self.conf,transport=self.responder)
+        self.assertEqual(result["status"],"BLOCKED")
+        self.assertTrue(all(
+            not path.startswith("/api/v1/operations/")
+            for _,path,*_ in self.calls))
+        self.assertTrue(all(
+            "Authorization" not in headers
+            for _,_,headers,_ in self.calls))
+
     def test_wrong_environment_or_service_is_not_a_valid_staging_deployment(self):
         for field, value in (("service","legacy-odoo"),("environment","production")):
             with self.subTest(field=field):
