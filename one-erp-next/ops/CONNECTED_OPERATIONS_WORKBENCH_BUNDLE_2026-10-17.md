@@ -75,6 +75,15 @@ provision identity, supply actual tenant DSNs, install a bank feed or configure
 Oracle hosting. All bearer token input is for independent developer testing.
 The browser shell is not a production login screen.
 
+## Financial integrity signal on inventory rows
+
+The live inventory row includes `quantity_reconciled`, which is TRUE
+only when a matching stored valuation quantity exists and equals the
+physical on-hand balance for that warehouse/product. Missing valuation
+does not silently become "reconciled". This is a lightweight source
+indicator, **not** a complete historical inventory-to-GL reconciliation,
+IAS 2 cost audit, physical cycle count, or stock-period signoff.
+
 ## Test acceptance
 
 1. Test runner builds all SQL migrations 001–044 in disposable PostgreSQL 14.
