@@ -254,5 +254,84 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             self.assertTrue(all(a and b for _,a,b in rows))
 
 
+
+    def test_signed_https_request_posts_approved_invoice_and_replays(self):
+        """Signed token -> HTTPS route -> source approval -> real PostgreSQL journal."""
+        from datetime import datetime, timezone
+        from io import BytesIO
+        import jwt
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from one_erp_core.finance_replay_commands_wsgi import OneFinanceInternalDocumentsWSGI
+        from one_erp_core.finance_wsgi import TenantFinanceConnections
+        from one_erp_core.oidc_identity import RS256VerifierConfig, VerifiedRS256FinanceAccess
+
+        with self.connect() as conn:
+            self.prepare(conn)
+            self.approve(conn)
+        key = rsa.generate_private_key(public_exponent=65537,key_size=2048)
+        pem = key.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode()
+        config = RS256VerifierConfig(
+            issuer="https://id.example.test", audience="one-erp-finance-api",
+            signing_keys_by_id={"approved-source-ci":pem},
+        )
+        actor,tenant=self.actor,self.tenant
+
+        class Directory:
+            def resolve(self,issuer,subject):
+                if subject!="trusted-accountant":
+                    raise PermissionError("Not a finance user")
+                return AuthenticatedFinanceIdentity(actor,frozenset({tenant}))
+
+        class Revocations:
+            def is_revoked(self,issuer,jwt_id):
+                return False
+
+        app = OneFinanceInternalDocumentsWSGI(
+            verifier=VerifiedRS256FinanceAccess(config,Directory(),Revocations()),
+            connections=TenantFinanceConnections({tenant:self.connect}),
+            source_loader=self.loader,
+            allowed_hosts=frozenset({"finance.example.test"}),
+        )
+        now=int(datetime.now(timezone.utc).timestamp())
+        token=jwt.encode({
+            "iss":config.issuer,"aud":config.audience,"sub":"trusted-accountant",
+            "iat":now-5,"nbf":now-5,"exp":now+180,
+            "jti":"approved-ci-token","token_use":"access",
+        },key,algorithm="RS256",headers={"kid":"approved-source-ci"})
+
+        def post():
+            body=json.dumps({
+                "action":"issue_internal_invoice","tenant":str(self.tenant),
+                "document_id":str(self.doc_id),
+            }).encode()
+            status={}
+            reply=b"".join(app({
+                "REQUEST_METHOD":"POST","wsgi.url_scheme":"https",
+                "HTTP_HOST":"finance.example.test",
+                "PATH_INFO":"/api/v1/finance/internal-documents",
+                "CONTENT_TYPE":"application/json",
+                "CONTENT_LENGTH":str(len(body)),
+                "QUERY_STRING":"","HTTP_COOKIE":"",
+                "HTTP_AUTHORIZATION":"Bearer "+token,
+                "wsgi.input":BytesIO(body),
+            },lambda code,headers:status.update(
+                code=code,headers=dict(headers))))
+            return status,json.loads(reply)
+
+        first,first_doc=post()
+        second,second_doc=post()
+        self.assertEqual((first["code"],second["code"]),("200 OK","200 OK"))
+        self.assertEqual(first_doc["document_id"],str(self.doc_id))
+        self.assertFalse(first_doc["replayed"])
+        self.assertTrue(second_doc["replayed"])
+        self.assertIn("no-store",second["headers"]["Cache-Control"])
+        self.assertEqual(self.count("one_invoice_docs","id"),1)
+        self.assertEqual(self.count("one_journal_entries","id"),1)
+
+
 if __name__=="__main__":
     unittest.main()
