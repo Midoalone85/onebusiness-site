@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
@@ -100,6 +101,46 @@ class OperationsWSGITests(unittest.TestCase):
                 self.assertEqual(status,"200 OK")
                 self.assertEqual(read.call_args.kwargs["module"],module)
         self.assertEqual(self.opened,4)
+
+    def test_receivables_route_requires_exact_report_date_and_signed_tenant(self):
+        sample={
+            "module":"receivables","tenant_id":str(self.tenant),
+            "items":[],"read_only":True,"source":"one_erp_next_postgresql",
+            "as_of":"2026-10-20",
+        }
+        query=self.params+"&as_of=2026-10-20"
+        with patch("one_erp_core.operations_read_wsgi.load_operations_page",
+                   return_value=sample) as load:
+            status,headers,body=self.request(
+                PATH_INFO="/api/v1/operations/receivables",
+                QUERY_STRING=query)
+        self.assertEqual(status,"200 OK")
+        self.assertEqual(body,sample)
+        self.assertEqual(load.call_args.kwargs["as_of"],date(2026,10,20))
+        self.assertEqual(load.call_args.kwargs["module"],"receivables")
+        self.assertIn("no-store",headers["Cache-Control"])
+        self.assertTrue(self.db.closed)
+
+    def test_receivables_rejects_invalid_asof_smuggling_and_other_tenant(self):
+        for asof in (
+            "","2026-10-32","20261020","2026-1-01","2026-10-20%0D",
+            "2026-10-20&as_of=2026-10-18","today",
+        ):
+            with self.subTest(asof=asof):
+                status,_,_=self.request(
+                    PATH_INFO="/api/v1/operations/receivables",
+                    QUERY_STRING=self.params+"&as_of="+asof)
+                self.assertEqual(status,"400 Bad Request")
+        self.assertEqual(self.opened,0)
+        status,_,_=self.request(
+            PATH_INFO="/api/v1/operations/receivables",
+            QUERY_STRING=f"tenant={uuid4()}&as_of=2026-10-20")
+        self.assertEqual(status,"403 Forbidden")
+        self.assertEqual(self.opened,0)
+        status,_,_=self.request(
+            PATH_INFO="/api/v1/operations/sales",
+            QUERY_STRING=self.params+"&as_of=2026-10-20")
+        self.assertEqual(status,"400 Bad Request")
 
     def test_auth_and_tenant_denial_before_database_connection(self):
         foreign=uuid4()

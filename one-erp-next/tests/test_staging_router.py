@@ -137,6 +137,25 @@ class StagingRouterTests(unittest.TestCase):
         self.assertEqual(self.db_calls,4)
         self.assertTrue(all(db.closed for db in self.created))
 
+    def test_receivables_only_use_finance_report_role_not_stock_reader(self):
+        ar={
+            "module":"receivables","tenant_id":str(self.tenant),
+            "items":[],"as_of":"2026-10-20",
+            "read_only":True,"source":"one_erp_next_postgresql",
+        }
+        with patch("one_erp_core.operations_read_wsgi.load_operations_page",
+                   return_value=ar) as load:
+            status,headers,data=self.request(
+                "/api/v1/operations/receivables",
+                QUERY_STRING=f"tenant={self.tenant}&limit=1&offset=0&as_of=2026-10-20")
+        self.assertEqual(status,"200 OK")
+        self.assertEqual(data,ar)
+        self.assertEqual(self.db_calls,0)
+        self.assertEqual(self.report_db_calls,1)
+        self.assertEqual(load.call_args.kwargs["module"],"receivables")
+        self.assertIn("as_of",load.call_args.kwargs)
+        self.assertIn("no-store",headers["Cache-Control"])
+
     def test_missing_probe_never_opens_tenant_or_trusts_url_actor(self):
         app=OneERPStagingRouter(
             allowed_hosts=frozenset({HOST}),deployed_sha=SHA,

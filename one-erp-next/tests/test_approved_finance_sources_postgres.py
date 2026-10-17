@@ -1103,5 +1103,134 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
 
 
+
+    def test_real_receivables_aging_with_applied_internal_receipt_and_reader_rls(self):
+        """Real restricted reader, dated ledger and actual internal payment journal.
+
+        Internal settlement status does NOT establish an external bank
+        confirmation or legal ZATCA issuance.
+        """
+        from one_erp_core.payment_persistence import persist_payment_with_allocations
+        from one_erp_core.payments import (
+            PaymentRequest,PaymentAllocation,PaymentLedgerAccounts,
+            PaymentDirection,OpenInvoice,
+        )
+        from one_erp_core.operations_read_repository import load_operations_page
+
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        self.make_approved_sales_invoice()
+        with self.connect() as conn:
+            self.execute(conn)
+            conn.execute(
+                """INSERT INTO one_accounts(tenant_id,id,code,name,kind)
+                   VALUES(%s,'bank','1010','Internal unverified bank control','asset')""",
+                (self.tenant,),
+            )
+            with conn.transaction():
+                source=self.loader.load_invoice(
+                    conn,tenant_id=self.tenant,document_id=self.doc_id,
+                    actor_id=self.actor,
+                )
+            payment_id=uuid4()
+            payment=PaymentRequest(
+                id=payment_id,tenant_id=self.tenant,partner_id="customer-ci",
+                occurred_on=date(2026,10,19),currency="SAR",
+                direction=PaymentDirection.CUSTOMER_RECEIPT,
+                amount=Decimal("60.00"),
+                allocations=(PaymentAllocation(self.doc_id,Decimal("60.00")),),
+                bank_reference="TEST-INTERNAL-NOT-BANK-VERIFIED",
+            )
+            proposal=persist_payment_with_allocations(
+                conn,payment=payment,
+                invoices=(OpenInvoice(
+                    self.doc_id,self.tenant,"customer-ci","SAR",
+                    date(2026,10,17),Decimal("200.00"),True,
+                ),),
+                accounts=PaymentLedgerAccounts("bank","ar","ap"),
+                chart=source.chart,period=source.period,
+                period_id=self.period_id,actor_id=self.actor,
+                memberships=source.memberships,
+                minor_units=2,
+            )
+            self.assertEqual(proposal.request.id,payment_id)
+            self.assertEqual(conn.execute(
+                """SELECT status FROM one_payment_docs
+                   WHERE tenant_id=%s AND id=%s""",
+                (self.tenant,payment_id),
+            ).fetchone()[0],"applied")
+        login="one_ci_ar_read_"+uuid4().hex[:12]
+        password="ci_disposable_ar_reader"
+        ident=self.sql.Identifier(login)
+        self.root.execute(
+            self.sql.SQL(
+                "CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS"
+            ).format(ident,self.sql.Literal(password)),
+        )
+        try:
+            with self.connect() as admin:
+                admin.execute(
+                    self.sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(ident))
+                admin.execute(
+                    self.sql.SQL(
+                        "GRANT SELECT ON public.one_memberships,"
+                        " public.one_invoice_docs,"
+                        " public.one_payment_docs,"
+                        " public.one_payment_allocations,"
+                        " public.one_permission_templates,"
+                        " public.one_permission_change_requests,"
+                        " public.one_permission_change_approvals TO {}"
+                    ).format(ident))
+                admin.execute(
+                    self.sql.SQL(
+                        "GRANT EXECUTE ON FUNCTION "
+                        "public.one_actor_has_permission(uuid,uuid,text) TO {}"
+                    ).format(ident))
+            args=dict(self.args,dbname=self.db_name,user=login,password=password)
+            with self.pg.connect(**args,autocommit=True) as readonly:
+                historical=load_operations_page(
+                    readonly,tenant_id=self.tenant,actor_id=self.actor,
+                    module="receivables",as_of=date(2026,10,18),limit=20)
+                self.assertEqual(len(historical["items"]),1)
+                before=historical["items"][0]
+                self.assertEqual(before["gross"],"200.000")
+                self.assertEqual(before["applied_receipts"],"0")
+                self.assertEqual(before["outstanding"],"200.000")
+                self.assertEqual(before["aging_bucket"],"current")
+                current=load_operations_page(
+                    readonly,tenant_id=self.tenant,actor_id=self.actor,
+                    module="receivables",as_of=date(2026,10,20),limit=20)
+                self.assertEqual(current["as_of"],"2026-10-20")
+                self.assertEqual(current["read_only"],True)
+                self.assertEqual(len(current["items"]),1)
+                ar=current["items"][0]
+                self.assertEqual(ar["outstanding"],"140.000")
+                self.assertEqual(ar["applied_receipts"],"60.000")
+                self.assertEqual(ar["status"],"open")
+                overdue=load_operations_page(
+                    readonly,tenant_id=self.tenant,actor_id=self.actor,
+                    module="receivables",as_of=date(2026,12,31),limit=20)
+                self.assertEqual(overdue["items"][0]["aging_bucket"],"31_60")
+                empty=load_operations_page(
+                    readonly,tenant_id=self.tenant,actor_id=self.actor,
+                    module="receivables",as_of=date(2026,10,16),limit=20)
+                self.assertEqual(empty["items"],[])
+                with self.assertRaises(PermissionError):
+                    load_operations_page(
+                        readonly,tenant_id=self.tenant,actor_id=uuid4(),
+                        module="receivables",as_of=date(2026,10,20))
+                with self.assertRaises(self.pg.errors.InsufficientPrivilege):
+                    with readonly.transaction():
+                        readonly.execute(
+                            """UPDATE one_invoice_docs SET number=number
+                               WHERE tenant_id=%s AND id=%s""",
+                            (self.tenant,self.doc_id),
+                        )
+        finally:
+            with self.connect() as admin:
+                admin.execute(self.sql.SQL("DROP OWNED BY {}").format(ident))
+            self.root.execute(self.sql.SQL("DROP ROLE {}").format(ident))
+
+
 if __name__=="__main__":
     unittest.main()
