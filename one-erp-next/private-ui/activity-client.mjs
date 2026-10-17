@@ -1,7 +1,7 @@
 /** Authenticated source-backed audit facts; no browser-generated audit entries. */
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const JWT=/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
-const TYPES=new Set(["invoice","payment","journal","return","stock","delivery","receiving"]);
+const TYPES=new Set(["invoice","payment","journal","return","stock","delivery","receiving","sales_order","purchase_order"]);
 const ACTION=/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/;
 const INSTANT=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 export class ActivityReadError extends Error{
