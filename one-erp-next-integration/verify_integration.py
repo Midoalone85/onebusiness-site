@@ -61,17 +61,25 @@ def privilege_template_checks():
             errors.append(f"Missing reviewed privilege template: {path.name}")
             continue
         sql = path.read_text(encoding="utf-8")
-        upper = sql.upper()
-        if "NOLOGIN" not in upper or "NOBYPASSRLS" not in upper:
-            errors.append(f"Missing minimum role protections: {path.name}")
-        # NOLOGIN roles must never be upgraded into broad privileged accounts.
-        role_ddl = upper.split("CREATE ROLE")[-1].split(";")[0]
-        if re.search(r"(?<![A-Z_])(SUPERUSER|BYPASSRLS|CREATEDB|CREATEROLE)(?![A-Z_])", role_ddl):
-            errors.append(f"Unexpected privileged role flag: {path.name}")
-        # Accept multiline SQL formatting, but do not mistake comment examples for executable grants.
-        executable = re.sub(r"--[^\n]*", "", upper)
+        # Ignore SQL comments before inspecting executable permissions. Neither
+        # role protections nor dangerous grants may be inferred from comments.
+        executable = re.sub(r"--[^\n]*", "", sql)
         executable = re.sub(r"/\*[\s\S]*?\*/", "", executable)
-        if re.search(r"\bGRANT\s+ALL\b", executable):
+        upper = executable.upper()
+        created_roles = re.findall(r"\bCREATE\s+ROLE\b[^;]*;", upper)
+        if not created_roles or not all(
+                re.search(r"\bNOLOGIN\b", stmt) and re.search(r"\bNOBYPASSRLS\b", stmt)
+                for stmt in created_roles):
+            errors.append(f"Missing minimum role protections: {path.name}")
+        # CREATE ROLE and subsequent ALTER ROLE must both remain least-privilege.
+        # Negative flags (NOSUPERUSER, NOBYPASSRLS etc.) are not privileges.
+        for stmt in re.findall(r"\b(?:CREATE|ALTER)\s+ROLE\b[^;]*;", upper):
+            if re.search(
+                r"(?<![A-Z_])(?:SUPERUSER|BYPASSRLS|CREATEDB|CREATEROLE|LOGIN)(?![A-Z_])",
+                stmt,
+            ):
+                errors.append(f"Unexpected privileged role flag: {path.name}")
+        if re.search(r"\bGRANT\s+ALL\b", upper):
             errors.append(f"Unbounded GRANT ALL detected: {path.name}")
         if "BEGIN;" not in upper or "COMMIT;" not in upper:
             errors.append(f"Missing transactional scope: {path.name}")

@@ -58,6 +58,29 @@ class ReleaseGateTests(unittest.TestCase):
         self.roles("BEGIN; CREATE ROLE demo NOLOGIN SUPERUSER NOBYPASSRLS; COMMIT;")
         self.assertTrue(any("Unexpected privileged" in e for e in gate.privilege_template_checks()))
 
+    def test_alter_role_superuser_rejected(self):
+        self.roles("BEGIN; CREATE ROLE demo NOLOGIN NOSUPERUSER NOBYPASSRLS; "
+                   "ALTER ROLE demo WITH SUPERUSER; COMMIT;")
+        self.assertTrue(any("Unexpected privileged" in e
+                            for e in gate.privilege_template_checks()))
+
+    def test_login_role_rejected(self):
+        self.roles("BEGIN; CREATE ROLE demo LOGIN NOSUPERUSER NOBYPASSRLS; COMMIT;")
+        issues = gate.privilege_template_checks()
+        self.assertTrue(any("Unexpected privileged" in e for e in issues))
+        self.assertTrue(any("Missing minimum role protections" in e for e in issues))
+
+    def test_comments_cannot_supply_no_login_or_rls_guards(self):
+        self.roles("BEGIN; -- NOLOGIN NOBYPASSRLS\n"
+                   "CREATE ROLE demo LOGIN NOSUPERUSER BYPASSRLS; COMMIT;")
+        self.assertTrue(any("Missing minimum role protections" in e
+                            for e in gate.privilege_template_checks()))
+
+    def test_commented_create_role_does_not_qualify(self):
+        self.roles("BEGIN;\n-- CREATE ROLE demo NOLOGIN NOBYPASSRLS;\nCOMMIT;")
+        self.assertTrue(any("Missing minimum role protections" in e
+                            for e in gate.privilege_template_checks()))
+
     def test_multiline_grant_all_rejected(self):
         self.roles("BEGIN; CREATE ROLE demo NOLOGIN NOSUPERUSER NOBYPASSRLS;\n"
                    "GRANT\n ALL\n PRIVILEGES\n ON TABLE data TO demo; COMMIT;")

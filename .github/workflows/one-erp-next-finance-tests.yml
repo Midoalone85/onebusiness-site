@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/one-erp-smart-finance-20261015
+      - integration/one-erp-next-finance-20261017
     paths:
       - "one-erp-next/**"
       - ".github/workflows/one-erp-next-finance-tests.yml"
