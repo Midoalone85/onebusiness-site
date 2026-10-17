@@ -152,4 +152,4 @@ reservation rollbacks and delivery stage+cost atomicity. No live Oracle
 deployment, no ZATCA approval or authorized REST interface is claimed.
 
 **Latest isolated CI:** 318 tests passed on each Python 3.11 and 3.13 with
-PostgreSQL 14: https://github.com/Midoalone85/onebusiness-site/actions/runs/38711334118
+PostgreSQL 14: https://github.com/REPOSITORY_OWNER/onebusiness-site/actions/runs/38711334118
