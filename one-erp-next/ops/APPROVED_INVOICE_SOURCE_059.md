@@ -25,4 +25,4 @@
 - Test real HTTPS load-balancer proxy configuration, revoked token behavior, external IdP, MFA, route mounting, approved-staging lifecycle, retry across worker crash/restart and permission matrix.
 - Run backup+restore, schema migration rehearsal with rollback, independent DBA/privacy/security review, invoice/report/stock reconciliations, browser acceptance and sign-offs. Keep both PRs draft; do not merge into `main` or deploy Oracle based on these tests alone.
 
-**References:** [PR #43](https://github.com/Midoalone85/onebusiness-site/pull/43), [PR #44](https://github.com/Midoalone85/onebusiness-site/pull/44).
+**References:** PR #43 (PR #43), PR #44 (PR #44).
