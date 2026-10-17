@@ -45,5 +45,5 @@ No completion percentages or promised release dates are implied.
 
 - Migration `059_approved_invoice_sources.sql`: independent maker-checker approved source tables; immutable and tenant RLS.
 - `approved_finance_sources.py`: PostgreSQL-backed strict read loader for invoices. Payment loader deliberately fails closed.
-- Signed HTTPS -> approved source -> actual invoice + linked journal -> retry across new DB connections tested in disposable PostgreSQL 14. **568/568 tests PASS on Python 3.11 and 568/568 PASS on Python 3.13** in [CI #39037026329](https://github.com/Midoalone85/onebusiness-site/actions/runs/39037026329).
+- Signed HTTPS -> approved source -> actual invoice + linked journal -> retry across new DB connections tested in disposable PostgreSQL 14. **568/568 tests PASS on Python 3.11 and 568/568 PASS on Python 3.13** in CI #39037026329.
 - Production approval request creation endpoints, independent least-privilege roles, external IdP, Oracle stage, official tax/ZATCA and bank delivery are NOT complete. Read [approved-source handoff](APPROVED_INVOICE_SOURCE_059.md).
