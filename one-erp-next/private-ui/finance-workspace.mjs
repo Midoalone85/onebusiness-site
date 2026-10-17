@@ -131,7 +131,7 @@ export function mountPrivateFinanceWorkspace({
       return true;
     }
     child=mountOperationsPage({root:panel,baseUrl,tenant,getToken,language:lang,
-      fetchImpl,showNavigation:false});
+      fetchImpl,timeZone,showNavigation:false});
     const opened=child;
     const loaded=await opened.load(module);
     return Boolean(loaded)&&!disposed&&revision===generation;
