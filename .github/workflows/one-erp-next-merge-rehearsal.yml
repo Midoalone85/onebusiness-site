@@ -1,4 +1,5 @@
 name: ONE ERP NEXT Merge Rehearsal
+# Safe CI-only merge simulation; never pushes, merges PRs, or deploys.
 on:
   push:
     branches:
