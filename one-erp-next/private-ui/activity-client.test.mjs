@@ -78,3 +78,30 @@ test("unauthorized, HTML and invalid JSON never become a timeline",async()=>{
       ActivityReadError);
   }
 });
+
+test("request before-after values only for specifically authorized order document",async()=>{
+  const data={...body,record_type:"sales_order",items:[{...item,
+    event_id:"change:"+record_id,action:"sales_order.line_changed",
+    changes:{before:{ordered_qty:"5.000",unit_price:"10.000"},
+      after:{ordered_qty:"7.000",unit_price:"12.000"}}}]};
+  let url;
+  const result=await readActivity({...args,record_type:"sales_order",
+    include_changes:true,fetchImpl:async(u)=>{url=u;return ok(data);}});
+  assert.equal(url.searchParams.get("include_changes"),"1");
+  assert.equal(result.items[0].changes.after.ordered_qty,"7.000");
+  await assert.rejects(readActivity({...args,record_type:"sales_order",
+    fetchImpl:async()=>ok(data)}),ActivityReadError);
+  for(const invalid of [
+    {...data,items:[{...data.items[0],
+      changes:{before:{secret:"bad"},after:{}}}]},
+    {...data,items:[{...data.items[0],
+      changes:{before:[],after:{}}}]},
+    {...data,items:[{...data.items[0],
+      changes:{before:{unit_price:{nested:"bad"}},after:{}}}]},
+  ]){
+    await assert.rejects(readActivity({...args,record_type:"sales_order",
+      include_changes:true,fetchImpl:async()=>ok(invalid)}),ActivityReadError);
+  }
+  await assert.rejects(readActivity({...args,include_changes:true,
+    fetchImpl:async()=>ok(body)}),TypeError);
+});
