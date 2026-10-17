@@ -3,10 +3,10 @@
 ## Verified integration commit
 - Branch: integration/one-erp-next-finance-20261017
 - Main comparison: 376 commits ahead, zero behind, 175 changed paths; 51 db SQL migration paths.
-- GitHub finance CI: https://github.com/Midoalone85/onebusiness-site/actions/runs/39019047262 - Python 3.11 and 3.13 both success.
-- Integration gates: https://github.com/Midoalone85/onebusiness-site/actions/runs/39019047288 - four jobs success.
-- Brand guard: https://github.com/Midoalone85/onebusiness-site/actions/runs/39019047243 - success.
-- Jekyll build: https://github.com/Midoalone85/onebusiness-site/actions/runs/39019047174 - success.
+- GitHub finance CI: GitHub Actions run 39019047262 - Python 3.11 and 3.13 both success.
+- Integration gates: GitHub Actions run 39019047288 - four jobs success.
+- Brand guard: GitHub Actions run 39019047243 - success.
+- Jekyll build: GitHub Actions run 39019047174 - success.
 
 ## No automatic production approval
 Automated tests use a disposable PostgreSQL test database with elevated setup privileges. No evidence yet of production-data migration, authenticated Oracle deployment, real bank transfers, independently approved legal/tax signoff, IdP configuration, backup/restore rehearsal or penetration/security review.
