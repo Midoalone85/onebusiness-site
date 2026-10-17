@@ -2,6 +2,7 @@
 import {mountOperationsPage} from "./operations-page.mjs";
 import {mountReceivablesPage,} from "./receivables-page.mjs";
 import {mountInvoiceApprovalPage} from "./invoice-approval-page.mjs";
+import {mountActivityTimeline} from "./activity-timeline.mjs";
 import {validReportDate} from "./receivables-client.mjs";
 
 const LABELS=Object.freeze({
@@ -92,21 +93,33 @@ export function mountPrivateFinanceWorkspace({
       const open=doc.createElement("button");open.type="button";
       open.textContent=words.reviewOpen;
       const feedback=doc.createElement("p");feedback.setAttribute("role","status");
+      const reviewLayout=doc.createElement("section");
+      reviewLayout.setAttribute("class","one-review-with-activity");
       const reviewer=doc.createElement("section");
+      const activity=doc.createElement("aside");
       controls.append(label,ref,open,feedback);
-      panel.append(controls,reviewer);
-      child=mountInvoiceApprovalPage({
+      reviewLayout.append(reviewer,activity);
+      panel.append(controls,reviewLayout);
+      const review=mountInvoiceApprovalPage({
         root:reviewer,baseUrl,getToken,language:lang,fetchImpl,
       });
-      const review=child;
+      const history=mountActivityTimeline({root:activity,tenant,baseUrl,getToken,
+        language:lang,fetchImpl,timeZone:"Asia/Riyadh"});
+      child={dispose:()=>{review.dispose();history.dispose();}};
+      let requestId=0;
       open.addEventListener("click",()=>{
         if(disposed||active!=="review"||revision!==generation)return;
         const value=ref.value;
+        const request=++requestId;
+        history.clear();
         if(!DOC.test(value)){
           review.clear();feedback.textContent=words.invalid;return;
         }
         feedback.textContent="";
-        void review.open({tenant,document_id:value});
+        void review.open({tenant,document_id:value}).then(ok=>{
+          if(disposed||active!=="review"||revision!==generation||request!==requestId)return;
+          if(ok)void history.load("invoice",value);
+        });
       });
       return true;
     }
