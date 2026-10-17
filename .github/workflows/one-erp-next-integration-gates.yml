@@ -24,6 +24,8 @@ jobs:
           python-version: "3.11"
       - name: Test release gate logic
         run: python -m unittest discover -s one-erp-next-integration -p 'test_release_gates.py' -v
+      - name: Inventory critical PostgreSQL regression coverage
+        run: python one-erp-next-integration/operational_acceptance.py
       - name: Verify inherited main assets and finance prerequisites
         run: python one-erp-next-integration/verify_integration.py
   preview:
