@@ -6898,6 +6898,56 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertIn("unverified",page["settlement_notice"])
         self.assertNotIn("bank_paid",str(page))
 
+    def test_ops_https_api_end_to_end_uses_real_nonprivileged_postgres_role(self):
+        import json
+        from one_erp_core.operations_portal_wsgi import OneOperationsPortalWSGI
+        from one_erp_core.finance_wsgi import TenantFinanceConnections
+        from one_erp_core.finance_http_boundary import AuthenticatedFinanceIdentity
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        opens=[]
+        class TestVerifier:
+            def verify_access_token(self,raw_token):
+                if raw_token!="abc.def.ghi":
+                    raise PermissionError("bad token")
+                return AuthenticatedFinanceIdentity(actor,frozenset({tenant}))
+        def factory():
+            conn=self.psycopg.connect(
+                host=os.environ.get("ONE_TEST_PG_HOST","localhost"),
+                port=int(os.environ.get("ONE_TEST_PG_PORT","5432")),
+                dbname=os.environ.get("ONE_TEST_PG_DB","one_erp_test"),
+                user="one_erp_operations_ci",password="ci_ops_only",
+                autocommit=True)
+            opens.append(conn)
+            return conn
+        app=OneOperationsPortalWSGI(verifier=TestVerifier(),
+            connections=TenantFinanceConnections({tenant:factory}),
+            allowed_hosts=frozenset({"operations.example.test"}))
+        def call(selected):
+            envelope={
+                "REQUEST_METHOD":"GET","wsgi.url_scheme":"https",
+                "HTTP_HOST":"operations.example.test",
+                "PATH_INFO":"/api/v1/operations/sales",
+                "CONTENT_LENGTH":"",
+                "QUERY_STRING":f"tenant={selected}&page=0",
+                "HTTP_AUTHORIZATION":"Bearer abc.def.ghi",
+            }
+            result={}
+            raw=b"".join(app(envelope,lambda status,headers:
+                           result.update(status=status,headers=dict(headers))))
+            return result,json.loads(raw)
+        data,sales=call(tenant)
+        self.assertEqual(data["status"],"200 OK")
+        self.assertEqual(sales["module"],"sales")
+        self.assertGreaterEqual(sales["total"],1)
+        self.assertEqual(sales["tenant_id"],str(tenant))
+        self.assertTrue(any("order_value" in entry for entry in sales["items"]))
+        self.assertIn("no-store",data["headers"]["Cache-Control"])
+        self.assertTrue(all(conn.closed for conn in opens))
+        opened=len(opens)
+        denied,_=call(self.tenant_b)
+        self.assertEqual(denied["status"],"403 Forbidden")
+        self.assertEqual(len(opens),opened)
+
     def test_operations_read_model_rejects_unsafe_modules_and_pages(self):
         for module,page in (("users",0),("sales",-1),("sales",101),
                             ("sales",True),("finance; DROP",0)):
