@@ -94,7 +94,13 @@ class StagingRouterTests(unittest.TestCase):
         captured = {}
         data = b"".join((app or self.app)(env, lambda status, headers:
                            captured.update(status=status, headers=dict(headers))))
-        return captured["status"], captured["headers"], json.loads(data)
+        try:
+            parsed = json.loads(data)
+        except (ValueError, UnicodeDecodeError):
+            # The existing finance dashboard responds with plain-text errors
+            # or private HTML, unlike the JSON operations/health endpoints.
+            parsed = data.decode("utf-8", errors="replace")
+        return captured["status"], captured["headers"], parsed
 
     def test_health_reachable_without_token_but_readiness_requires_probe(self):
         status,headers,payload = self.request("/healthz")
