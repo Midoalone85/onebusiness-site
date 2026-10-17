@@ -88,4 +88,23 @@ class PrivateActivityHttpTests(unittest.TestCase):
         self.assertTrue(self.instances[-1].closed)
 
 
+
+    def test_order_change_details_flag_is_explicit_and_signed(self):
+        query=(f"tenant={self.tenant}&record_type=sales_order"
+               f"&record_id={self.record}&include_changes=1")
+        with patch("one_erp_core.activity_wsgi.load_record_activity",
+                   return_value={"module":"activity","items":[]}) as read:
+            status,_,_=self.call(QUERY_STRING=query)
+        self.assertEqual(status,"200 OK")
+        self.assertEqual(read.call_args.kwargs["include_changes"],True)
+        self.assertEqual(read.call_args.kwargs["actor_id"],self.actor)
+        for bad in (
+            query.replace("include_changes=1","include_changes=2"),
+            query.replace("record_type=sales_order","record_type=invoice"),
+            query+"&include_changes=1",
+        ):
+            status,_,_=self.call(QUERY_STRING=bad)
+            self.assertEqual(status,"400 Bad Request")
+
+
 if __name__=="__main__":unittest.main()
