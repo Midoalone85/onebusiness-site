@@ -34,6 +34,8 @@ class TrustedInvoiceSourceBuilder(Protocol):
 class BuiltInvoiceSource:
     period_id: UUID
     snapshot: Mapping[str, object]
+    sales_order_id: UUID | None = None
+    sales_order_line_nos: tuple[int, ...] = ()
 
 
 def _authorized(identity, tenant_id, document_id):
@@ -112,6 +114,18 @@ def create_trusted_invoice_source(
             )
             if cur.fetchone() is None:
                 raise PermissionError("Source period unavailable or closed")
+            if built.sales_order_id is not None:
+                line_nos=built.sales_order_line_nos
+                if (not isinstance(built.sales_order_id,UUID) or
+                    built.sales_order_id.int==0 or
+                    not isinstance(line_nos,tuple) or
+                    not 1<=len(line_nos)<=100 or
+                    any(type(n) is not int or n<=0 for n in line_nos) or
+                    len(set(line_nos))!=len(line_nos) or
+                    len(snapshot["lines"])!=len(line_nos)):
+                    raise PermissionError("Invalid immutable source lineage")
+            elif built.sales_order_line_nos:
+                raise PermissionError("Source lineage must specify order")
             cur.execute(
                 """INSERT INTO public.one_invoice_source_requests
                    (tenant_id,document_id,period_id,requested_by,payload)
@@ -119,6 +133,14 @@ def create_trusted_invoice_source(
                 (tenant_id,document_id,built.period_id,
                  identity.actor_id,frozen),
             )
+            if built.sales_order_id is not None:
+                cur.execute(
+                    """INSERT INTO public.one_sales_invoice_source_links
+                       (tenant_id,invoice_id,order_id,order_line_nos,actor_id)
+                       VALUES(%s,%s,%s,%s,%s)""",
+                    (tenant_id,document_id,built.sales_order_id,
+                     list(built.sales_order_line_nos),identity.actor_id),
+                )
     return document_id
 
 
