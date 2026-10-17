@@ -4999,7 +4999,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,warehouse,product,event,journal,
              period or self.period_id,allowance,expense,admin,
              revision,qty,cost,selling,completion,selling_cost,
-             evidence,date.today()))
+             evidence,db_assessment_date))
 
     def nrv_report(self,tenant,admin,warehouse,product):
         with self.db.transaction():
@@ -5234,7 +5234,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(after[1]-before[1],Decimal("17.50"))
         self.assertEqual(after[2]-before[2],Decimal("10.00"))
         self.assertEqual(after[3]-before[3],Decimal("7.50"))
-        self.assertEqual(after[4],date(2026,10,15))
+        self.assertEqual(after[4],self.db.execute(
+            "SELECT current_date").fetchone()[0])
         day=self.inventory_nrv_activity(
             tenant,self.actor,start=date(2026,10,16),end=date(2026,11,1))
         self.assertEqual(day[:4],(0,Decimal("0"),Decimal("0"),Decimal("0")))
@@ -5678,6 +5679,9 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         nrv_evt=nrv_evt or uuid4()
         nrv_gl=nrv_gl or uuid4()
         evidence=evidence or ("REVIEW-NRV-"+stock.hex)
+        # Database effective date is authoritative even if the CI runner
+        # timezone differs from the PostgreSQL service timezone.
+        db_assessment_date=self.db.execute("SELECT current_date").fetchone()[0]
         result=self.commerce_execute(
             tenant,admin,
             "SELECT one_accept_reassessed_nrv_customer_return("
