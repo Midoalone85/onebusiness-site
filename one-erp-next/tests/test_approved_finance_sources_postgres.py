@@ -1013,6 +1013,58 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         ):
             self.assertEqual(self.count(table,col),0)
 
+    def test_two_preapproved_invoices_cannot_race_to_bill_same_dispatch(self):
+        """Two distinct valid snapshots, concurrent issue: at most one wins."""
+        from concurrent.futures import ThreadPoolExecutor
+        self.prepare_real_dispatched_sale()
+        first_id=self.doc_id
+        self.prepare_reviewed_sales_intent(invoice_id=first_id)
+        self.make_approved_sales_invoice()
+        second_id=uuid4()
+        self.doc_id=second_id
+        self.prepare_reviewed_sales_intent(invoice_id=second_id)
+        self.make_approved_sales_invoice()
+        def issue(invoice_id):
+            try:
+                with self.connect() as conn:
+                    receipt=execute_verified_document_request(
+                        conn,
+                        identity=AuthenticatedFinanceIdentity(
+                            self.actor,frozenset({self.tenant})),
+                        command={
+                            "action":"issue_internal_invoice",
+                            "tenant":self.tenant,"document_id":invoice_id,
+                        },
+                        source_loader=self.loader,
+                    )
+                return receipt
+            except (self.pg.Error,PermissionError,AccountingError):
+                return None
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results=list(pool.map(issue,(first_id,second_id)))
+        self.assertEqual(sum(r is not None for r in results),1)
+        with self.connect() as conn:
+            count,gross=conn.execute(
+                """SELECT count(*),coalesce(sum(gross_total),0)
+                   FROM one_invoice_docs WHERE tenant_id=%s
+                     AND id IN (%s,%s)""",
+                (self.tenant,first_id,second_id),
+            ).fetchone()
+            self.assertEqual((count,gross),(1,Decimal("200.000")))
+            billed=conn.execute(
+                """SELECT coalesce(sum(billed_qty),0)
+                   FROM one_sales_invoice_allocations
+                   WHERE tenant_id=%s AND order_id=%s""",
+                (self.tenant,self.sales_order),
+            ).fetchone()[0]
+            self.assertEqual(billed,Decimal("2.000000"))
+            receipts=conn.execute(
+                """SELECT count(*) FROM one_finance_requests
+                   WHERE tenant_id=%s AND request_id IN (%s,%s)""",
+                (self.tenant,first_id,second_id),
+            ).fetchone()[0]
+            self.assertEqual(receipts,1)
+
     def test_revoked_sale_tax_review_prevents_source_creation(self):
         from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
         from one_erp_core.invoice_source_workflow import create_trusted_invoice_source
