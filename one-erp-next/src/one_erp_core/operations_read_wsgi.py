@@ -34,7 +34,6 @@ _HEADERS = (
      "default-src 'none'; base-uri 'none'; object-src 'none'; "
      "frame-ancestors 'none'; form-action 'none'"),
     ("Vary","Authorization"),
-    ("Access-Control-Allow-Origin","null"),
 )
 
 
