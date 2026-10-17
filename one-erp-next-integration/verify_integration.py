@@ -74,7 +74,8 @@ def check():
         print("MISSING MAIN ASSET:", path)
     for path in missing_finance:
         print("FINANCE NOT INTEGRATED:", path)
-    migration_errors = migration_checks()\n    migration_errors.extend(privilege_template_checks())
+    migration_errors = migration_checks()
+    migration_errors.extend(privilege_template_checks())
     for issue in migration_errors:
         print("MIGRATION GATE:", issue)
     if not (missing_main or missing_finance or migration_errors):
