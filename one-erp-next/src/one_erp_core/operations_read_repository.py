@@ -100,7 +100,7 @@ def _aging_row(row, as_of: date) -> dict:
     if balance<0:
         raise AccountingError("Overallocated invoice ledger in receivables")
     overdue=max(0,(as_of-due_on).days) if balance>0 else 0
-    bucket=("settled" if balance==0 else
+    bucket=("internally_cleared" if balance==0 else
             "current" if overdue==0 else
             "1_30" if overdue<=30 else
             "31_60" if overdue<=60 else
@@ -112,7 +112,7 @@ def _aging_row(row, as_of: date) -> dict:
         "gross":_wire(gross),"applied_receipts":_wire(paid),
         "issued_credits":_wire(credited),"outstanding":_wire(balance),
         "days_overdue":overdue,"aging_bucket":bucket,
-        "status":"settled" if balance==0 else "open",
+        "status":"no_open_balance_internal" if balance==0 else "open",
     }
 
 
