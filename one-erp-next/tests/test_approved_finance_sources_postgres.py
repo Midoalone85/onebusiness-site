@@ -889,6 +889,69 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 (self.tenant,self.doc_id),
             ).fetchone()[0],1)
 
+    def test_full_purchase_receipt_grni_dispatch_cogs_and_invoice_journal(self):
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        self.make_approved_sales_invoice()
+        with self.connect() as conn:
+            self.execute(conn)
+            events=conn.execute(
+                """SELECT movement_kind,qty,amount
+                     FROM one_stock_value_events
+                    WHERE tenant_id=%s AND stock_event_id IN (%s,%s)
+                    ORDER BY movement_kind""",
+                (self.tenant,self.purchase_event,self.sales_event),
+            ).fetchall()
+            self.assertEqual(events,[
+                ("purchase_receipt",Decimal("10"),Decimal("500.000")),
+                ("sale_dispatch",Decimal("2"),Decimal("100.000")),
+            ])
+            valuation=conn.execute(
+                """SELECT qty,book_value FROM one_stock_value_positions
+                   WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s""",
+                (self.tenant,self.sales_warehouse,self.sales_product),
+            ).fetchone()
+            self.assertEqual(valuation,(Decimal("8.000"),Decimal("400.000")))
+            for journal in (self.purchase_journal,self.cost_journal,self.doc_id):
+                with self.subTest(journal=journal):
+                    self.assertEqual(conn.execute(
+                        """SELECT status FROM one_journal_entries
+                           WHERE tenant_id=%s AND id=%s""",
+                        (self.tenant,journal),
+                    ).fetchone()[0],"posted")
+            cogs=conn.execute(
+                """SELECT account_id,debit,credit FROM one_journal_lines
+                   WHERE tenant_id=%s AND entry_id=%s
+                   ORDER BY line_number""",
+                (self.tenant,self.cost_journal),
+            ).fetchall()
+            self.assertEqual(cogs,[
+                ("cogs",Decimal("100.000"),Decimal("0")),
+                ("inventory",Decimal("0"),Decimal("100.000")),
+            ])
+            ar=conn.execute(
+                """SELECT gross_total FROM one_invoice_docs
+                   WHERE tenant_id=%s AND id=%s""",
+                (self.tenant,self.doc_id),
+            ).fetchone()
+            self.assertEqual(ar,(Decimal("200.000"),))
+
+    def test_unvalued_sales_dispatch_blocks_invoice_at_maker(self):
+        from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
+        from one_erp_core.invoice_source_workflow import create_trusted_invoice_source
+        self.prepare_real_dispatched_sale(value_dispatch=False)
+        self.prepare_reviewed_sales_intent()
+        with self.connect() as conn:
+            with self.assertRaises(PermissionError):
+                create_trusted_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        self.actor,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id,
+                    builder=PostgresDispatchedSalesInvoiceBuilder(),
+                )
+        self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
+        self.assertEqual(self.count("one_invoice_docs","id"),0)
+
     def test_unshipped_order_is_not_invoiced_and_no_immutable_source_created(self):
         from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
         from one_erp_core.invoice_source_workflow import create_trusted_invoice_source
