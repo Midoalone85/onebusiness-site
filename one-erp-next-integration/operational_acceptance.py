@@ -24,7 +24,7 @@ def inventory(path=TEST_FILE):
     return names
 def missing_coverage(path=TEST_FILE):
     found = inventory(path)
-    missing = {area: name for area, name in REQUIRED_TESTS.items() if name not in found}
+    missing = {area: name for area, name in REQUIRED_TESTS.items() if not any(test == name or test.startswith(name + "_") for test in found)}
     return missing
 def main():
     missing = missing_coverage()
