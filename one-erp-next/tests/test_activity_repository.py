@@ -120,7 +120,17 @@ class ActivityAuditReaderTests(unittest.TestCase):
                 self.assertIn("FROM public.one_commercial_orders",sql)
                 self.assertIn("kind=\'"+kind+"\'",sql)
                 self.assertIn("status=\'confirmed\'",sql)
-                self.assertEqual(args,(self.tenant,self.record,21,0))
+                self.assertEqual(args,(self.tenant,self.record)*2+(21,0))
+                self.assertIn("FROM public.one_commercial_change_audit",sql)
+
+    def test_stored_draft_line_actions_are_displayable_without_disclosing_values(self):
+        stamp=datetime(2026,10,17,17,3,tzinfo=timezone.utc)
+        rows=[("change:"+str(self.record),"sales_order.line_changed",self.author,stamp)]
+        result=self.read(Cursor(rows=rows),record_type="sales_order")
+        self.assertEqual(result["items"][0]["action"],"sales_order.line_changed")
+        self.assertEqual(set(result["items"][0]),{
+            "event_id","action","actor_id","occurred_at"})
+        self.assertNotIn("before_values",str(result))
 
     def test_commercial_audit_requires_both_activity_and_module_read_permission(self):
         for config in ({"permitted":False},{"order_permitted":False}):
