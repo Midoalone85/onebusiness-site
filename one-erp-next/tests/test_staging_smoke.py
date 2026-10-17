@@ -75,15 +75,12 @@ class StagingSmokeTests(TestCase):
             ("https://"+HOST, "other.erp.example.net"),
             ("https://localhost", "localhost"),
             ("https://127.0.0.1", "127.0.0.1"),
-            ("https://127.0.0.1.nip.io", "127.0.0.1.nip.io"), # see note
+            ("https://127.0.0.1.nip.io", "127.0.0.1.nip.io"),
+            ("https://127.0.0.1.sslip.io", "127.0.0.1.sslip.io"),
             ("https://db.internal", "db.internal"),
             ("https://bad.test", "bad.test"),
         )
         for origin,host in bad:
-            if origin.endswith(".nip.io"):
-                # DNS wildcard addresses can be unsafe unless explicitly
-                # filtered by deployment; this is a known external guard.
-                continue
             with self.subTest(origin=origin):
                 with self.assertRaises(InvalidStagingConfiguration):
                     StagingSmokeConfig(origin,host,SHA,self.tenant,TOKEN)
