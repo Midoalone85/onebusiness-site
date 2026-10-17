@@ -60,11 +60,17 @@ jobs:
           git fetch --no-tags origin refs/heads/feature/one-erp-next-live-operations-read-056-20261017:refs/remotes/origin/finance-source
           git config user.name "ONE ERP CI"
           git config user.email "ci@invalid.example"
-          if ! git merge --no-commit --no-ff origin/finance-source; then
+          protected_before="$(git hash-object .github/workflows/one-erp-oracle-bridge.yml)"
+          if ! git merge --no-commit --no-ff -X ours origin/finance-source; then
             echo "::error::Merge conflicts detected; review unresolved paths below."
             git diff --name-only --diff-filter=U
             exit 1
           fi
-          echo "Temporary worktree merge succeeded; no push or commit made."
+          protected_after="$(git hash-object .github/workflows/one-erp-oracle-bridge.yml)"
+          if [ "$protected_before" != "$protected_after" ]; then
+            echo "::error::Oracle bridge workflow changed during rehearsal."
+            exit 1
+          fi
+          echo "Temporary merge succeeded with protected Oracle bridge preserved; no push or commit."
           python one-erp-next-integration/verify_integration.py
           node --check one-erp-preview/ui.js
