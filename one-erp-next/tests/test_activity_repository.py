@@ -8,8 +8,10 @@ from one_erp_core.activity_repository import load_record_activity
 
 
 class Cursor:
-    def __init__(self, *, role=(False,False), permitted=True, order_permitted=True, rows=None):
-        self.role,self.permitted,self.order_permitted,self.rows=role,permitted,order_permitted,rows or []
+    def __init__(self, *, role=(False,False), permitted=True, order_permitted=True,
+                 details_permitted=True, rows=None):
+        self.role,self.permitted,self.order_permitted,self.details_permitted,self.rows=(
+            role,permitted,order_permitted,details_permitted,rows or [])
         self.queries=[]
         self.step=0
     def __enter__(self): return self
@@ -18,7 +20,9 @@ class Cursor:
     def fetchone(self):
         self.step+=1
         return (self.role if self.step==1 else
-                (self.permitted,) if self.step==2 else (self.order_permitted,))
+                (self.permitted,) if self.step==2 else
+                (self.order_permitted,) if self.step==3 else
+                (self.details_permitted,))
     def fetchall(self): return self.rows
 
 
@@ -131,6 +135,29 @@ class ActivityAuditReaderTests(unittest.TestCase):
         self.assertEqual(set(result["items"][0]),{
             "event_id","action","actor_id","occurred_at"})
         self.assertNotIn("before_values",str(result))
+
+    def test_order_change_diff_requires_separate_permission_and_safe_values(self):
+        stamp=datetime(2026,10,17,17,0,tzinfo=timezone.utc)
+        row=("change:"+str(self.record),"sales_order.line_changed",self.author,stamp,
+             {"ordered_qty":"5.000","unit_price":"10.000"},
+             {"ordered_qty":"7.000","unit_price":"12.000"})
+        cursor=Cursor(rows=[row])
+        data=self.read(cursor,record_type="sales_order",include_changes=True)
+        self.assertEqual(data["items"][0]["changes"]["before"]["unit_price"],"10.000")
+        self.assertEqual(data["items"][0]["changes"]["after"]["ordered_qty"],"7.000")
+        self.assertTrue(any(args==(self.tenant,self.actor,"audit.order_changes.view")
+                            for sql,args in cursor.queries))
+        self.assertEqual(cursor.queries[-1][1],(self.tenant,self.record)*2+(21,0))
+        denied=Cursor(details_permitted=False)
+        with self.assertRaises(PermissionError):
+            self.read(denied,record_type="sales_order",include_changes=True)
+        self.assertFalse(any("FROM public.one_commercial_change_audit" in sql
+                    for sql,args in denied.queries))
+        with self.assertRaises(ValueError):
+            self.read(Cursor(rows=[row[:4]+({"patient_secret":"NO"},row[5])]),
+                      record_type="sales_order",include_changes=True)
+        with self.assertRaises(ValueError):
+            self.read(Cursor(),record_type="invoice",include_changes=True)
 
     def test_commercial_audit_requires_both_activity_and_module_read_permission(self):
         for config in ({"permitted":False},{"order_permitted":False}):
