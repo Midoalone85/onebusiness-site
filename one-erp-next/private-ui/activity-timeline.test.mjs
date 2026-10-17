@@ -67,3 +67,19 @@ test("clear cancels stale in-flight responses",async()=>{
   assert.equal(root.children[3].children.length,0);
   result.dispose();
 });
+
+test("manual refresh re-reads server facts without creating local events",async()=>{
+  let reads=0;
+  const {root,result}=fixture(()=>response(++reads===1?[]:[{
+    event_id:"approved:"+record_id,action:"invoice.source_approved",actor_id:actor,
+    occurred_at:"2026-10-17T19:00:00.000000Z",
+  }]));
+  assert.equal(root.children[4].children[2].disabled,true);
+  await result.load("invoice",record_id);
+  assert.equal(reads,1);assert.equal(root.children[3].children.length,0);
+  root.children[4].children[2].listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(reads,2);assert.equal(root.children[3].children.length,1);
+  result.clear();assert.equal(root.children[4].children[2].disabled,true);
+  result.dispose();
+});
