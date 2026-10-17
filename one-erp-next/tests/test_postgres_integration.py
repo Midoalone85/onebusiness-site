@@ -6863,6 +6863,9 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertNotEqual(sales["mode"],"fictional_preview")
         self.assertTrue(all("order_value" in item for item in sales["items"]))
         self.assertTrue(all("available" in item for item in stock["items"]))
+        self.assertTrue(all(type(item["quantity_reconciled"]) is bool
+                            for item in stock["items"]))
+        self.assertIn("quantity_reconciled",stock["fields"])
 
     def test_operations_reader_database_role_is_read_only_and_tenant_bound(self):
         with self.assertRaises(self.psycopg.Error):
