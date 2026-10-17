@@ -208,10 +208,21 @@ class ApprovedPostgresFinanceSourceLoader:
                 key: Account(key,tenant_id,code,name,AccountKind(kind),active,allowed)
                 for key,code,name,kind,active,allowed in cur.fetchall()
             }
+            cur.execute(
+                """SELECT order_id,order_line_nos
+                     FROM public.one_sales_invoice_source_links
+                    WHERE tenant_id=%s AND invoice_id=%s""",
+                (tenant_id,document_id),
+            )
+            source_link=cur.fetchone()
+            sales_order_id=source_link[0] if source_link is not None else None
+            sales_line_nos=tuple(source_link[1]) if source_link is not None else ()
         return TrustedInvoiceSource(
             document=doc, accounts=accounts, chart=chart,
             period=period, period_id=period_id,
             memberships=(membership,), minor_units=minor_units,
+            sales_order_id=sales_order_id,
+            sales_order_line_nos=sales_line_nos,
         )
 
     def load_payment(
