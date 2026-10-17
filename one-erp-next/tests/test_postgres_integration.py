@@ -5610,7 +5610,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "%s,%s,%s,%s,%s,%s)",
             (tenant,rma,accepted,stock,cogs_gl,nrv_evt,nrv_gl,
              period or self.period_id,admin,sale_price,completion,sell_cost,
-             evidence,date(2026,10,15)))
+             evidence,date.today()))
         return stock,cogs_gl,nrv_evt,nrv_gl,result
 
     def test_nrv_customer_return_new_inspection_books_original_cost_and_fresh_nrv(self):
