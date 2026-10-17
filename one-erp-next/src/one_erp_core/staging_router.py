@@ -28,10 +28,10 @@ _OPERATIONS = frozenset((
     "/api/v1/operations/purchases",
     "/api/v1/operations/inventory",
     "/api/v1/operations/returns",
-    "/api/v1/operations/receivables",
 ))
 _HEALTH = frozenset(("/healthz", "/readyz"))
 _REPORT = "/api/v1/finance/dashboard"
+_AR_REPORT = "/api/v1/operations/receivables"
 _COMMAND = "/api/v1/finance/internal-documents"
 _APPROVAL = "/api/v1/finance/internal-invoice-approvals"
 
@@ -88,6 +88,12 @@ class OneERPStagingRouter:
         self._operations = OneOperationsWSGI(
             verifier=verifier, connections=operations_connections, allowed_hosts=allowed_hosts,
         )
+        # Confidential accounts-receivable details use the finance report
+        # role, never the operational sales/stock reader SQL credentials.
+        self._receivables = OneOperationsWSGI(
+            verifier=verifier, connections=finance_report_connections,
+            allowed_hosts=allowed_hosts,
+        )
         self._finance = OneFinanceWSGI(
             verifier=verifier, connections=finance_report_connections, allowed_hosts=allowed_hosts,
         )
@@ -126,6 +132,7 @@ class OneERPStagingRouter:
         if path in _HEALTH:
             return self._health(environ, start_response)
         if (path not in _OPERATIONS and path != _REPORT and
+            path != _AR_REPORT and
             (path != _COMMAND or self._commands is None) and
             (path != _APPROVAL or self._approvals is None)):
             return self._reject(start_response, "404 Not Found")
@@ -141,6 +148,8 @@ class OneERPStagingRouter:
             return self._reject(start_response, "503 Service Unavailable")
         if path in _OPERATIONS:
             return self._operations(environ, start_response)
+        if path == _AR_REPORT:
+            return self._receivables(environ, start_response)
         if path == _REPORT:
             return self._finance(environ, start_response)
         if path == _APPROVAL:
