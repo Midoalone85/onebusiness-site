@@ -44,3 +44,27 @@ jobs:
           test -f one-erp-next/src/one_erp_core/accounting.py
           test -f one-erp-next/tests/test_postgres_integration.py
           test -f .github/workflows/one-erp-next-finance-tests.yml
+
+  merge-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test finance source merge, never commit or push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin refs/heads/feature/one-erp-next-live-operations-read-056-20261017:refs/remotes/origin/finance-source
+          git config user.name "ONE ERP CI"
+          git config user.email "ci@invalid.example"
+          if ! git merge --no-commit --no-ff origin/finance-source; then
+            echo "::error::Merge conflicts detected; review unresolved paths below."
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+          echo "Temporary worktree merge succeeded; no push or commit made."
+          python one-erp-next-integration/verify_integration.py
+          node --check one-erp-preview/ui.js
