@@ -100,25 +100,32 @@ export function mountPrivateFinanceWorkspace({
       controls.append(label,ref,open,feedback);
       reviewLayout.append(reviewer,activity);
       panel.append(controls,reviewLayout);
+      let requestId=0,readyDocument=null;
       const review=mountInvoiceApprovalPage({
         root:reviewer,baseUrl,getToken,language:lang,fetchImpl,
+        onApproved:({tenant:approvedTenant,document_id:approvedId})=>{
+          // Never create optimistic activity events; refresh from the audited API.
+          if(!disposed&&active==="review"&&revision===generation&&
+             approvedTenant===tenant&&readyDocument===approvedId){
+            void history.load("invoice",approvedId);
+          }
+        },
       });
       const history=mountActivityTimeline({root:activity,tenant,baseUrl,getToken,
         language:lang,fetchImpl,timeZone});
       child={dispose:()=>{review.dispose();history.dispose();}};
-      let requestId=0;
       open.addEventListener("click",()=>{
         if(disposed||active!=="review"||revision!==generation)return;
         const value=ref.value;
         const request=++requestId;
-        history.clear();
+        readyDocument=null;history.clear();
         if(!DOC.test(value)){
           review.clear();feedback.textContent=words.invalid;return;
         }
         feedback.textContent="";
         void review.open({tenant,document_id:value}).then(ok=>{
           if(disposed||active!=="review"||revision!==generation||request!==requestId)return;
-          if(ok)void history.load("invoice",value);
+          if(ok){readyDocument=value;void history.load("invoice",value);}
         });
       });
       return true;
