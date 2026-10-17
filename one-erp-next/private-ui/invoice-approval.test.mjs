@@ -47,8 +47,16 @@ class Element {
   addEventListener(type,callback){this.listeners[type]=callback;}
 }
 const document={createElement(tag){return new Element(document,tag);}};
-const summary={tenant,document_id,reviewable:true,fields:[
-  {label:"Customer",value:"<script>no</script>"},{label:"Subtotal",value:"100"}]};
+const verifiedLine={
+  line_number:1,description:"Validated accounting source",quantity:"1",
+  unit_price:"100.00",discount_amount:"0.00",tax_category:"standard",
+  tax_rate:"0.150000",tax_code:"KSA_STANDARD",net:"100.00",
+  tax:"15.00",gross:"115.00",
+};
+const summary={tenant,document_id,reviewable:true,
+  source:"verified_internal_postgresql",fields:[
+  {label:"Customer",value:"<script>no</script>"},{label:"Subtotal",value:"100"}],
+  lines:[verifiedLine]};
 function setup(overrides={}){
   const root=document.createElement("main");let calls=0;
   const page=mountInvoiceApprovalPage({root,baseUrl:"https://erp.example.test/",language:"ar",
@@ -68,7 +76,14 @@ test("cannot approve before trusted data and explicit independent reviewer ackno
   o.page.dispose();assert.equal(o.root.children.length,0);
 });
 test("untrusted, wrong tenant, unreviewable or empty details fail closed",async()=>{
-  for(const wrong of [null,{...summary,tenant:document_id},{...summary,reviewable:false},{...summary,fields:[]}]){
+  for(const wrong of [
+    null,{...summary,tenant:document_id},{...summary,reviewable:false},
+    {...summary,fields:[]},{...summary,source:"browser_generated"},
+    {...summary,source:undefined},{...summary,lines:undefined},
+    {...summary,lines:[]},{...summary,lines:[verifiedLine,verifiedLine]},
+    {...summary,lines:[{...verifiedLine,gross:115}]},
+    {...summary,fields:[{label:"Gross",value:NaN}]},
+  ]){
     const o=setup({loadSummary:async()=>wrong});
     assert.equal(await o.page.open({tenant,document_id}),false);
     o.confirm.checked=true;o.confirm.listeners.change();await o.approve.listeners.click();
