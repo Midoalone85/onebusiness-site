@@ -21,7 +21,7 @@ CREATE POLICY finance_requests_tenant_scope ON one_finance_requests
 -- A completed request is immutable, including its identity and result.
 -- Incomplete requests must not be committed; Python keeps reservation and
 -- action within a single transaction, and explicitly refuses stale pending rows.
-CREATE FUNCTION one_finance_request_guard() RETURNS trigger LANGUAGE plpgsql AS $
+CREATE FUNCTION one_finance_request_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
     IF TG_OP='INSERT' THEN
         IF NEW.result_id IS NOT NULL THEN
