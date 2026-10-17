@@ -5,9 +5,12 @@ export class OperationsApiError extends Error {
 }
 export async function readOperations({ baseUrl, module, token, fetchImpl = fetch, signal }) {
   if (!ALLOWED.has(module)) throw new TypeError("Unsupported operations module");
-  const origin = new URL(baseUrl);
+  let origin;
+  try { origin = new URL(baseUrl); }
+  catch { throw new TypeError("A trusted HTTPS API origin is required"); }
   if (origin.protocol !== "https:" || origin.username || origin.password ||
-      origin.search || origin.hash || origin.pathname !== "/") {
+      origin.search || origin.hash || origin.pathname !== "/" ||
+      !origin.hostname || origin.hostname.endsWith(".")) {
     throw new TypeError("A trusted HTTPS API origin is required");
   }
   if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token || "")) {
@@ -21,5 +24,6 @@ export async function readOperations({ baseUrl, module, token, fetchImpl = fetch
   if (!response.ok) throw new OperationsApiError(response.status);
   const type = response.headers.get("content-type") || "";
   if (!type.toLowerCase().includes("application/json")) throw new OperationsApiError(502);
-  return response.json();
+  try { return await response.json(); }
+  catch { throw new OperationsApiError(502); }
 }
