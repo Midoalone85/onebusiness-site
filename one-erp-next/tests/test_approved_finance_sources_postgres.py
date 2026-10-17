@@ -206,6 +206,36 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                         )
         self.assertEqual(self.count("one_invoice_source_approvals","document_id"),1)
 
+    def test_062_database_rejects_spoofed_approver_then_accepts_real_reviewer(self):
+        """059 binds approved_by to transaction actor; 062 also checks permission.
+
+        A valid second accountant UUID alone is NOT enough for approval:
+        the trusted SQL actor context must match, and duplicate approval
+        must remain impossible even across separate SQL transactions.
+        """
+        with self.connect() as conn:
+            self.prepare(conn)
+            with conn.transaction():
+                # The maker is authenticated in the transaction, but tries to
+                # attribute the approval to a different authorized accountant.
+                self.bind(conn,self.actor)
+                with self.assertRaises(self.pg.Error):
+                    with conn.transaction():
+                        conn.execute(
+                            """INSERT INTO public.one_invoice_source_approvals
+                               (tenant_id,document_id,approved_by)
+                               VALUES(%s,%s,%s)""",
+                            (self.tenant,self.doc_id,self.reviewer),
+                        )
+            self.assertEqual(
+                self.count("one_invoice_source_approvals","document_id"),0)
+            # A genuinely distinct reviewer is allowed exactly once.
+            self.approve(conn,self.reviewer)
+            with self.assertRaises(self.pg.Error):
+                self.approve(conn,self.reviewer)
+        self.assertEqual(
+            self.count("one_invoice_source_approvals","document_id"),1)
+
     def test_malformed_amount_does_not_write_any_financial_document(self):
         source=dict(self.payload)
         source["lines"]=[dict(self.payload["lines"][0],unit_price=100.0)]
