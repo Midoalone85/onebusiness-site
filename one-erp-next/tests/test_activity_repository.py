@@ -8,8 +8,8 @@ from one_erp_core.activity_repository import load_record_activity
 
 
 class Cursor:
-    def __init__(self, *, role=(False,False), permitted=True, rows=None):
-        self.role,self.permitted,self.rows=role,permitted,rows or []
+    def __init__(self, *, role=(False,False), permitted=True, order_permitted=True, rows=None):
+        self.role,self.permitted,self.order_permitted,self.rows=role,permitted,order_permitted,rows or []
         self.queries=[]
         self.step=0
     def __enter__(self): return self
@@ -17,7 +17,8 @@ class Cursor:
     def execute(self,sql,args=None): self.queries.append((sql,args))
     def fetchone(self):
         self.step+=1
-        return self.role if self.step==1 else (self.permitted,)
+        return (self.role if self.step==1 else
+                (self.permitted,) if self.step==2 else (self.order_permitted,))
     def fetchall(self): return self.rows
 
 
@@ -99,6 +100,36 @@ class ActivityAuditReaderTests(unittest.TestCase):
             with self.subTest(rows=rows):
                 with self.assertRaises(ValueError):
                     self.read(Cursor(rows=rows))
+
+    def test_commercial_confirmation_only_from_persisted_order_source(self):
+        stamp=datetime(2026,10,17,17,0,tzinfo=timezone.utc)
+        for record_type,kind,permission in (
+            ("sales_order","sale","sales.order.view"),
+            ("purchase_order","purchase","purchase.order.view"),
+        ):
+            with self.subTest(record_type=record_type):
+                cursor=Cursor(rows=[("confirmed:"+str(self.record),
+                    record_type+".confirmed",self.author,stamp)])
+                result=self.read(cursor,record_type=record_type)
+                self.assertEqual(result["items"][0]["action"],record_type+".confirmed")
+                self.assertEqual(result["items"][0]["actor_id"],str(self.author))
+                self.assertIn("2026-10-17T17:00:00",result["items"][0]["occurred_at"])
+                self.assertTrue(any(args==(self.tenant,self.actor,permission)
+                    for sql,args in cursor.queries))
+                sql,args=cursor.queries[-1]
+                self.assertIn("FROM public.one_commercial_orders",sql)
+                self.assertIn("kind=\'"+kind+"\'",sql)
+                self.assertIn("status=\'confirmed\'",sql)
+                self.assertEqual(args,(self.tenant,self.record,21,0))
+
+    def test_commercial_audit_requires_both_activity_and_module_read_permission(self):
+        for config in ({"permitted":False},{"order_permitted":False}):
+            with self.subTest(config=config):
+                cursor=Cursor(**config)
+                with self.assertRaises(PermissionError):
+                    self.read(cursor,record_type="sales_order")
+                self.assertFalse(any("FROM public.one_commercial_orders" in sql
+                    for sql,args in cursor.queries))
 
 
 if __name__=="__main__":
