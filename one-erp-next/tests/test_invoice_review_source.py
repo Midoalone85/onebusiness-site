@@ -70,7 +70,7 @@ class InvoiceReviewSourceTests(unittest.TestCase):
             __import__("datetime").date(2026,11,17),
             "standard",Decimal("0.150000"),"KSA_STANDARD",
             "internal-policy-v01",self.tax_reviewer,
-            "ar","ap","vatoutput","vatinput","SAR","customer-test",
+            "ar","ap","vatoutput","vatinput","SAR","customer-test","sales",
         )
 
     def run_source(self,**options):
@@ -111,6 +111,7 @@ class InvoiceReviewSourceTests(unittest.TestCase):
             self.source[:5]+("tampered-number",)+self.source[6:],
             self.source[:4]+([1,1],)+self.source[5:],
             self.source[:8]+("zero_rated",)+self.source[9:],
+            self.source[:-1]+("wrong_revenue",),
         ):
             with self.subTest(source=str(source)[:30]),self.assertRaises(PermissionError):
                 self.run_source(source=source)
