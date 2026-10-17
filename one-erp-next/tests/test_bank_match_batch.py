@@ -90,6 +90,11 @@ class BankBatchReconciliationTests(unittest.TestCase):
             {"bank_lines":[replace(self.bank,reference=None)]},
             {"ledger_rows":[replace(self.ledger,occurred_on=None)]},
             {"ledger_rows":[replace(self.ledger,amount=1.0)]},
+            {"bank_lines":[replace(self.bank,amount=Decimal("1E+100"))]},
+            {"bank_lines":[replace(self.bank,amount=Decimal("1E-100"))]},
+            {"ledger_rows":[replace(self.ledger,amount=Decimal("-1E+100"))]},
+            {"ledger_rows":[replace(self.ledger,amount=Decimal("NaN"))]},
+            {"ledger_rows":[replace(self.ledger,amount=Decimal("Infinity"))]},
         ]
         for changed in cases:
             with self.subTest(changed=changed),self.assertRaises(AccountingError):
