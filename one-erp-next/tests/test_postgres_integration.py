@@ -4999,7 +4999,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,warehouse,product,event,journal,
              period or self.period_id,allowance,expense,admin,
              revision,qty,cost,selling,completion,selling_cost,
-             evidence,date(2026,10,15)))
+             evidence,date.today()))
 
     def nrv_report(self,tenant,admin,warehouse,product):
         with self.db.transaction():
@@ -5234,9 +5234,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(after[1]-before[1],Decimal("17.50"))
         self.assertEqual(after[2]-before[2],Decimal("10.00"))
         self.assertEqual(after[3]-before[3],Decimal("7.50"))
-        self.assertEqual(after[4],date(2026,10,15))
+        self.assertEqual(after[4],self.db.execute(
+            "SELECT current_date").fetchone()[0])
         day=self.inventory_nrv_activity(
-            tenant,self.actor,start=date(2026,10,16),end=date(2026,11,1))
+            tenant,self.actor,start=date.today()+timedelta(days=1),
+            end=date.today()+timedelta(days=30))
         self.assertEqual(day[:4],(0,Decimal("0"),Decimal("0"),Decimal("0")))
 
     def test_nrv_company_reader_refuses_wrong_actor_tenant_and_period(self):
@@ -5558,8 +5560,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             1,Decimal("2"),Decimal("25"),Decimal("7"),Decimal("18")))
         self.assertEqual(after[5]-before[5],0)
         self.assertTrue(after[6])
+        # This report uses the real transaction date, not the date when
+        # the original fixture was authored. An always-future window
+        # must remain empty on every CI execution day.
         later=self.nrv_sales_activity(tenant,self.actor,
-            start=date(2026,10,16),end=date(2026,11,1))
+            start=date.today()+timedelta(days=1),
+            end=date.today()+timedelta(days=30))
         self.assertEqual(later[:6],(
             0,Decimal("0"),Decimal("0"),Decimal("0"),Decimal("0"),0))
         self.assertTrue(later[6])
@@ -5674,6 +5680,9 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         nrv_evt=nrv_evt or uuid4()
         nrv_gl=nrv_gl or uuid4()
         evidence=evidence or ("REVIEW-NRV-"+stock.hex)
+        # Database effective date is authoritative even if the CI runner
+        # timezone differs from the PostgreSQL service timezone.
+        db_assessment_date=self.db.execute("SELECT current_date").fetchone()[0]
         result=self.commerce_execute(
             tenant,admin,
             "SELECT one_accept_reassessed_nrv_customer_return("
@@ -5682,7 +5691,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "%s,%s,%s,%s,%s,%s)",
             (tenant,rma,accepted,stock,cogs_gl,nrv_evt,nrv_gl,
              period or self.period_id,admin,sale_price,completion,sell_cost,
-             evidence,date(2026,10,15)))
+             evidence,db_assessment_date))
         return stock,cogs_gl,nrv_evt,nrv_gl,result
 
     def test_nrv_customer_return_new_inspection_books_original_cost_and_fresh_nrv(self):
@@ -6522,8 +6531,9 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 payment_reference=None,
                 transaction_ref=None,
                 statement_ref="STATEMENT-TEST-20261015",
-                value_date=date(2026,10,16)):
+                value_date=None):
         bank_line=bank_line or uuid4()
+        value_date=value_date or self.db.execute("SELECT current_date").fetchone()[0]
         return bank_line,self.commerce_execute(
             tenant,actor,"SELECT one_register_refund_bank_candidate("
             "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -6633,7 +6643,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                             (tenant,order,line_id,clerk,"BANK-ACCOUNT-DEMO",
                              "STATEMENT-TEST-20261015","TX-"+line_id.hex,
                              "ORDER-"+str(order),"BENEFICIARY-REVIEW-CI",
-                             "SAR",Decimal("10"),date(2026,10,16)))
+                             "SAR",Decimal("10"),self.db.execute("SELECT current_date").fetchone()[0]))
                     return True
                 except self.psycopg.Error:
                     return False
@@ -8697,6 +8707,107 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "SELECT on_hand FROM one_stock_balances "
             "WHERE tenant_id=%s AND warehouse_id=%s AND product_id=%s",
             (tenant,quarantine,product)).fetchone()[0],Decimal("1"))
+
+    # 056 | Live source-backed READ ONLY operational pages atop latest 055 gates.
+    def private_operations(self,tenant,actor,module,*,limit=25,offset=0):
+        from one_erp_core.operations_read_repository import load_operations_page
+        return load_operations_page(
+            self.db,tenant_id=tenant,actor_id=actor,
+            module=module,limit=limit,offset=offset)
+
+    def test_056_real_postgres_sales_purchase_inventory_returns_view(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        for mod,order_id in (("sales",sale),("purchases",purchase)):
+            view=self.private_operations(tenant,actor,mod,limit=5)
+            self.assertEqual(view["tenant_id"],str(tenant))
+            self.assertEqual(view["source"],"one_erp_next_postgresql")
+            self.assertTrue(view["read_only"])
+            self.assertEqual(len(view["items"]),1)
+            line=view["items"][0]
+            self.assertEqual(line["order_id"],str(order_id))
+            self.assertEqual(line["ordered_quantity"],"5.000")
+            self.assertEqual(line["unit_price"],"12.500")
+            self.assertEqual(view["page"]["has_more"],False)
+        self.commerce_execute(
+            tenant,actor,"SELECT one_confirm_commercial_order(%s,%s,%s)",
+            (tenant,purchase,actor))
+        self.commerce_execute(
+            tenant,actor,
+            "SELECT one_fulfill_commercial_line(%s,%s,1,3,%s,%s)",
+            (tenant,purchase,uuid4(),actor))
+        stock=self.private_operations(tenant,actor,"inventory")
+        self.assertEqual(len(stock["items"]),1)
+        self.assertEqual(stock["items"][0]["warehouse_id"],str(warehouse))
+        self.assertEqual(stock["items"][0]["on_hand"],"3.000")
+        self.assertEqual(stock["items"][0]["reserved"],"0.000")
+        self.assertEqual(stock["items"][0]["available"],"3.000")
+        self.assertEqual(self.private_operations(tenant,actor,"returns")["items"],[])
+        self.assertEqual(
+            self.private_operations(tenant,actor,"sales")["items"][0]["status"],
+            "draft")
+        self.assertEqual(self.admin.execute(
+            "SELECT count(*) FROM one_stock_events WHERE tenant_id=%s",
+            (tenant,)).fetchone()[0],1)
+
+    def test_056_user_view_permission_denial_revoked_independently(self):
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        reviewer=self.commerce_055_reviewers(tenant)
+        viewer=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_memberships(tenant_id,actor_id,role)"
+            " VALUES(%s,%s,'viewer')",(tenant,viewer))
+        self.assertEqual(
+            self.private_operations(tenant,viewer,"sales")["items"][0]["order_id"],
+            str(sale))
+        self.source_permission_055(
+            tenant,owner,reviewer,'sales.order.view','deny')
+        with self.assertRaises(PermissionError):
+            self.private_operations(tenant,owner,"sales")
+        # Separate purchase permission still allows reads even when sales
+        # has been denied to a company administrator.
+        self.assertEqual(
+            self.private_operations(tenant,owner,"purchases")["items"][0]["order_id"],
+            str(purchase))
+        with self.assertRaises(PermissionError):
+            self.private_operations(tenant,uuid4(),"inventory")
+        with self.assertRaises(PermissionError):
+            self.private_operations(self.tenant_b,owner,"sales")
+
+    def test_056_pagination_is_stable_limited_and_never_accepts_sql_fields(self):
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        second=uuid4()
+        self.admin.execute(
+            "INSERT INTO one_commercial_orders "
+            "(tenant_id,id,kind,number,partner_id,currency) "
+            "VALUES(%s,%s,'sale',%s,'OTHER-CUSTOMER','SAR')",
+            (tenant,second,"ZZ-"+second.hex))
+        self.admin.execute(
+            "INSERT INTO one_commercial_order_lines "
+            "(tenant_id,order_id,line_no,product_id,warehouse_id,"
+            "ordered_qty,unit_price) VALUES(%s,%s,1,%s,%s,2,10)",
+            (tenant,second,product,warehouse))
+        first=self.private_operations(tenant,owner,"sales",limit=1,offset=0)
+        follow=self.private_operations(tenant,owner,"sales",limit=1,offset=1)
+        self.assertEqual(first["page"]["next_offset"],1)
+        self.assertTrue(first["page"]["has_more"])
+        self.assertNotEqual(first["items"][0]["order_id"],
+                            follow["items"][0]["order_id"])
+        self.assertFalse(follow["page"]["has_more"])
+        for module,limit,offset in (
+            ("sales;drop table",1,0),("sales",0,0),
+            ("inventory",51,0),("returns",1,-1),
+            ("sales",True,0),("sales",1,999999),
+        ):
+            with self.assertRaises(ValueError):
+                self.private_operations(
+                    tenant,owner,module,limit=limit,offset=offset)
+
+    def test_056_privileged_connection_cannot_read_synthetic_company(self):
+        from one_erp_core.operations_read_repository import load_operations_page
+        tenant,owner,product,warehouse,purchase,sale=self.commerce_fixture_055()
+        with self.assertRaises(PermissionError):
+            load_operations_page(
+                self.admin,tenant_id=tenant,actor_id=owner,module="sales")
 
 if __name__ == "__main__":
     unittest.main()
