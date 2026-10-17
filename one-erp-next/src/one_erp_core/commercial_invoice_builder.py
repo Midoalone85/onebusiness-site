@@ -73,6 +73,23 @@ class PostgresDispatchedSalesInvoiceBuilder:
             partner,currency,_,confirmed_at=row
             if confirmed_at is None or issued_on < confirmed_at.date():
                 raise PermissionError("Invoice cannot predate confirmed sale")
+            # A dispatched sale is not ready for internal billing until
+            # every related physical movement has its own posted stock-cost
+            # valuation. Otherwise the sales/COGS ledger would diverge.
+            cur.execute(
+                """SELECT count(*)
+                     FROM public.one_stock_events e
+                     LEFT JOIN public.one_stock_value_events v
+                       ON v.tenant_id=e.tenant_id
+                      AND v.stock_event_id=e.id
+                    WHERE e.tenant_id=%s AND e.order_id=%s
+                      AND e.movement_kind='sale_dispatch'
+                      AND v.stock_event_id IS NULL""",
+                (tenant_id,order_id),
+            )
+            missing_valuation=cur.fetchone()
+            if missing_valuation is None or missing_valuation[0]!=0:
+                raise PermissionError("Unvalued sales dispatch cannot be invoiced")
             cur.execute(
                 """SELECT minor_units FROM public.one_currency_precision
                     WHERE code=%s""",
