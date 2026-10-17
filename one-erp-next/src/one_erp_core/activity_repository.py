@@ -11,6 +11,26 @@ from uuid import UUID
 
 # Only fixed SQL is allowed. No user-chosen table identifiers or SQL fragments.
 _AUDIT_SQL = {
+    "sales_order": """
+        SELECT 'confirmed:'||id::text AS event_id,
+               'sales_order.confirmed' AS action,
+               confirmed_by AS actor_id,confirmed_at AS occurred_at
+        FROM public.one_commercial_orders
+        WHERE tenant_id=%s AND id=%s AND kind='sale'
+          AND status='confirmed' AND confirmed_by IS NOT NULL
+          AND confirmed_at IS NOT NULL
+        ORDER BY confirmed_at DESC,id DESC LIMIT %s OFFSET %s
+    """,
+    "purchase_order": """
+        SELECT 'confirmed:'||id::text AS event_id,
+               'purchase_order.confirmed' AS action,
+               confirmed_by AS actor_id,confirmed_at AS occurred_at
+        FROM public.one_commercial_orders
+        WHERE tenant_id=%s AND id=%s AND kind='purchase'
+          AND status='confirmed' AND confirmed_by IS NOT NULL
+          AND confirmed_at IS NOT NULL
+        ORDER BY confirmed_at DESC,id DESC LIMIT %s OFFSET %s
+    """,
     "invoice": """
         SELECT event_id,action,actor_id,occurred_at FROM (
             SELECT 'issued:'||id::text AS event_id,
@@ -68,6 +88,10 @@ _AUDIT_SQL = {
     """,
 }
 ACTIVITY_TYPES = frozenset(_AUDIT_SQL)
+_ORDER_VIEW_PERMISSIONS = {
+    "sales_order": "sales.order.view",
+    "purchase_order": "purchase.order.view",
+}
 
 
 def load_record_activity(connection, *, tenant_id: UUID, actor_id: UUID,
@@ -101,6 +125,14 @@ def load_record_activity(connection, *, tenant_id: UUID, actor_id: UUID,
             permission = cur.fetchone()
             if permission is None or permission[0] is not True:
                 raise PermissionError("Activity visibility denied")
+            if record_type in _ORDER_VIEW_PERMISSIONS:
+                # Audit visibility alone must not reveal restricted commercial
+                # orders. Require the same module-specific source permission.
+                cur.execute("SELECT one_actor_has_permission(%s,%s,%s)",
+                            (tenant_id,actor_id,_ORDER_VIEW_PERMISSIONS[record_type]))
+                order_allowed = cur.fetchone()
+                if order_allowed is None or order_allowed[0] is not True:
+                    raise PermissionError("Commercial activity visibility denied")
             if record_type=="invoice":
                 params=(tenant_id,record_id)*3+(limit+1,offset)
             else:
