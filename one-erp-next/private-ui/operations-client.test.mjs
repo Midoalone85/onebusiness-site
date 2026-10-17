@@ -36,3 +36,22 @@ test("rejects non JSON responses",async()=>{
   await assert.rejects(readOperations({baseUrl:"https://erp.example.test/",module:"purchases",token,
     fetchImpl:async()=>response("not-json",200,"text/html")}),OperationsApiError);
 });
+
+test("rejects malformed origin before fetching",async()=>{
+  await assert.rejects(readOperations({baseUrl:"not-an-origin",module:"sales",token,
+    fetchImpl:()=>{throw Error("network should not run")}}),TypeError);
+});
+test("rejects malformed JSON payload without leaking contents",async()=>{
+  await assert.rejects(readOperations({baseUrl:"https://erp.example.test/",module:"sales",token,
+    fetchImpl:async()=>({ok:true,status:200,headers:{get:()=>"application/json"},
+      json:async()=>{throw SyntaxError("sensitive content")}})}),OperationsApiError);
+});
+test("passes through cancellation signal to network client",async()=>{
+  const controller = new AbortController();
+  let received;
+  await readOperations({baseUrl:"https://erp.example.test/",module:"inventory",token,
+    signal:controller.signal,fetchImpl:async(_url,options)=>{
+      received=options.signal;return response({rows:[]});
+    }});
+  assert.equal(received,controller.signal);
+});
