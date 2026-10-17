@@ -1,0 +1,90 @@
+/* ONE ERP NEXT original design tokens.
+   Presentation-only: financial permissions and policy decisions never come from
+   CSS, JavaScript, or an unauthenticated browser setting. */
+:root,
+[data-one-theme="blue"] {
+  color-scheme: light;
+  --one-brand: #1768c5;
+  --one-brand-hover: #1254a1;
+  --one-brand-subtle: #eaf4ff;
+  --one-surface: #ffffff;
+  --one-canvas: #f4f8fd;
+  --one-ink: #14263a;
+  --one-muted: #52677d;
+  --one-border: #d6e2ee;
+  --one-success: #176946;
+  --one-warning: #8a5600;
+  --one-danger: #a82232;
+  --one-radius: 14px;
+  --one-shadow: 0 8px 28px rgb(21 59 110 / 9%);
+}
+[data-one-theme="slate"] {
+  color-scheme: light;
+  --one-brand: #425a78;
+  --one-brand-hover: #34465e;
+  --one-brand-subtle: #edf2f6;
+  --one-surface: #ffffff;
+  --one-canvas: #f5f7fa;
+  --one-ink: #142536;
+  --one-muted: #536778;
+  --one-border: #d6e0e8;
+  --one-success: #176946;
+  --one-warning: #8a5600;
+  --one-danger: #a82232;
+  --one-radius: 14px;
+  --one-shadow: 0 8px 28px rgb(32 51 76 / 9%);
+}
+[data-one-theme="midnight"] {
+  color-scheme: dark;
+  --one-brand: #82baff;
+  --one-brand-hover: #acd2ff;
+  --one-brand-subtle: #193655;
+  --one-surface: #172434;
+  --one-canvas: #101a27;
+  --one-ink: #f0f6fd;
+  --one-muted: #b7c6d9;
+  --one-border: #344b63;
+  --one-success: #73d3a4;
+  --one-warning: #f0bd6c;
+  --one-danger: #ffa0aa;
+  --one-radius: 14px;
+  --one-shadow: 0 8px 28px rgb(0 0 0 / 25%);
+}
+.one-app {
+  color: var(--one-ink);
+  background: var(--one-canvas);
+  min-block-size: 100vh;
+  font-family: system-ui, "Segoe UI", Tahoma, sans-serif;
+}
+.one-card {
+  color: var(--one-ink);
+  background: var(--one-surface);
+  border: 1px solid var(--one-border);
+  border-radius: var(--one-radius);
+  box-shadow: var(--one-shadow);
+}
+.one-action {
+  background: var(--one-brand);
+  color: var(--one-canvas);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: .65rem 1rem;
+  cursor: pointer;
+}
+.one-action:hover { background: var(--one-brand-hover); }
+.one-action:focus-visible {
+  outline: 3px solid var(--one-brand);
+  outline-offset: 3px;
+}
+.one-muted { color: var(--one-muted); }
+.one-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .one-card { transition: background-color .18s ease, border-color .18s ease; }
+}

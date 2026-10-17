@@ -79,3 +79,24 @@ body.menu-open{overflow:hidden}.mobile-toggle[aria-expanded="true"]{background:r
 .service-contact-dock{box-shadow:0 22px 70px rgba(2,6,23,.28)}
 .not-found{position:relative;min-height:100svh;display:grid;place-items:center;overflow:hidden;background:linear-gradient(145deg,#050a18,#0a1535 70%,#102554);color:#fff}.not-found-orb{position:absolute;width:600px;height:600px;border-radius:50%;right:-180px;top:-210px;background:rgba(124,58,237,.34);filter:blur(130px)}.not-found-inner{position:relative;padding-block:80px}.nf-code{display:block;margin-top:80px;color:#67e8f9;font-size:14px;font-weight:900;letter-spacing:.24em}.not-found h1{max-width:900px;font-size:clamp(52px,7vw,96px);line-height:1.02;letter-spacing:-.055em;margin:20px 0}.not-found p{color:#bdc8dc;font-size:18px}.not-found .btn.ghost{background:rgba(255,255,255,.06)}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.mega.show{animation:none}.service-media img,.work-case img{transition:none}}
+
+/* Hide inactive form states reliably even when panels use display:grid. */
+[hidden]{display:none!important}
+
+/* Finance spotlight: avoid an orphan card in the seven-service desktop grid. */
+@media(min-width:1024px){.services>.service-card:nth-child(7):last-child{grid-column:1/-1;display:grid;grid-template-columns:.98fr 1.02fr;align-items:stretch}.services>.service-card:nth-child(7):last-child .service-media{height:100%;min-height:265px}.services>.service-card:nth-child(7):last-child .service-body{display:flex;flex-direction:column;justify-content:center;padding:32px 42px}.services>.service-card:nth-child(7):last-child .service-body h3{font-size:clamp(27px,2.6vw,38px)}}
+
+/* ONE Business / ONE ERP cross-property visual alignment */
+:root{--violet:#2465eb;--violet2:#578bfb;--fuchsia:#16b0c8;--cyan:#38c3df}
+.hero{background:radial-gradient(980px 660px at 6% -10%,rgba(54,126,238,.14),transparent 74%),linear-gradient(150deg,#0b1d3a 0%,#10305a 68%,#174a70 100%)}
+.orb-a{background:rgba(33,115,237,.23)}
+.orb-b{background:rgba(20,177,204,.16)}
+.header-wrap{background:rgba(10,29,55,.94)}
+.header{background:linear-gradient(180deg,rgba(15,46,83,.96),rgba(11,34,66,.95))}
+.brandmark{font-size:11px;letter-spacing:-.7px;background:linear-gradient(130deg,#1766ef,#0db9c7)}
+.hero .btn.primary,.cta-top{background:linear-gradient(120deg,#1963e9,#0a9dbf)}
+.hero .btn.primary:hover,.cta-top:hover{box-shadow:0 15px 36px rgba(14,116,222,.3)}
+
+/* Comfortable bilingual language button on small screens */
+.header-actions [data-lang-switch]{display:inline-flex!important;align-items:center;justify-content:center;min-width:44px;min-height:40px;padding:0 11px;margin-inline:4px!important;border-radius:10px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);color:#fff!important;font-size:13px!important;position:relative;z-index:8;white-space:nowrap}
+@media(max-width:620px){.header-actions{gap:4px!important}.header-actions .cta-top{display:none!important}.header-actions [data-lang-switch]{min-width:46px;min-height:42px}}

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#eff6ff">
+<meta name="description" content="ONE ERP من ONE Business: منصة لإدارة المحاسبة والمبيعات والمشتريات والمخزون والتشغيل مع تجربة عربية وإنجليزية.">
+<title>ONE ERP | منصة إدارة الأعمال من ONE Business</title>
+<style>
+:root{color-scheme:light;--ink:#112744;--muted:#586b83;--blue:#155eef;--blue2:#1775e8;--teal:#08a8b4;--bd:#dbe7f3;--bg:#f5f8fd;--white:#fff;--shadow:0 22px 65px rgba(18,56,103,.08);font-family:"Segoe UI",Tahoma,Arial,sans-serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(900px 560px at 5% 0,rgba(24,116,245,.11),transparent 73%),var(--bg);color:var(--ink);line-height:1.65;overflow-x:hidden}
+a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid var(--teal);outline-offset:4px}
+.wrap{width:min(1190px,calc(100% - 36px));margin:auto}.top{position:sticky;top:0;z-index:30;padding:12px 0;background:rgba(246,249,253,.93);backdrop-filter:blur(18px);border-bottom:1px solid #e1eaf3}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:55px}.brand{display:flex;gap:11px;align-items:center;font-size:21px;font-weight:900;letter-spacing:-.5px}.mark{display:grid;place-items:center;width:46px;height:46px;color:white;border-radius:16px;background:linear-gradient(135deg,#185cf1,#08a8b4);box-shadow:0 11px 26px rgba(24,94,241,.2);font-weight:950;font-size:17px;flex-shrink:0}.brand small{display:block;color:#708199;font-size:10px;font-weight:700;letter-spacing:.6px;margin-top:-5px}.navlinks{display:flex;align-items:center;gap:25px;color:#415a78;font-weight:750;font-size:13px}.navlinks a:hover{color:var(--blue)}
+.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;text-align:center;padding:13px 18px;border:1px solid var(--bd);border-radius:13px;font-weight:850;white-space:nowrap;background:white;transition:transform .2s,box-shadow .2s}.button:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(19,68,135,.10)}.button.primary{background:linear-gradient(115deg,#165de8,#0a88d5);color:white;border:0;box-shadow:0 11px 25px rgba(22,94,232,.2)}.button.minor{background:transparent}.hero{padding:70px 0 52px}.hero-grid{display:grid;grid-template-columns:1.07fr .93fr;gap:40px;align-items:center}
+.eyebrow{display:inline-flex;gap:7px;align-items:center;border:1px solid #cadcf6;background:white;color:#23549c;font-size:12px;font-weight:850;padding:7px 13px;border-radius:100px}.dot{background:#04ae9f;border-radius:50%;width:8px;height:8px;box-shadow:0 0 0 4px rgba(4,174,159,.14)}
+h1{font-size:clamp(38px,4.8vw,65px);line-height:1.15;letter-spacing:-1.6px;margin:24px 0 20px;font-weight:950}h1 em{font-style:normal;color:var(--blue)}.lead{font-size:16px;color:var(--muted);max-width:600px;line-height:2}.buttons{display:flex;gap:11px;flex-wrap:wrap;margin-top:26px}.facts{display:flex;gap:22px;flex-wrap:wrap;margin-top:25px;font-size:12px;color:#52708d;font-weight:750}.facts span:before{content:"✓";color:#089a88;padding-left:7px}
+.screen{border:1px solid #d4e2f3;border-radius:25px;background:white;box-shadow:0 32px 85px rgba(23,62,119,.15);padding:13px;min-width:0}.screen-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 7px 14px;color:#456482;font-size:11px;font-weight:850}.screen-head strong{color:#204671;font-size:13px}.status{font-size:10px;border-radius:50px;color:#16746e;background:#eafaf5;padding:6px 10px}
+.screen-inner{border-radius:15px;background:#f5f8fd;padding:16px}.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.kpi{border:1px solid #e3eaf2;background:#fff;border-radius:13px;padding:13px}.kpi small{font-size:10px;color:#627a95;font-weight:750;display:block}.kpi strong{font-size:22px;letter-spacing:-.3px;display:block;margin-top:4px}.kpi span{font-size:10px;color:#078b83}.chart{margin-top:12px;padding:15px;background:white;border:1px solid #e3eaf2;border-radius:15px}.chart-title{display:flex;justify-content:space-between;gap:8px;font-size:11px;font-weight:800}.chart-title small{color:#73869e}.bars{display:flex;align-items:flex-end;gap:10px;height:122px;border-bottom:1px dashed #c3d6ea;margin-top:16px}.bars i{height:var(--h);flex:1;background:linear-gradient(0deg,#89c0fb,#1768df);border-radius:7px 7px 0 0;min-width:0}.mini-note{margin:8px 0 0;color:#8a9bb0;font-size:10px}
+.section{padding:70px 0}.section-head{max-width:770px;margin:0 auto 32px;text-align:center}.section h2{font-size:clamp(27px,3vw,39px);line-height:1.25;margin:8px 0 14px;letter-spacing:-.6px}.section-head p,.section-sub{color:var(--muted);font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}.tile{background:#fff;border:1px solid var(--bd);border-radius:20px;padding:23px;box-shadow:0 9px 25px rgba(16,61,121,.035)}.tile .icon{font-size:24px;display:grid;place-items:center;width:48px;height:48px;background:#edf5ff;border-radius:13px;margin-bottom:17px}.tile h3{font-size:17px;margin:0 0 10px}.tile p{font-size:13px;line-height:1.8;margin:0;color:var(--muted)}
+.sector-shell{background:white;border:1px solid var(--bd);border-radius:23px;padding:24px;box-shadow:var(--shadow)}.tabs{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:23px}.tabs button{border:1px solid #d5e3f1;color:#345273;background:#f7faff;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:800}.tabs button[aria-selected="true"]{background:#185ee9;color:white;border-color:#185ee9}
+.sector-detail{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:center}.sector-detail h3{font-size:25px;margin:0 0 6px}.sector-detail p{color:var(--muted);font-size:14px;line-height:1.9}.sector-detail ul{margin:13px 0 0;padding:0 20px 0 0;color:#39526e;line-height:2.1}.sector-panel{background:linear-gradient(135deg,#0c2143,#12529c);padding:26px;border-radius:19px;color:white}.sector-panel small{color:#b6d8ff}.sector-flow{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:20px}.sector-flow span{background:rgba(255,255,255,.12);border:1px solid #5884bd;padding:11px 15px;border-radius:10px;font-size:13px}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.step{border:1px solid var(--bd);border-radius:18px;padding:22px;background:#fff}.step b{display:grid;place-items:center;width:36px;height:36px;background:#eaf2ff;color:#145edd;border-radius:12px}.step h3{font-size:17px;margin:14px 0 8px}.step p{font-size:13px;color:var(--muted);margin:0}
+.cta{border-radius:26px;padding:45px;background:linear-gradient(125deg,#0a2b62,#1266c4);color:white;display:flex;justify-content:space-between;align-items:center;gap:28px;overflow:hidden}.cta h2{font-size:clamp(25px,3vw,38px);margin:0 0 10px}.cta p{color:#d2e6ff;margin:0}.cta .button{background:#fff;color:#0b4bab;border:0}
+.footer{padding:30px 0;border-top:1px solid var(--bd);color:#60758d;font-size:12px}.footer-inner{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.notice{padding:13px 15px;border-radius:12px;border:1px solid #ecdca7;background:#fff9e8;color:#765a22;font-size:12px;margin-top:24px}
+@media(max-width:980px){.hero-grid{grid-template-columns:1fr}.screen{max-width:640px;margin:auto;width:100%}.navlinks{display:none}.grid{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.wrap{width:min(100% - 28px,1190px)}.hero{padding:40px 0 30px}h1{font-size:37px}.nav{gap:8px}.brand{font-size:17px}.nav .button{font-size:11px;padding:10px 12px}.button{white-space:normal}.buttons .button{width:100%}.grid,.steps,.sector-detail{grid-template-columns:1fr}.section{padding:48px 0}.sector-shell{padding:16px}.tabs button{flex:1}.cta{display:block;padding:30px 22px}.cta .button{margin-top:22px;width:100%}.screen-inner{padding:10px}.kpi strong{font-size:20px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap nav">
+<a class="brand" href="../index.html" aria-label="ONE Business"><span class="mark">ONE</span><span>ONE ERP<small>by ONE Business</small></span></a>
+<nav class="navlinks" aria-label="أقسام الصفحة"><a href="#features">المزايا</a><a href="#sectors">القطاعات</a><a href="#journey">طريقة العمل</a><a href="plans/">الباقات</a></nav>
+<a class="button minor" data-lang-switch href="../en/one-erp/?lang=en">EN</a><a class="button primary" href="https://one-erp.141.147.137.107.sslip.io/app" target="_blank" rel="noopener">دخول البرنامج ↗</a></div></header>
+<main>
+<section class="hero"><div class="wrap hero-grid">
+<div><span class="eyebrow"><span class="dot"></span> منصة تشغيل وإدارة الأعمال</span><h1>شركتك كلها،<br><em>في مساحة عمل واحدة.</em></h1>
+<p class="lead">من المبيعات والمشتريات والمخزون إلى القيود والتقارير المالية. منصة ONE ERP مصممة لتبسيط يوم العمل، وربط الفريق بالعمليات والقرارات في مكان واحد.</p>
+<div class="buttons"><a class="button primary" href="https://one-erp.141.147.137.107.sslip.io/one/trial?lang=ar" target="_blank" rel="noopener">تجربة مجانية 7 أيام ↗</a><a class="button" href="plans/">قارن الباقات والأسعار</a><a class="button primary" href="https://one-erp.141.147.137.107.sslip.io/" target="_blank" rel="noopener">استكشف البوابة التجارية ↗</a><a class="button" href="https://one-erp.141.147.137.107.sslip.io/one/demo?lang=ar" target="_blank" rel="noopener">اطلب عرضًا مخصصًا</a><a class="button minor" href="https://one-erp.141.147.137.107.sslip.io/one/trial?lang=ar" target="_blank" rel="noopener">جرّب المنصة</a></div>
+<div class="facts"><span>واجهة عربية وإنجليزية</span><span>موديولات مترابطة</span><span>صلاحيات حسب الدور</span></div>
+</div>
+<div class="screen" aria-label="تصور توضيحي لداشبورد ONE ERP">
+<div class="screen-head"><strong>ONE ERP | Business Control Center</strong><span class="status">تصور للواجهة</span></div>
+<div class="screen-inner"><div class="kpis"><div class="kpi"><small>أوامر المبيعات</small><strong>128</strong><span>↑ نشاط المبيعات</span></div><div class="kpi"><small>فواتير العملاء</small><strong>64</strong><span>متابعة التحصيل</span></div><div class="kpi"><small>أوامر الشراء</small><strong>42</strong><span>دورة المشتريات</span></div><div class="kpi"><small>مهام تحتاج متابعة</small><strong>8</strong><span>أولوية اليوم</span></div></div>
+<div class="chart"><div class="chart-title"><span>ONE PULSE | نظرة على الأعمال</span><small>آخر 8 فترات</small></div><div class="bars"><i style="--h:33%"></i><i style="--h:49%"></i><i style="--h:42%"></i><i style="--h:63%"></i><i style="--h:56%"></i><i style="--h:78%"></i><i style="--h:68%"></i><i style="--h:87%"></i></div><p class="mini-note">أرقام ورسوم توضيحية لا تمثل بيانات فعلية.</p></div>
+</div></div>
+</div></section>
+<section class="section" id="features"><div class="wrap"><div class="section-head"><span class="eyebrow">المنصة</span><h2>كل قسم شايف شغله. والإدارة شايفة الصورة كلها.</h2><p>واجهة واضحة للعمليات اليومية، وبيانات مترابطة تقلل الانتقال بين الأنظمة المتفرقة.</p></div><div class="grid">
+<div class="tile"><div class="icon">◫</div><h3>المالية والمحاسبة</h3><p>قيود اليومية، الفواتير، الحسابات والتقارير المالية.</p></div>
+<div class="tile"><div class="icon">↗</div><h3>المبيعات والعملاء</h3><p>عروض أسعار، أوامر بيع، فواتير ومتابعة العملاء.</p></div>
+<div class="tile"><div class="icon">▦</div><h3>المشتريات والمخزون</h3><p>طلبات الشراء، الاستلام، الصرف ومستويات المخزون.</p></div>
+<div class="tile"><div class="icon">✦</div><h3>Ask ONE</h3><p>مساعد لفهم المؤشرات والبيانات ضمن صلاحيات النظام.</p></div>
+</div></div></section>
+<section class="section" id="sectors"><div class="wrap"><div class="section-head"><span class="eyebrow">حسب طبيعة نشاطك</span><h2>مش كل شركة بتشتغل بالطريقة نفسها.</h2><p>اختر قطاعًا وشوف نموذج سير العمل المقترح. التهيئة المتخصصة تخضع لفحص الموديولات والمتطلبات قبل الإطلاق.</p></div>
+<div class="sector-shell"><div class="tabs" role="tablist" aria-label="القطاعات">
+<button type="button" role="tab" aria-selected="true" data-sector="trade">التجارة والتوزيع</button>
+<button type="button" role="tab" aria-selected="false" data-sector="factory">التصنيع</button>
+<button type="button" role="tab" aria-selected="false" data-sector="cars">السيارات والصيانة</button>
+<button type="button" role="tab" aria-selected="false" data-sector="health">العيادات والمراكز</button></div>
+<div class="sector-detail"><div><h3 id="sector-title">التجارة والتوزيع</h3><p id="sector-desc">اربط رحلة البضاعة والعميل من عروض الأسعار حتى البيع والتسليم والفاتورة.</p><ul id="sector-bullets"><li>متابعة العملاء والمبيعات</li><li>المشتريات والمستودعات</li><li>الفواتير والذمم والتقارير</li></ul></div>
+<div class="sector-panel"><small>مسار تشغيل توضيحي</small><div class="sector-flow" id="sector-flow"><span>طلب عميل</span><span>←</span><span>تسليم</span><span>←</span><span>فاتورة وتقرير</span></div></div></div></div>
+</div></section>
+<section class="section" id="journey"><div class="wrap"><div class="section-head"><span class="eyebrow">من الاهتمام إلى الاستخدام</span><h2>أربع خطوات واضحة بدل رحلة معقدة.</h2></div><div class="steps">
+<div class="step"><b>01</b><h3>اكتشف المنصة</h3><p>تعرف على وظائف ONE ERP والباقات المناسبة.</p></div>
+<div class="step"><b>02</b><h3>اطلب عرضًا</h3><p>اشرح نشاطك واحتياجاتك الخاصة.</p></div>
+<div class="step"><b>03</b><h3>اختبر سير العمل</h3><p>جرّب دورة تشغيل على بيانات تجريبية.</p></div>
+<div class="step"><b>04</b><h3>جهّز الإطلاق</h3><p>اعتماد الإعدادات والصلاحيات والاختبارات قبل الإنتاج.</p></div>
+</div></div></section>
+<section class="section"><div class="wrap"><div class="cta"><div><h2>جاهز تشوف ONE ERP على شغلك؟</h2><p>ابدأ بعرض مخصص لقطاعك، وحدد الاحتياجات قبل الالتزام بأي اشتراك.</p></div><a class="button" href="https://one-erp.141.147.137.107.sslip.io/one/demo?lang=ar" target="_blank" rel="noopener">اطلب العرض التجاري ↗</a></div>
+<p class="notice">تنويه أمني: بوابة تشغيل ONE ERP الحالية على Oracle ما زالت تستخدم HTTP. لا تدخل بيانات مالية أو كلمات مرور حساسة قبل تفعيل HTTPS على خادم التشغيل. أما هذه الصفحة التسويقية فتعمل عبر HTTPS.</p></div></section>
+</main>
+<footer class="footer"><div class="wrap footer-inner"><strong>ONE ERP × ONE Business</strong><div><a href="../index.html">ONE Business</a> · <a href="https://one-erp.141.147.137.107.sslip.io/" target="_blank" rel="noopener">بوابة ONE ERP التجارية</a></div><span>منصة واحدة لرؤية أوضح.</span></div></footer>
+<script>
+const sectors={
+trade:{title:"التجارة والتوزيع",desc:"اربط رحلة البضاعة والعميل من عروض الأسعار حتى البيع والتسليم والفاتورة.",bullets:["متابعة العملاء والمبيعات","المشتريات والمستودعات","الفواتير والذمم والتقارير"],flow:["طلب عميل","تسليم","فاتورة وتقرير"]},
+factory:{title:"التصنيع",desc:"تابع المواد الخام وأوامر الإنتاج والمنتج النهائي، واربط نتائج التشغيل بالتقارير.",bullets:["قوائم مكونات المواد","أوامر الإنتاج","تكلفة ومتابعة المخزون"],flow:["مواد خام","إنتاج","منتج نهائي"]},
+cars:{title:"السيارات والصيانة",desc:"تصور لقطاع الورش والخدمات: استقبال طلب الخدمة ثم العمليات والقطع والفواتير.",bullets:["بيانات العملاء والمركبات وفق التهيئة","استخدام قطع الغيار من المخزون","فواتير ومتابعة التحصيل"],flow:["طلب خدمة","قطع وتنفيذ","فاتورة"]},
+health:{title:"العيادات والمراكز",desc:"تصور لربط التشغيل الإداري والشراء والمخزون والمحاسبة، مع متطلبات إضافية للبيانات الطبية.",bullets:["إدارة الموردين والمشتريات","مخزون اللوازم والمستهلكات","المالية والتقارير مع ضوابط خصوصية"],flow:["مشتريات","مخزون","تقارير مالية"]}
+};
+document.querySelectorAll('[data-sector]').forEach(btn=>btn.addEventListener('click',()=>{
+document.querySelectorAll('[data-sector]').forEach(b=>b.setAttribute('aria-selected',String(b===btn)));
+const d=sectors[btn.dataset.sector];document.getElementById('sector-title').textContent=d.title;document.getElementById('sector-desc').textContent=d.desc;
+document.getElementById('sector-bullets').replaceChildren(...d.bullets.map(v=>{const l=document.createElement('li');l.textContent=v;return l}));
+document.getElementById('sector-flow').replaceChildren(...d.flow.flatMap((v,i)=>{const s=document.createElement('span');s.textContent=v; if(!i)return [s];const arrow=document.createElement('span');arrow.textContent='←';return [arrow,s]}));
+}));
+</script>
+<script src="../lang.js"></script></body></html>
