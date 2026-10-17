@@ -88,7 +88,7 @@ CI evidence: commits e4ea2332 (041 SQL), ea5c9d4e (041 tests),
 aaaae6d1 and 32aec269 (042 read model), 9e6c43c8 (042 tests).
 All executable tests PASSED: 461/461 on Python 3.11 and 461/461 on
 Python 3.13 with PostgreSQL 14 in:
-https://github.com/Midoalone85/onebusiness-site/actions/runs/38741705506
+https://github.com/REPOSITORY_OWNER/onebusiness-site/actions/runs/38741705506
 
 Additional concurrency regressions: two sessions racing to stage one refund
 bank debit reference admit exactly one immutable row, and the same external
