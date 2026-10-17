@@ -175,5 +175,57 @@ class PostgresFinanceReplayRaceTests(unittest.TestCase):
         self.assertEqual(self.effect_count(), 1)
 
 
+
+    def test_incomplete_reservation_is_rejected_on_commit(self):
+        with self.connect() as conn:
+            with self.assertRaises(self.psycopg.errors.CheckViolation):
+                conn.execute(
+                    """INSERT INTO one_finance_requests
+                       (tenant_id,operation,request_id,actor_id,request_sha256)
+                       VALUES(%s,'internal_invoice',%s,%s,%s)""",
+                    (self.tenant, self.document, self.actor, "0" * 64),
+                )
+            self.assertEqual(
+                conn.execute(
+                    """SELECT count(*) FROM one_finance_requests
+                       WHERE tenant_id=%s AND request_id=%s""",
+                    (self.tenant, self.document),
+                ).fetchone()[0], 0,
+            )
+
+    def test_completed_finance_receipt_is_immutable(self):
+        with self.connect() as conn:
+            self.assertFalse(self.request(conn).replayed)
+            with self.assertRaises(self.psycopg.errors.RaiseException):
+                conn.execute(
+                    """DELETE FROM one_finance_requests
+                       WHERE tenant_id=%s AND request_id=%s""",
+                    (self.tenant, self.document),
+                )
+            with self.assertRaises(self.psycopg.errors.RaiseException):
+                conn.execute(
+                    """UPDATE one_finance_requests SET result_id=NULL
+                       WHERE tenant_id=%s AND request_id=%s""",
+                    (self.tenant, self.document),
+                )
+            self.assertTrue(self.request(conn).replayed)
+        self.assertEqual(self.effect_count(), 1)
+
+    def test_replay_receipts_require_rls_and_revoke_public_grants(self):
+        with self.connect() as conn:
+            flags = conn.execute(
+                """SELECT relrowsecurity,relforcerowsecurity
+                   FROM pg_class WHERE oid='public.one_finance_requests'::regclass"""
+            ).fetchone()
+            self.assertEqual(flags, (True, True))
+            public_grants = conn.execute(
+                """SELECT count(*) FROM pg_class c,
+                       LATERAL aclexplode(c.relacl) acl
+                   WHERE c.oid='public.one_finance_requests'::regclass
+                     AND acl.grantee=0"""
+            ).fetchone()[0]
+            self.assertEqual(public_grants, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
