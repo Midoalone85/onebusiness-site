@@ -8,6 +8,7 @@ No CORS, browser token in URL, public caching or mutation route is supported.
 from __future__ import annotations
 
 from contextlib import closing
+from datetime import date
 import json
 import re
 from urllib.parse import parse_qs
@@ -19,11 +20,12 @@ from .finance_http_boundary import (
 from .finance_wsgi import TenantFinanceConnections
 from .operations_read_repository import load_operations_page
 
-_ALLOWED = frozenset(("sales","purchases","inventory","returns"))
+_ALLOWED = frozenset(("sales","purchases","inventory","returns","receivables"))
 _PATH_PREFIX = "/api/v1/operations/"
 _TOKEN = re.compile(r"^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$")
 _HOST = re.compile(r"^[a-z0-9][a-z0-9.-]{0,249}(?::[0-9]{2,5})?$")
 _NUMBER = re.compile(r"^(?:0|[1-9][0-9]{0,5})$")
+_DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _HEADERS = (
     ("Cache-Control","private, no-store, max-age=0"),
     ("Pragma","no-cache"),
@@ -88,8 +90,8 @@ class OneOperationsWSGI:
             return self._fail(start_response,"400 Bad Request","invalid_request")
         try:
             params=parse_qs(
-                query,strict_parsing=True,keep_blank_values=True,max_num_fields=3)
-            if set(params)-{"tenant","limit","offset"} or "tenant" not in params:
+                query,strict_parsing=True,keep_blank_values=True,max_num_fields=4)
+            if set(params)-{"tenant","limit","offset","as_of"} or "tenant" not in params:
                 raise ValueError("Unexpected query keys")
             if any(len(v)!=1 for v in params.values()):
                 raise ValueError("Repeated query field")
@@ -101,6 +103,16 @@ class OneOperationsWSGI:
             limit,offset=int(size),int(page)
             if not 1<=limit<=50 or not 0<=offset<=5000:
                 raise ValueError("Page size exceeds policy")
+            module=path[len(_PATH_PREFIX):]
+            if module=="receivables":
+                value=params.get("as_of",[""])[0]
+                if not _DATE.fullmatch(value):
+                    raise ValueError("Receivables requires exact YYYY-MM-DD")
+                as_of=date.fromisoformat(value)
+            else:
+                if "as_of" in params:
+                    raise ValueError("As-of parameter belongs only to receivables")
+                as_of=None
         except (ValueError,KeyError,OverflowError,TypeError):
             return self._fail(start_response,"400 Bad Request","invalid_request")
         header=environ.get("HTTP_AUTHORIZATION","")
@@ -130,7 +142,8 @@ class OneOperationsWSGI:
             with closing(db):
                 page_result=load_operations_page(
                     db,tenant_id=requested_tenant,actor_id=identity.actor_id,
-                    module=path[len(_PATH_PREFIX):],limit=limit,offset=offset)
+                    module=module,limit=limit,offset=offset,
+                    **({"as_of":as_of} if as_of is not None else {}))
         except PermissionError:
             return self._fail(start_response,"403 Forbidden","access_denied")
         except Exception:
