@@ -120,7 +120,14 @@ class OneOperationsWSGI:
         except Exception:
             return self._fail(start_response,"403 Forbidden","access_denied")
         try:
-            with closing(self._connections.open(requested_tenant)) as db:
+            db=self._connections.open(requested_tenant)
+        except Exception:
+            # Missing/disabled tenant database is an infrastructure state,
+            # not a valid authorization decision or cross-tenant fallback.
+            return self._fail(start_response,"503 Service Unavailable",
+                              "temporarily_unavailable")
+        try:
+            with closing(db):
                 page_result=load_operations_page(
                     db,tenant_id=requested_tenant,actor_id=identity.actor_id,
                     module=path[len(_PATH_PREFIX):],limit=limit,offset=offset)
