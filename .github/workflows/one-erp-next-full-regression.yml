@@ -75,7 +75,7 @@ jobs:
           assert owner, "Missing repository owner"
           pattern=re.compile(re.escape(owner),re.IGNORECASE)
           files=[Path(os.fsdecode(p)) for p in subprocess.check_output(
-              ["git","ls-files","-z"]).split(b"\\0")
+              ["git","ls-files","-z"]).split(b"\0")
               if p and Path(os.fsdecode(p)).suffix.lower()
               in {".md",".html",".js",".css",".json",".py",".yml",".yaml",".sql",".txt"}]
           matches=[]
