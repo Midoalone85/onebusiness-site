@@ -38,8 +38,8 @@ jobs:
           node-version: "22"
       - run: node --check one-erp-preview/ui.js
       - run: node --test one-erp-preview/tests/navigation.test.cjs
-      - name: Test private operations API client
-        run: node --test one-erp-next/private-ui/operations-client.test.mjs
+      - name: Test private operations API client and view state
+        run: node --test one-erp-next/private-ui/*.test.mjs
   finance-presence:
     runs-on: ubuntu-latest
     timeout-minutes: 5
