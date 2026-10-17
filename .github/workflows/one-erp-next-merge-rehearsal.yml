@@ -1,0 +1,44 @@
+name: ONE ERP NEXT Merge Rehearsal
+on:
+  push:
+    branches:
+      - integration/one-erp-next-finance-20261017
+    paths:
+      - ".github/workflows/one-erp-next-merge-rehearsal.yml"
+      - "one-erp-next-integration/**"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safe-merge-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch finance source branch
+        shell: bash
+        run: |
+          git fetch origin refs/heads/feature/one-erp-next-live-operations-read-056-20261017:refs/remotes/origin/finance-source
+      - name: Rehearse merge without commit or push
+        shell: bash
+        run: |
+          set -uo pipefail
+          git config user.name "ONE ERP CI"
+          git config user.email "ci@invalid.example"
+          if git -c merge.conflictstyle=diff3 merge --no-commit --no-ff origin/finance-source; then
+            echo "Merge rehearsal succeeded; not committed or pushed."
+          else
+            echo "::error::Merge rehearsal conflicts require manual review."
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+          test -f one-erp-next/src/one_erp_core/accounting.py
+          test -f .github/workflows/one-erp-preview-tests.yml
+          test -f one-erp-preview/ui.js
+          python one-erp-next-integration/verify_integration.py
+      - name: Verify UI JavaScript syntax on merged worktree
+        if: success()
+        run: node --check one-erp-preview/ui.js
