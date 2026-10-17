@@ -471,5 +471,62 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         self.assertEqual(self.count("one_finance_requests","request_id"),0)
 
 
+
+    def test_real_restricted_staging_reader_catalog_revokes_write_and_checks_rls(self):
+        """Read the actual PG14 catalog as a separate limited LOGIN role."""
+        from one_erp_core.staging_pg_preflight import inspect_restricted_staging_reader
+        login="one_ci_stage_reader_"+uuid4().hex[:12]
+        password="ci_disposable_staging_reader"
+        ident=self.sql.Identifier(login)
+        self.root.execute(
+            self.sql.SQL(
+                "CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS"
+            ).format(ident,self.sql.Literal(password))
+        )
+        try:
+            with self.connect() as admin:
+                admin.execute("REVOKE CREATE ON SCHEMA public FROM PUBLIC")
+                admin.execute(
+                    self.sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(ident))
+                admin.execute(
+                    self.sql.SQL(
+                        "GRANT SELECT ON public.one_memberships,"
+                        " public.one_commercial_orders,"
+                        " public.one_stock_balances,"
+                        " public.one_return_jobs TO {}"
+                    ).format(ident))
+            args=dict(self.args,dbname=self.db_name,
+                      user=login,password=password)
+            with self.pg.connect(**args,autocommit=True) as reader:
+                self.assertTrue(inspect_restricted_staging_reader(
+                    reader,expected_database=self.db_name,expected_role=login))
+                self.assertFalse(inspect_restricted_staging_reader(
+                    reader,expected_database="wrong_database",expected_role=login))
+                self.assertFalse(inspect_restricted_staging_reader(
+                    reader,expected_database=self.db_name,expected_role="wrong_role"))
+            with self.connect() as admin:
+                admin.execute(
+                    self.sql.SQL(
+                        "GRANT UPDATE ON public.one_journal_entries TO {}"
+                    ).format(ident)
+                )
+            with self.pg.connect(**args,autocommit=True) as reader:
+                self.assertFalse(inspect_restricted_staging_reader(
+                    reader,expected_database=self.db_name,expected_role=login))
+            with self.connect() as admin:
+                admin.execute(
+                    self.sql.SQL(
+                        "REVOKE UPDATE ON public.one_journal_entries FROM {}"
+                    ).format(ident)
+                )
+            with self.pg.connect(**args,autocommit=True) as reader:
+                self.assertTrue(inspect_restricted_staging_reader(
+                    reader,expected_database=self.db_name,expected_role=login))
+        finally:
+            with self.connect() as admin:
+                admin.execute(self.sql.SQL("DROP OWNED BY {}").format(ident))
+            self.root.execute(self.sql.SQL("DROP ROLE {}").format(ident))
+
+
 if __name__=="__main__":
     unittest.main()
