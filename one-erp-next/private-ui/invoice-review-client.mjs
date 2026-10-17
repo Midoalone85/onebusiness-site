@@ -7,7 +7,7 @@ const LINE_KEYS=["line_number","description","quantity","unit_price",
 function validFields(fields) {
   return Array.isArray(fields)&&fields.length>=1&&fields.length<=30&&fields.every(f=>
     f&&typeof f.label==="string"&&f.label.trim()&&f.label.length<=LABEL_MAX&&
-    (typeof f.value==="string"||typeof f.value==="number")&&
+    (typeof f.value==="string"||(typeof f.value==="number"&&Number.isFinite(f.value)))&&
     String(f.value).length<=VALUE_MAX);
 }
 function validLine(line){
@@ -40,6 +40,11 @@ export async function readInternalInvoiceSource({baseUrl,tenant,document_id,toke
   }
   let body;
   try{body=await reply.json();}catch{throw new InternalApprovalError(502);}
+  return validateInternalInvoiceSource(body,{tenant,document_id});
+}
+
+/** Same strict source-evidence contract for API and any custom private UI loader. */
+export function validateInternalInvoiceSource(body,{tenant,document_id}){
   if(!body||body.tenant!==tenant||body.document_id!==document_id||
      body.reviewable!==true||body.source!=="verified_internal_postgresql"||
      !validFields(body.fields)||!Array.isArray(body.lines)||
@@ -51,3 +56,4 @@ export async function readInternalInvoiceSource({baseUrl,tenant,document_id,toke
   return {tenant,document_id,reviewable:true,source:body.source,
           fields:body.fields,lines:body.lines};
 }
+
