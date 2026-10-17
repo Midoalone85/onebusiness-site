@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0.0",
+  "status": "proposed_not_instrumented",
+  "event_envelope": {
+    "event_version": "1",
+    "occurred_at": "ISO-8601 UTC",
+    "tenant_id": "opaque; required in backend only",
+    "actor_id": "opaque; optional",
+    "module_key": "allowlisted enum",
+    "result": "success|failure",
+    "environment": "preview|test|production"
+  },
+  "events": [
+    {
+      "name": "module_opened",
+      "owner": "frontend",
+      "properties": [
+        "module_key"
+      ],
+      "preview_safe": true
+    },
+    {
+      "name": "workspace_view_opened",
+      "owner": "frontend",
+      "properties": [
+        "module_key",
+        "view_key"
+      ],
+      "preview_safe": true
+    },
+    {
+      "name": "trial_started",
+      "owner": "backend",
+      "properties": [
+        "plan_key"
+      ],
+      "preview_safe": false
+    },
+    {
+      "name": "first_transaction_posted",
+      "owner": "backend",
+      "properties": [
+        "module_key",
+        "object_type"
+      ],
+      "preview_safe": false
+    },
+    {
+      "name": "workflow_completed",
+      "owner": "backend",
+      "properties": [
+        "workflow_key",
+        "duration_ms"
+      ],
+      "preview_safe": false
+    },
+    {
+      "name": "ai_answer_delivered",
+      "owner": "backend",
+      "properties": [
+        "outcome_code"
+      ],
+      "preview_safe": false
+    },
+    {
+      "name": "subscription_activated",
+      "owner": "billing_backend",
+      "properties": [
+        "plan_key"
+      ],
+      "preview_safe": false
+    },
+    {
+      "name": "critical_operation_failed",
+      "owner": "backend",
+      "properties": [
+        "module_key",
+        "error_code"
+      ],
+      "preview_safe": false
+    }
+  ],
+  "never_collect": [
+    "name",
+    "email",
+    "phone",
+    "IP_address",
+    "national_id",
+    "patient_data",
+    "transaction_amount",
+    "free_text",
+    "payment_token",
+    "password",
+    "invoice_lines"
+  ],
+  "privacy": {
+    "default_collection": "disabled",
+    "preview": "no data transmitted",
+    "production": "requires separate consent/compliance review"
+  }
+}
