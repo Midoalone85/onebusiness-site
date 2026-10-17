@@ -55,10 +55,10 @@ class OneActivityWSGI:
         if not isinstance(query,str) or len(query)>400:
             return fail("400 Bad Request","invalid_request")
         try:
-            fields=parse_qs(query,strict_parsing=True,keep_blank_values=True,max_num_fields=5)
+            fields=parse_qs(query,strict_parsing=True,keep_blank_values=True,max_num_fields=6)
             if not {"tenant","record_type","record_id"}.issubset(fields):
                 raise ValueError("Required document context missing")
-            if set(fields)-{"tenant","record_type","record_id","limit","offset"}:
+            if set(fields)-{"tenant","record_type","record_id","limit","offset","include_changes"}:
                 raise ValueError("Unexpected query")
             if any(len(value)!=1 for value in fields.values()):
                 raise ValueError("Repeated key")
@@ -70,6 +70,11 @@ class OneActivityWSGI:
             record_type=fields["record_type"][0]
             if record_type not in ACTIVITY_TYPES:
                 raise ValueError("Unknown auditable record type")
+            changes_str=fields.get("include_changes",["0"])[0]
+            if changes_str not in ("0","1") or (
+                changes_str=="1" and record_type not in ("sales_order","purchase_order")):
+                raise ValueError("Unsupported confidential audit read")
+            include_changes=changes_str=="1"
             limit_str=fields.get("limit",["20"])[0]
             offset_str=fields.get("offset",["0"])[0]
             if not _NUMBER.fullmatch(limit_str) or not _NUMBER.fullmatch(offset_str):
@@ -104,7 +109,8 @@ class OneActivityWSGI:
                 result=load_record_activity(
                     db,tenant_id=tenant,actor_id=identity.actor_id,
                     record_type=record_type,record_id=record_id,
-                    limit=limit,offset=offset)
+                    limit=limit,offset=offset,
+                    **({"include_changes":True} if include_changes else {}))
         except PermissionError:
             return fail("403 Forbidden","access_denied")
         except Exception:
