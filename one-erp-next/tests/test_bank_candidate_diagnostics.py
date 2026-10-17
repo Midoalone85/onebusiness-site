@@ -27,5 +27,16 @@ class CandidateDiagnosticTests(unittest.TestCase):
         self.assertEqual(bank_candidate_mismatches(
             (*self.approved[:-1],"paid"),self.candidate),["not_approved_unpaid"])
 
+    def test_non_numeric_amount_does_not_crash_diagnostics(self):
+        self.assertEqual(bank_candidate_mismatches(
+            self.approved,{**self.candidate,"amount":"not-a-number"}),["amount"])
+
+    def test_non_finite_amount_rejected(self):
+        self.assertEqual(bank_candidate_mismatches(
+            self.approved,{**self.candidate,"amount":"NaN"}),["amount"])
+
+    def test_missing_candidate(self):
+        self.assertEqual(bank_candidate_mismatches(self.approved,None),["invalid_candidate"])
+
 if __name__ == "__main__":
     unittest.main()
