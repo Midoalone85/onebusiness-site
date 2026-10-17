@@ -49,7 +49,7 @@ def load_invoice_review_summary(connection, *, tenant_id: UUID,
                           i.tax_code,i.tax_policy_reference,i.tax_policy_reviewed_by,
                           i.receivable_account_id,i.payable_account_id,
                           i.output_vat_account_id,i.input_vat_account_id,
-                          o.currency,o.partner_id
+                          o.currency,o.partner_id,i.revenue_account_id
                    FROM public.one_invoice_source_requests r
                    JOIN public.one_sales_invoice_source_links l
                      ON l.tenant_id=r.tenant_id AND l.invoice_id=r.document_id
@@ -73,7 +73,7 @@ def load_invoice_review_summary(connection, *, tenant_id: UUID,
                 raise PermissionError("Unapproved commercial source unavailable")
             (requested,payload,period,order,line_nos,number,issued,due,
              category,rate,tax_code,tax_policy,policy_reviewer,
-             receivable,payable,output_vat,input_vat,currency,partner)=source
+             receivable,payable,output_vat,input_vat,currency,partner,revenue)=source
             if (requested==actor_id or requested==policy_reviewer or
                 not isinstance(tax_policy,str) or not tax_policy.strip()):
                 raise PermissionError("Independent invoice reviewer required")
@@ -110,7 +110,8 @@ def load_invoice_review_summary(connection, *, tenant_id: UUID,
         len(line_nos)!=len(document.lines) or not 1<=len(line_nos)<=100 or
         any(type(n) is not int or n<=0 for n in line_nos) or
         len(set(line_nos))!=len(line_nos) or
-        any(line.tax_category.value!=category or
+        any(line.account_id!=revenue or
+            line.tax_category.value!=category or
             line.tax_rate!=rate or line.tax_code!=tax_code
             for line in document.lines)):
         raise PermissionError("Invoice source and sale intent do not reconcile")
