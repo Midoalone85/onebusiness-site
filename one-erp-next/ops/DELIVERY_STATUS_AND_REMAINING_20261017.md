@@ -35,10 +35,10 @@ No completion percentages or promised release dates are implied.
 
 ## Explicit no-go and evidence requirements
 
-- PR #43: https://github.com/Midoalone85/onebusiness-site/pull/43 (057/058 and PostgreSQL replay acceptance).
-- PR #44: https://github.com/Midoalone85/onebusiness-site/pull/44 (reference-only private HTTPS handoff, **no deployed source loader**).
-- PR #41: https://github.com/Midoalone85/onebusiness-site/pull/41 (staging review, still draft and not equivalent to live staging).
-- PR #38: https://github.com/Midoalone85/onebusiness-site/pull/38 (integration preservation/security gates).
+- PR #43: PR #43 (057/058 and PostgreSQL replay acceptance).
+- PR #44: PR #44 (reference-only private HTTPS handoff, **no deployed source loader**).
+- PR #41: PR #41 (staging review, still draft and not equivalent to live staging).
+- PR #38: PR #38 (integration preservation/security gates).
 - CI unit / disposable PG success does not prove a deployable, legally compliant ERP. No branch promotion, production migration, payment capture, ZATCA issuance or external bank action from this plan.
 
 ## 17 October additional verified internal invoice milestone
