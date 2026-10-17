@@ -9,6 +9,13 @@ ROOT = Path(__file__).resolve().parents[1]
 TEST_FILE = ROOT / "one-erp-next/tests/test_postgres_integration.py"
 REQUIRED_TESTS = {
     "refund_approval": "test_refund_approval_report",
+    "sales_dispatch_gl": "test_sales_dispatch_to_invoice_journal_has_traceable_source",
+    "sales_invoice_atomicity": "test_sales_invoice_cannot_bill_undelivered_quantity_or_leave_partial_gl",
+    "partial_payment": "test_partial_payments_use_db_outstanding_not_stale_python_data",
+    "overpayment_control": "test_payment_and_credit_note_cannot_exceed_same_invoice",
+    "double_billing": "test_two_competing_invoices_cannot_bill_same_dispatched_stock_twice",
+    "stock_finance_atomicity": "test_atomic_delivery_pick_pack_ship_also_posts_cogs",
+    "real_postgres_sales_read": "test_056_real_postgres_sales_purchase_inventory_returns_view",
     "parallel_bank": "test_parallel_bank_candidate_submission_has_one_winner_and_no_duplicate",
     "nrv_period": "test_nrv_period_report_recognizes_expense_and_reversal_once",
     "bank_tenant_roles": "test_bank_candidate_enforces_separate_roles_and_tenant",
