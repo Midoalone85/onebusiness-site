@@ -1,0 +1,46 @@
+name: ONE ERP NEXT Integration Gates
+on:
+  push:
+    branches:
+      - integration/one-erp-next-finance-20261017
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "one-erp-next/**"
+      - "one-erp-next-integration/**"
+      - "one-erp-preview/**"
+      - ".github/workflows/one-erp-next-integration-gates.yml"
+permissions:
+  contents: read
+jobs:
+  integration-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify inherited main assets and finance prerequisites
+        run: python one-erp-next-integration/verify_integration.py
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check one-erp-preview/ui.js
+      - run: node --test one-erp-preview/tests/navigation.test.cjs
+  finance-presence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stop integration until finance source exists
+        run: |
+          test -f one-erp-next/src/one_erp_core/accounting.py
+          test -f one-erp-next/tests/test_postgres_integration.py
+          test -f .github/workflows/one-erp-next-finance-tests.yml
