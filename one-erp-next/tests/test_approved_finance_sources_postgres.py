@@ -569,7 +569,7 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         self.assertEqual(self.count("one_journal_entries","id"),1)
         self.assertEqual(self.count("one_finance_requests","request_id"),1)
 
-    def test_trusted_invoice_maker_checker_fails_closed_on_permission_and_period(self):
+    def test_trusted_invoice_maker_checker_fails_closed_on_permission_and_unavailable_period(self):
         from copy import deepcopy
         from one_erp_core.invoice_source_workflow import (
             BuiltInvoiceSource, create_trusted_invoice_source,
@@ -603,10 +603,10 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                         viewer,frozenset({self.tenant})),
                     tenant_id=self.tenant,document_id=self.doc_id)
             self.assertEqual(builder.calls,0)
-            conn.execute(
-                """UPDATE one_periods SET closed=true
-                   WHERE tenant_id=%s AND id=%s""",
-                (self.tenant,self.period_id))
+            # A period may only be closed through the separate audited
+            # period-close permission workflow; never bypass that protection
+            # merely to manufacture a test fixture.
+            self.period_id=uuid4()  # unavailable accounting period
             with self.assertRaises(PermissionError):
                 create_trusted_invoice_source(
                     conn,identity=valid,tenant_id=self.tenant,
