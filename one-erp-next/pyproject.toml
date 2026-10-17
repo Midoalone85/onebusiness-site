@@ -1,0 +1,11 @@
+[project]
+name = "one-erp-next-core"
+version = "0.1.0"
+description = "Independent ONE ERP core domain rules"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+auth = ["PyJWT[crypto]>=2.10,<3"]
