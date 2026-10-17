@@ -18,6 +18,30 @@ REQUIRED_FINANCE = [
     "one-erp-next/tests/test_postgres_integration.py",
     ".github/workflows/one-erp-next-finance-tests.yml",
 ]
+def migration_checks():
+    """Read-only numbering guard. SQL semantics are exercised by PG integration tests."""
+    migration_dir = ROOT / "one-erp-next" / "db"
+    migrations = sorted(migration_dir.glob("[0-9][0-9][0-9]_*.sql"))
+    errors = []
+    if not migrations:
+        return ["No numbered PostgreSQL migrations found"]
+    numbers = {}
+    for path in migrations:
+        number = int(path.name[:3])
+        numbers.setdefault(number, []).append(path.name)
+        if not path.read_text(encoding="utf-8").strip():
+            errors.append(f"Empty migration: {path.name}")
+    for number, files in sorted(numbers.items()):
+        if len(files) > 1:
+            errors.append(f"Duplicate migration sequence {number:03d}: {files}")
+    if min(numbers) != 1:
+        errors.append(f"Migration series does not start with 001 (starts at {min(numbers):03d})")
+    gaps = sorted(set(range(min(numbers), max(numbers) + 1)) - set(numbers))
+    if gaps:
+        errors.append(f"Missing migration numbers: {gaps}")
+    print(f"PostgreSQL migrations checked: {len(migrations)}, range {min(numbers):03d}-{max(numbers):03d}")
+    return errors
+
 def check():
     missing_main = [p for p in REQUIRED_MAIN if not (ROOT / p).is_file()]
     missing_finance = [p for p in REQUIRED_FINANCE if not (ROOT / p).is_file()]
@@ -25,8 +49,8 @@ def check():
         print("MISSING MAIN ASSET:", path)
     for path in missing_finance:
         print("FINANCE NOT INTEGRATED:", path)
-    if not (missing_main or missing_finance):
+    migration_errors = migration_checks()\n    for issue in migration_errors:\n        print("MIGRATION GATE:", issue)\n    if not (missing_main or missing_finance or migration_errors):
         print("Source presence gates PASS. This is not a security or deployment approval.")
-    return 1 if missing_main or missing_finance else 0
+    return 1 if missing_main or missing_finance or migration_errors else 0
 if __name__ == "__main__":
     sys.exit(check())
