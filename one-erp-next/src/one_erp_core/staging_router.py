@@ -1,0 +1,115 @@
+"""Minimal private WSGI *composition* for independent ONE ERP NEXT staging.
+
+This is source code, NOT an Oracle deployment or TLS listener.
+A trusted server must inject identity verification, physically pinned tenant
+DB factories and an independently evidenced readiness probe. Unready staging
+never touches tenant DBs. Static GitHub preview is not a backend.
+
+By default, the dangerous internal invoice/payment POST route is NOT mounted.
+This service never accepts unauthenticated SQL, arbitrary WSGI modules or
+caller-controlled connection strings, and it has no banking/ZATCA integration.
+"""
+from __future__ import annotations
+
+import json
+from typing import Callable
+
+from .finance_wsgi import OneFinanceWSGI, TenantFinanceConnections, _COMMON_HEADERS
+from .finance_http_boundary import FinanceIdentityVerifier
+from .finance_replay_commands_wsgi import (
+    OneFinanceInternalDocumentsWSGI, ApprovedFinanceSourceLoader,
+)
+from .operations_read_wsgi import OneOperationsWSGI
+from .staging_health import OneERPStagingHealthWSGI, StagingReadiness
+
+_OPERATIONS = frozenset((
+    "/api/v1/operations/sales",
+    "/api/v1/operations/purchases",
+    "/api/v1/operations/inventory",
+    "/api/v1/operations/returns",
+))
+_HEALTH = frozenset(("/healthz", "/readyz"))
+_REPORT = "/api/v1/finance/dashboard"
+_COMMAND = "/api/v1/finance/internal-documents"
+
+
+class OneERPStagingRouter:
+    """Exact-path, denied-until-ready, backend-only WSGI dispatcher.
+
+    No implicit/default tenant. Service connects only through a trusted
+    TenantFinanceConnections instance, never request headers, URLs or cookies.
+    All component WSGI routes independently enforce identity and HTTPS.
+    """
+
+    def __init__(
+        self, *, allowed_hosts: frozenset[str], deployed_sha: str,
+        verifier: FinanceIdentityVerifier,
+        connections: TenantFinanceConnections,
+        readiness_probe: Callable[[], StagingReadiness] | None = None,
+        approved_source_loader: ApprovedFinanceSourceLoader | None = None,
+        enable_internal_finance_writes: bool = False,
+    ):
+        if not isinstance(connections, TenantFinanceConnections):
+            raise ValueError("Pinned tenant connection registry required")
+        if type(enable_internal_finance_writes) is not bool:
+            raise ValueError("Finance command activation must be explicit")
+        if enable_internal_finance_writes and approved_source_loader is None:
+            raise ValueError("Finance writes require server-owned source loader")
+        self._health = OneERPStagingHealthWSGI(
+            allowed_hosts=allowed_hosts, deployed_sha=deployed_sha,
+            readiness_probe=readiness_probe,
+        )
+        self._hosts = allowed_hosts
+        self._readiness_probe = readiness_probe
+        self._operations = OneOperationsWSGI(
+            verifier=verifier, connections=connections, allowed_hosts=allowed_hosts,
+        )
+        self._finance = OneFinanceWSGI(
+            verifier=verifier, connections=connections, allowed_hosts=allowed_hosts,
+        )
+        self._commands = None
+        if enable_internal_finance_writes:
+            self._commands = OneFinanceInternalDocumentsWSGI(
+                verifier=verifier, connections=connections,
+                source_loader=approved_source_loader, allowed_hosts=allowed_hosts,
+            )
+
+    @staticmethod
+    def _reject(start_response, status: str):
+        data = json.dumps({
+            "ok": False, "error": "Service unavailable"
+        }, separators=(",", ":")).encode("utf-8")
+        headers = dict(_COMMON_HEADERS)
+        headers["Content-Type"] = "application/json; charset=utf-8"
+        headers["Content-Length"] = str(len(data))
+        start_response(status, list(headers.items()))
+        return [data]
+
+    def __call__(self, environ, start_response):
+        if (environ.get("wsgi.url_scheme") != "https" or
+            environ.get("HTTP_HOST") not in self._hosts or
+            environ.get("SCRIPT_NAME", "") not in ("", None)):
+            return self._reject(start_response, "403 Forbidden")
+        path = environ.get("PATH_INFO")
+        if not isinstance(path, str):
+            return self._reject(start_response, "404 Not Found")
+        if path in _HEALTH:
+            return self._health(environ, start_response)
+        if (path not in _OPERATIONS and path != _REPORT and
+            (path != _COMMAND or self._commands is None)):
+            return self._reject(start_response, "404 Not Found")
+        # Readiness is a runtime precondition rather than just a UI color.
+        # Both signed protected GET and explicitly activated internal POST
+        # are denied if real provider/DB/restore/TLS evidence is unavailable.
+        try:
+            state = self._readiness_probe() if self._readiness_probe else None
+            ready = isinstance(state, StagingReadiness) and state.is_ready()
+        except Exception:
+            ready = False
+        if not ready:
+            return self._reject(start_response, "503 Service Unavailable")
+        if path in _OPERATIONS:
+            return self._operations(environ, start_response)
+        if path == _REPORT:
+            return self._finance(environ, start_response)
+        return self._commands(environ, start_response)
