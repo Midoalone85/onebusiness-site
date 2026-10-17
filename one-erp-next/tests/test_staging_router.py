@@ -360,6 +360,48 @@ class StagingRouterTests(unittest.TestCase):
                     verifier=self.verifier,operations_connections=self.connections,
                     finance_report_connections=self.report_connections)
 
+    def test_activity_route_disabled_by_default_and_readiness_gate(self):
+        query=f"tenant={self.tenant}&record_type=invoice&record_id={uuid4()}"
+        self.assertEqual(self.request(
+            "/api/v1/activity/timeline",QUERY_STRING=query)[0],"404 Not Found")
+        reader=TenantFinanceConnections({self.tenant:FakeDB})
+        app=self.router(activity_connections=reader,enable_activity_read=True)
+        self.ready_values["restricted_database_roles"]=False
+        self.assertEqual(self.request(
+            "/api/v1/activity/timeline",QUERY_STRING=query,app=app)[0],
+            "503 Service Unavailable")
+        self.ready_values["restricted_database_roles"]=True
+        self.assertEqual(self.request(
+            "/api/v1/activity/timeline",QUERY_STRING=query,app=app,
+            HTTP_AUTHORIZATION="")[0],"401 Unauthorized")
+        expected={"module":"activity","tenant_id":str(self.tenant),
+                  "record_type":"invoice","items":[]}
+        with patch("one_erp_core.activity_wsgi.load_record_activity",
+                   return_value=expected) as read:
+            status,headers,payload=self.request(
+                "/api/v1/activity/timeline",QUERY_STRING=query,app=app)
+        self.assertEqual(status,"200 OK")
+        self.assertEqual(payload,expected)
+        self.assertEqual(read.call_args.kwargs["actor_id"],self.actor)
+        self.assertIn("no-store",headers["Cache-Control"])
+        self.assertEqual(self.db_calls,0)
+        self.assertEqual(self.report_db_calls,0)
+
+    def test_activity_registry_rejects_privileged_reader_reuse(self):
+        for shared in (self.connections,self.report_connections):
+            with self.subTest(registry=shared):
+                with self.assertRaises(ValueError):
+                    self.router(activity_connections=shared,
+                                enable_activity_read=True)
+        with self.assertRaises(ValueError):
+            self.router(enable_activity_read=True)
+        with self.assertRaises(ValueError):
+            self.router(enable_activity_read=1)
+        with self.assertRaises(ValueError):
+            self.router(activity_connections=TenantFinanceConnections({
+                self.tenant:FakeDB,
+            }))
+
     def test_source_review_get_unmounted_by_default_even_if_ready(self):
         self.assertEqual(self.request(
             "/api/v1/finance/internal-invoice-source",
