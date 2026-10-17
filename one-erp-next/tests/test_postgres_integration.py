@@ -41,6 +41,7 @@ from one_erp_core.oidc_identity import RS256VerifierConfig, VerifiedRS256Finance
 from one_erp_core.finance_wsgi import OneFinanceWSGI, TenantFinanceConnections
 from one_erp_core.statement_details import balance_sheet, general_ledger_detail
 from one_erp_core.tenancy import Membership, Role
+from one_erp_core.operations_read_model import read_operations_page
 
 DSN = os.environ.get("ONE_TEST_PG_DSN")
 
@@ -57,6 +58,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         cls.admin.execute(
             (migration_dir.parent / "ops" / "report_reader_privileges.sql").read_text(encoding="utf-8"),
             prepare=False,
+        )
+        cls.admin.execute(
+            (migration_dir.parent / "ops" / "operations_reader_privileges.sql")
+            .read_text(encoding="utf-8"), prepare=False,
         )
         cls.admin.execute(
             (migration_dir.parent / "control_plane" / "001_identity_registry.sql")
@@ -98,6 +103,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             "CREATE ROLE one_erp_report_ci LOGIN PASSWORD 'ci_report_only' "
             "NOSUPERUSER NOBYPASSRLS"
         )
+        cls.admin.execute(
+            "CREATE ROLE one_erp_operations_ci LOGIN PASSWORD 'ci_ops_only' "
+            "NOSUPERUSER NOBYPASSRLS"
+        )
+        cls.admin.execute("GRANT one_erp_operations_reader TO one_erp_operations_ci")
         cls.admin.execute(
             "GRANT one_erp_finance_report_reader TO one_erp_report_ci"
         )
@@ -342,6 +352,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
             dbname=os.environ.get("ONE_TEST_PG_DB", "one_erp_test"),
             user="one_erp_runtime_ci", password="ci_only_password", autocommit=True,
+        )
+        cls.operations_db = psycopg.connect(
+            host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
+            port=int(os.environ.get("ONE_TEST_PG_PORT", "5432")),
+            dbname=os.environ.get("ONE_TEST_PG_DB", "one_erp_test"),
+            user="one_erp_operations_ci", password="ci_ops_only", autocommit=True,
         )
         cls.reporting_db = psycopg.connect(
             host=os.environ.get("ONE_TEST_PG_HOST", "localhost"),
@@ -6826,6 +6842,66 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                              (self.tenant_a,uuid4())):
             with self.assertRaises(self.psycopg.Error):
                 self.inventory_close_preflight(tenant,actor,pid)
+
+    # Commercial Operations Workbench | truly tenant-backed DB read tests.
+    def test_operations_workbench_reads_real_sale_purchase_and_stock_rows(self):
+        tenant,actor,product,warehouse,purchase,sale=self.commerce_fixture()
+        sales=read_operations_page(self.operations_db,
+               tenant_id=tenant,actor_id=actor,module="sales")
+        purchases=read_operations_page(self.operations_db,
+               tenant_id=tenant,actor_id=actor,module="purchases")
+        stock=read_operations_page(self.operations_db,
+               tenant_id=tenant,actor_id=actor,module="inventory")
+        self.assertEqual(sales["tenant_id"],str(tenant))
+        self.assertEqual(sales["module"],"sales")
+        self.assertGreaterEqual(sales["total"],1)
+        self.assertGreaterEqual(purchases["total"],1)
+        self.assertTrue(any(s["product_id"]==str(product) for s in stock["items"])
+                        or stock["total"]>25)
+        self.assertNotEqual(sales["mode"],"fictional_preview")
+        self.assertTrue(all("order_value" in item for item in sales["items"]))
+        self.assertTrue(all("available" in item for item in stock["items"]))
+
+    def test_operations_reader_database_role_is_read_only_and_tenant_bound(self):
+        with self.assertRaises(self.psycopg.Error):
+            with self.operations_db.transaction():
+                self.operations_db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                     (str(self.tenant_a),))
+                self.operations_db.execute(
+                    "INSERT INTO one_products(tenant_id,id,sku,name)"
+                    "VALUES(%s,%s,'forbidden','forbidden')",
+                    (self.tenant_a,uuid4()))
+        with self.assertRaises(self.psycopg.Error):
+            with self.operations_db.transaction():
+                self.operations_db.execute("SELECT one_close_period(%s,%s,%s)",
+                    (self.tenant_a,self.period_id,self.actor))
+        with self.assertRaises(Exception):
+            read_operations_page(self.operations_db,tenant_id=self.tenant_b,
+                actor_id=self.actor,module="sales")
+        with self.assertRaises(Exception):
+            read_operations_page(self.admin,tenant_id=self.tenant_a,
+                actor_id=self.actor,module="sales")
+
+    def test_operations_refund_workspace_is_source_backed_not_bank_paid(self):
+        tenant,admin,product,warehouse,qa,rma,invoice=self.nrv_credit_fixture()
+        self.post_payment(self.make_payment(invoice,Decimal("10")),
+                          invoice,outstanding=Decimal("25"))
+        self.nrv_recognize_refund(tenant,admin,rma,invoice)
+        page=read_operations_page(self.operations_db,
+                tenant_id=tenant,actor_id=admin,module="refunds")
+        # Records are paged newest first in the tenant-scoped snapshot.
+        self.assertGreaterEqual(page["total"],1)
+        self.assertTrue(any(x["return_job_id"]==str(rma)
+                            for x in page["items"]))
+        self.assertIn("unverified",page["settlement_notice"])
+        self.assertNotIn("bank_paid",str(page))
+
+    def test_operations_read_model_rejects_unsafe_modules_and_pages(self):
+        for module,page in (("users",0),("sales",-1),("sales",101),
+                            ("sales",True),("finance; DROP",0)):
+            with self.assertRaises(Exception):
+                read_operations_page(self.operations_db,tenant_id=self.tenant_a,
+                   actor_id=self.actor,module=module,page=page)
 
 if __name__ == "__main__":
     unittest.main()
