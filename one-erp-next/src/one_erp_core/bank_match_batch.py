@@ -9,6 +9,7 @@ transactional uniqueness register are mandatory before any actual settlement.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import Sequence
 from uuid import UUID
@@ -66,14 +67,17 @@ def propose_bank_batch(
             type(obj.id) is not str or not 1<=len(obj.id)<=160 or not obj.id.strip() or
             type(obj.currency) is not str or len(obj.currency)!=3 or
             not obj.currency.isascii() or not obj.currency.isalpha() or
-            not obj.currency.isupper() or not decimal_amount(obj.amount)):
+            not obj.currency.isupper() or not decimal_amount(obj.amount) or
+            type(obj.value_date) is not date or type(obj.reference) is not str):
             raise AccountingError("Invalid or cross-company bank statement row")
     for obj in ledger_rows:
         if (not isinstance(obj,LedgerMovement) or obj.tenant_id!=tenant_id or
             type(obj.id) is not str or not 1<=len(obj.id)<=160 or not obj.id.strip() or
             type(obj.currency) is not str or len(obj.currency)!=3 or
             not obj.currency.isascii() or not obj.currency.isalpha() or
-            not obj.currency.isupper() or not decimal_amount(obj.amount)):
+            not obj.currency.isupper() or not decimal_amount(obj.amount) or
+            type(obj.occurred_on) is not date or type(obj.reference) is not str or
+            type(obj.is_posted) is not bool or type(obj.is_reconciled) is not bool):
             raise AccountingError("Invalid or cross-company ledger row")
     if (len({x.id for x in bank_lines})!=len(bank_lines) or
         len({x.id for x in ledger_rows})!=len(ledger_rows)):
@@ -83,10 +87,15 @@ def propose_bank_batch(
                              day_tolerance=day_tolerance,max_candidates=25)
         for line in bank_lines
     ]
+    # Scan every eligible ledger ID, not only the top 25 returned by each
+    # bank suggestion. This also catches collision with ambiguous bank rows.
     claimed:dict[str,set[str]]={}
-    for bank,prop in zip(bank_lines,proposals):
-        if not prop.ambiguous and len(prop.candidates)==1:
-            claimed.setdefault(prop.candidates[0].ledger_id,set()).add(bank.id)
+    for bank in bank_lines:
+        for ledger in ledger_rows:
+            if (ledger.is_posted and not ledger.is_reconciled and
+                ledger.amount==bank.amount and ledger.currency==bank.currency and
+                abs((ledger.occurred_on-bank.value_date).days)<=day_tolerance):
+                claimed.setdefault(ledger.id,set()).add(bank.id)
     results=[]
     for bank,prop in zip(bank_lines,proposals):
         ids=tuple(c.ledger_id for c in prop.candidates)
