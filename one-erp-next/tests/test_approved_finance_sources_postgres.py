@@ -1151,7 +1151,7 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                                      {"label":"Gross","value":"200.00"})
                     self.assertEqual(len(evidence["lines"]),1)
                     self.assertEqual(evidence["lines"][0]["line_number"],1)
-                    self.assertEqual(evidence["lines"][0]["quantity"],"2.000000")
+                    self.assertEqual(Decimal(evidence["lines"][0]["quantity"]),Decimal("2"))
                     self.assertEqual(evidence["lines"][0]["gross"],"200.00")
                     with self.assertRaises(PermissionError):
                         load_invoice_review_summary(
