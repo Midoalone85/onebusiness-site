@@ -6,10 +6,10 @@ ONE ERP **Next** is an original, independent ERP core. It is **not** the
 legacy Oracle-hosted Odoo environment. Do not deploy, merge into production,
 alter live customer data, or treat the static UI preview as connected software.
 
-GitHub repo: `Midoalone85/onebusiness-site`
+GitHub repo: `REPOSITORY_OWNER/onebusiness-site`
 Active finance/commerce branch:
 `feature/one-erp-smart-finance-20261015`
-Draft PR: https://github.com/Midoalone85/onebusiness-site/pull/20
+Draft PR: https://github.com/REPOSITORY_OWNER/onebusiness-site/pull/20
 Last commerce-code commit before this checkpoint: `e79a827fafc5874123a967878177ae02535ce548`.
 
 ## User's scope and priorities
@@ -30,7 +30,7 @@ Last commerce-code commit before this checkpoint: `e79a827fafc5874123a967878177a
 
 - Financial core and tenant-provisioning guard: `199` tests on each of
   Python 3.11 and Python 3.13 against disposable PostgreSQL 14.
-- Run https://github.com/Midoalone85/onebusiness-site/actions/runs/38671106578
+- Run https://github.com/REPOSITORY_OWNER/onebusiness-site/actions/runs/38671106578
   concluded success before commerce work.
 - Tenant physical-inventory verifier added and covered by CI; attested
   real-world backup/restore/HTTPS readiness is NOT implemented.
@@ -60,8 +60,8 @@ Last commerce-code commit before this checkpoint: `e79a827fafc5874123a967878177a
 
 The last 199-test pass is from BEFORE commerce changes. Commerce commit
 `e79a827` started GitHub Actions runs:
-- https://github.com/Midoalone85/onebusiness-site/actions/runs/38671886680
-- https://github.com/Midoalone85/onebusiness-site/actions/runs/38671881520
+- https://github.com/REPOSITORY_OWNER/onebusiness-site/actions/runs/38671886680
+- https://github.com/REPOSITORY_OWNER/onebusiness-site/actions/runs/38671881520
 
 At the moment of this checkpoint, runs were still in progress.
 **Do NOT claim commerce code is tested or accepted until checking
