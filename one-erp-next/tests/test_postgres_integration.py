@@ -4999,7 +4999,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,warehouse,product,event,journal,
              period or self.period_id,allowance,expense,admin,
              revision,qty,cost,selling,completion,selling_cost,
-             evidence,date(2026,10,15)))
+             evidence,date.today()))
 
     def nrv_report(self,tenant,admin,warehouse,product):
         with self.db.transaction():
@@ -5558,8 +5558,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             1,Decimal("2"),Decimal("25"),Decimal("7"),Decimal("18")))
         self.assertEqual(after[5]-before[5],0)
         self.assertTrue(after[6])
+        # This report uses the real transaction date, not the date when
+        # the original fixture was authored. An always-future window
+        # must remain empty on every CI execution day.
         later=self.nrv_sales_activity(tenant,self.actor,
-            start=date(2026,10,16),end=date(2026,11,1))
+            start=date.today()+timedelta(days=1),
+            end=date.today()+timedelta(days=30))
         self.assertEqual(later[:6],(
             0,Decimal("0"),Decimal("0"),Decimal("0"),Decimal("0"),0))
         self.assertTrue(later[6])
