@@ -732,5 +732,221 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         self.assertEqual(self.count("one_journal_entries","id"),1)
 
 
+
+    def prepare_real_dispatched_sale(self, *, dispatch_quantity="2.000"):
+        """Disposable source fixture: simulated starting warehouse stock."""
+        self.sales_order,self.sales_product,self.sales_warehouse=uuid4(),uuid4(),uuid4()
+        self.sales_admin=uuid4()
+        self.sales_event=uuid4()
+        with self.connect() as conn:
+            with conn.transaction():
+                self.bind(conn,self.sales_admin)
+                conn.execute(
+                    """INSERT INTO one_memberships(tenant_id,actor_id,role)
+                       VALUES(%s,%s,'company_admin')""",
+                    (self.tenant,self.sales_admin),
+                )
+                conn.execute(
+                    """INSERT INTO one_products(tenant_id,id,sku,name)
+                       VALUES(%s,%s,'REAL-CI-01','Example shipped product')""",
+                    (self.tenant,self.sales_product),
+                )
+                conn.execute(
+                    """INSERT INTO one_warehouses(tenant_id,id,code,name)
+                       VALUES(%s,%s,'STAGING','CI warehouse')""",
+                    (self.tenant,self.sales_warehouse),
+                )
+                conn.execute(
+                    """INSERT INTO one_commercial_orders(
+                         tenant_id,id,kind,number,partner_id,currency)
+                       VALUES(%s,%s,'sale',%s,'customer-ci','SAR')""",
+                    (self.tenant,self.sales_order,
+                     "REAL-SO-"+uuid4().hex[:12]),
+                )
+                conn.execute(
+                    """INSERT INTO one_commercial_order_lines(
+                         tenant_id,order_id,line_no,product_id,warehouse_id,
+                         ordered_qty,unit_price)
+                       VALUES(%s,%s,1,%s,%s,5.000,100.00)""",
+                    (self.tenant,self.sales_order,self.sales_product,
+                     self.sales_warehouse),
+                )
+                # This stock opening is an isolated test fixture ONLY.
+                # Production must receive and value goods through actual
+                # purchasing/warehouse accounting, not manual balance INSERT.
+                conn.execute("SELECT set_config('one.commerce_context','yes',true)")
+                conn.execute(
+                    """INSERT INTO one_stock_balances(
+                         tenant_id,warehouse_id,product_id,on_hand,reserved)
+                       VALUES(%s,%s,%s,10.000,0)""",
+                    (self.tenant,self.sales_warehouse,self.sales_product),
+                )
+                conn.execute(
+                    "SELECT one_confirm_commercial_order(%s,%s,%s)",
+                    (self.tenant,self.sales_order,self.sales_admin),
+                )
+                if Decimal(dispatch_quantity)>0:
+                    conn.execute(
+                        """SELECT one_fulfill_commercial_line(
+                           %s,%s,1,%s,%s,%s)""",
+                        (self.tenant,self.sales_order,
+                         Decimal(dispatch_quantity),self.sales_event,
+                         self.sales_admin),
+                    )
+
+    def prepare_reviewed_sales_intent(self, *, invoice_id=None, reviewer=None):
+        invoice_id=invoice_id or self.doc_id
+        reviewer=reviewer or self.reviewer
+        with self.connect() as conn:
+            with conn.transaction():
+                self.bind(conn,self.actor)
+                conn.execute(
+                    """INSERT INTO one_sales_invoice_intents(
+                       tenant_id,invoice_id,order_id,period_id,number,
+                       issued_on,due_on,receivable_account_id,payable_account_id,
+                       revenue_account_id,output_vat_account_id,input_vat_account_id,
+                       tax_category,tax_rate,tax_code,tax_policy_reference,
+                       tax_policy_reviewed_by,requested_by)
+                       VALUES (%s,%s,%s,%s,%s,'2026-10-17','2026-11-17',
+                       'ar','ap','sales','outputvat','inputvat',
+                       'out_of_scope',0,'NONE','INTERNAL-CI-NOT-ZATCA',%s,%s)""",
+                    (self.tenant,invoice_id,self.sales_order,self.period_id,
+                     "REAL-INV-"+uuid4().hex[:12],reviewer,self.actor),
+                )
+        return invoice_id
+
+    def make_approved_sales_invoice(self, *, builder=None):
+        from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
+        from one_erp_core.invoice_source_workflow import (
+            create_trusted_invoice_source,independently_approve_invoice_source,
+        )
+        with self.connect() as conn:
+            create_trusted_invoice_source(
+                conn,identity=AuthenticatedFinanceIdentity(
+                    self.actor,frozenset({self.tenant})),
+                tenant_id=self.tenant,document_id=self.doc_id,
+                builder=builder or PostgresDispatchedSalesInvoiceBuilder(),
+            )
+            independently_approve_invoice_source(
+                conn,identity=AuthenticatedFinanceIdentity(
+                    self.reviewer,frozenset({self.tenant})),
+                tenant_id=self.tenant,document_id=self.doc_id,
+            )
+
+    def test_real_dispatched_sale_invoice_link_and_replay_are_one_transaction(self):
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        self.make_approved_sales_invoice()
+        with self.connect() as conn:
+            first=self.execute(conn)
+            self.assertFalse(first.replayed)
+        with self.connect() as conn:
+            replay=self.execute(conn)
+            self.assertTrue(replay.replayed)
+        self.assertEqual(self.count("one_invoice_docs","id"),1)
+        self.assertEqual(self.count("one_journal_entries","id"),1)
+        self.assertEqual(self.count("one_finance_requests","request_id"),1)
+        with self.connect() as conn:
+            linkage=conn.execute(
+                """SELECT a.order_id,a.order_line_no,a.billed_qty
+                     FROM one_sales_invoice_allocations a
+                    WHERE a.tenant_id=%s AND a.invoice_id=%s""",
+                (self.tenant,self.doc_id),
+            ).fetchall()
+            doc=conn.execute(
+                """SELECT gross_total,status FROM one_invoice_docs
+                   WHERE tenant_id=%s AND id=%s""",
+                (self.tenant,self.doc_id),
+            ).fetchone()
+            self.assertEqual(linkage,[
+                (self.sales_order,1,Decimal("2.000000"))])
+            self.assertEqual(doc, (Decimal("200.000"),"issued"))
+            self.assertEqual(conn.execute(
+                """SELECT count(*) FROM one_sales_invoice_allocations
+                   WHERE tenant_id=%s AND invoice_id=%s""",
+                (self.tenant,self.doc_id),
+            ).fetchone()[0],1)
+
+    def test_unshipped_order_is_not_invoiced_and_no_immutable_source_created(self):
+        from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
+        from one_erp_core.invoice_source_workflow import create_trusted_invoice_source
+        self.prepare_real_dispatched_sale(dispatch_quantity="0")
+        self.prepare_reviewed_sales_intent()
+        with self.connect() as conn:
+            with self.assertRaises(PermissionError):
+                create_trusted_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        self.actor,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id,
+                    builder=PostgresDispatchedSalesInvoiceBuilder(),
+                )
+        self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
+        self.assertEqual(self.count("one_invoice_docs","id"),0)
+
+    def test_second_invoice_cannot_bill_already_dispatched_stock_twice(self):
+        from one_erp_core.invoice_source_workflow import create_trusted_invoice_source
+        from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        self.make_approved_sales_invoice()
+        with self.connect() as conn:
+            self.execute(conn)
+        self.doc_id=uuid4()
+        self.prepare_reviewed_sales_intent()
+        with self.connect() as conn:
+            with self.assertRaises(PermissionError):
+                create_trusted_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        self.actor,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id,
+                    builder=PostgresDispatchedSalesInvoiceBuilder(),
+                )
+        self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
+
+    def test_malformed_order_line_mapping_rolls_back_invoice_journal_and_receipt(self):
+        from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
+        from one_erp_core.invoice_source_workflow import BuiltInvoiceSource
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        class WrongMap:
+            def build(builder_self,connection,*,tenant_id,document_id,actor_id):
+                real=PostgresDispatchedSalesInvoiceBuilder().build(
+                    connection,tenant_id=tenant_id,document_id=document_id,
+                    actor_id=actor_id,
+                )
+                return BuiltInvoiceSource(
+                    real.period_id,real.snapshot,real.sales_order_id,(999,),
+                )
+        self.make_approved_sales_invoice(builder=WrongMap())
+        with self.connect() as conn:
+            with self.assertRaises(self.pg.Error):
+                self.execute(conn)
+        for table,col in (
+            ("one_invoice_docs","id"),("one_journal_entries","id"),
+            ("one_finance_requests","request_id"),
+            ("one_sales_invoice_allocations","invoice_id"),
+        ):
+            self.assertEqual(self.count(table,col),0)
+
+    def test_revoked_sale_tax_review_prevents_source_creation(self):
+        from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
+        from one_erp_core.invoice_source_workflow import create_trusted_invoice_source
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        with self.connect() as conn:
+            conn.execute(
+                """UPDATE one_memberships SET active=false
+                   WHERE tenant_id=%s AND actor_id=%s""",
+                (self.tenant,self.reviewer))
+            with self.assertRaises(PermissionError):
+                create_trusted_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        self.actor,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id,
+                    builder=PostgresDispatchedSalesInvoiceBuilder(),
+                )
+        self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
+
+
 if __name__=="__main__":
     unittest.main()
