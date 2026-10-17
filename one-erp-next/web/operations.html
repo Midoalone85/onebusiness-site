@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>ONE ERP NEXT | Operations Workbench</title>
+<link rel="stylesheet" href="/assets/operations.css">
+<script src="/assets/operations.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" aria-label="Business modules">
+    <div class="brand"><span class="brand-mark">ONE</span><span><b>ONE ERP</b><small>BUSINESS OS · NEXT</small></span></div>
+    <div class="side-caption" data-i18n="modules">الوحدات التشغيلية</div>
+    <nav id="module-nav" aria-label="Modules">
+      <a href="/app/sales" data-module="sales"><span class="nav-icon">↗</span><span data-i18n="sales">المبيعات</span></a>
+      <a href="/app/purchases" data-module="purchases"><span class="nav-icon">↙</span><span data-i18n="purchases">المشتريات</span></a>
+      <a href="/app/inventory" data-module="inventory"><span class="nav-icon">▦</span><span data-i18n="inventory">المخزون</span></a>
+      <a href="/app/returns" data-module="returns"><span class="nav-icon">↺</span><span data-i18n="returns">المرتجعات</span></a>
+      <a href="/app/refunds" data-module="refunds"><span class="nav-icon">◇</span><span data-i18n="refunds">رد أموال العملاء</span></a>
+    </nav>
+    <p class="side-note" data-i18n="sidenote">المعلومات من قاعدة بيانات الشركة المُصرح بها فقط. العرض للقراءة والمراجعة.</p>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div class="crumb"><span>ONE ERP NEXT</span><span>›</span><strong id="crumb-module" data-i18n="sales">المبيعات</strong></div>
+      <div class="top-actions"><span class="environment" data-i18n="experimental">بيئة تطوير · قراءة فقط</span><button id="language" type="button" title="Language">English</button></div>
+    </header>
+    <div class="body">
+      <section class="intro">
+        <div><div class="eyebrow">ONE / OPERATIONS</div><h1 id="page-title">المبيعات</h1><p id="page-description"></p></div>
+        <span class="pill" data-i18n="readonly">للقراءة فقط</span>
+      </section>
+      <section id="connection-panel" class="connection card" aria-label="Secure connection">
+        <div><h2 data-i18n="connecttitle">الاتصال بالشركة</h2><p class="muted" data-i18n="connectdesc">يلزم رمز وصول موقّع من موفر هوية موثوق ومعرف شركة مسموح لك بها. لا نحتفظ بالرمز في المتصفح.</p></div>
+        <form id="connect-form">
+          <label><span data-i18n="tenant">معرف الشركة</span><input id="tenant-id" type="text" maxlength="36" required autocomplete="off" spellcheck="false" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></label>
+          <label><span data-i18n="access">رمز الوصول</span><input id="access-token" type="password" required autocomplete="off" spellcheck="false" placeholder="JWT"></label>
+          <button class="primary" type="submit" data-i18n="connect">الاتصال الآمن</button>
+          <button class="secondary" type="button" id="disconnect" data-i18n="disconnect" hidden>إنهاء الاتصال</button>
+        </form>
+        <small class="muted" data-i18n="tokenpolicy">الرمز في ذاكرة الصفحة فقط ويُحذف عند التحديث أو إنهاء الاتصال. هذا ليس نظام تسجيل دخول إنتاجيًا.</small>
+      </section>
+      <section class="metrics">
+        <article class="card metric"><span class="muted" data-i18n="company">الشركة</span><strong id="company-name">—</strong></article>
+        <article class="card metric"><span class="muted" data-i18n="total">السجلات</span><strong id="total-count" class="numeric">—</strong></article>
+        <article class="card metric"><span class="muted" data-i18n="data">المصدر</span><strong data-i18n="live">PostgreSQL · قراءة آمنة</strong></article>
+      </section>
+      <section class="card table-panel">
+        <div class="panel-top"><div><h2 id="section-title"></h2><p class="muted" data-i18n="source">لا بيانات افتراضية. يتم التحقق من الشركة والصلاحيات في الخادم.</p></div><button id="refresh" type="button" class="secondary" data-i18n="refresh">تحديث</button></div>
+        <div id="status" class="status" aria-live="polite"></div>
+        <div class="table-wrap"><table id="data-table"><thead></thead><tbody></tbody></table></div>
+        <div class="pager"><button type="button" id="previous" class="secondary" data-i18n="previous">السابق</button><span id="page-index">—</span><button type="button" id="next" class="secondary" data-i18n="next">التالي</button></div>
+      </section>
+      <p class="disclaimer" id="bank-disclaimer" hidden></p>
+      <footer>ONE ERP NEXT <span data-i18n="footer">نظام مستقل قيد التطوير، غير مربوط بالبنوك أو إصدار ZATCA الفعلي.</span></footer>
+    </div>
+  </main>
+</div>
+</body>
+</html>

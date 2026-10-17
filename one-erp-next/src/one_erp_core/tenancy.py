@@ -15,6 +15,7 @@ class Role(str, Enum):
 class Action(str, Enum):
     READ = "read"
     WRITE_ACCOUNTING = "write_accounting"
+    PROCESS_STOCK = "process_stock"
     MANAGE_USERS = "manage_users"
 
 
