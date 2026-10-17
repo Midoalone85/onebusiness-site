@@ -105,3 +105,37 @@ test("English independent reviewer displays explicit non-ZATCA notice",()=>{
   assert.match(o.root.children[1].textContent,/not a tax invoice/);
   o.page.dispose();
 });
+
+test("approval success calls trusted refresh hook once, but errors and denial never do",async()=>{
+  const notified=[];
+  const good=setup({onApproved:ref=>notified.push(ref)});
+  assert.equal(await good.page.open({tenant,document_id}),true);
+  good.confirm.checked=true;good.confirm.listeners.change();
+  await good.approve.listeners.click();await good.approve.listeners.click();
+  assert.deepEqual(notified,[{tenant,document_id}]);
+  good.page.dispose();
+  const bad=setup({onApproved:ref=>notified.push(ref),
+    fetchImpl:async()=>({ok:false,status:403})});
+  assert.equal(await bad.page.open({tenant,document_id}),true);
+  bad.confirm.checked=true;bad.confirm.listeners.change();
+  await bad.approve.listeners.click();
+  assert.equal(notified.length,1);bad.page.dispose();
+  const broken=setup({onApproved:()=>{throw Error("UI hook");}});
+  assert.equal(await broken.page.open({tenant,document_id}),true);
+  broken.confirm.checked=true;broken.confirm.listeners.change();
+  await broken.approve.listeners.click();
+  assert.equal(broken.page.snapshot().approved,true);broken.page.dispose();
+  assert.throws(()=>setup({onApproved:"not a function"}),TypeError);
+});
+
+test("stale approval response after clearing a document never emits an audit refresh",async()=>{
+  let finishApproval;const notified=[];
+  const stale=setup({onApproved:ref=>notified.push(ref),fetchImpl:()=>new Promise(resolve=>{finishApproval=resolve;})});
+  assert.equal(await stale.page.open({tenant,document_id}),true);
+  stale.confirm.checked=true;stale.confirm.listeners.change();
+  const pending=stale.approve.listeners.click();
+  await Promise.resolve();await Promise.resolve();
+  stale.page.clear();finishApproval?.(response);
+  await pending;
+  assert.deepEqual(notified,[]);stale.page.dispose();
+});
