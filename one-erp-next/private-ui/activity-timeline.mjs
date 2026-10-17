@@ -2,6 +2,14 @@
 import {readActivity} from "./activity-client.mjs";
 const ACTIONS=Object.freeze({
   ar:{
+    "sales_order.created":"إنشاء مسودة أمر بيع",
+    "sales_order.line_added":"إضافة صنف لأمر البيع",
+    "sales_order.line_changed":"تعديل صنف بأمر البيع",
+    "sales_order.line_removed":"حذف صنف من أمر البيع",
+    "purchase_order.created":"إنشاء مسودة أمر شراء",
+    "purchase_order.line_added":"إضافة صنف لأمر الشراء",
+    "purchase_order.line_changed":"تعديل صنف بأمر الشراء",
+    "purchase_order.line_removed":"حذف صنف من أمر الشراء",
     "sales_order.confirmed":"تأكيد أمر البيع",
     "purchase_order.confirmed":"تأكيد أمر الشراء",
     "invoice.issued":"إصدار الفاتورة",
@@ -18,6 +26,14 @@ const ACTIONS=Object.freeze({
     "receiving.inspection_completed":"اكتمال فحص الوارد",
   },
   en:{
+    "sales_order.created":"Sales order draft created",
+    "sales_order.line_added":"Sales order line added",
+    "sales_order.line_changed":"Sales order line edited",
+    "sales_order.line_removed":"Sales order line removed",
+    "purchase_order.created":"Purchase order draft created",
+    "purchase_order.line_added":"Purchase order line added",
+    "purchase_order.line_changed":"Purchase order line edited",
+    "purchase_order.line_removed":"Purchase order line removed",
     "sales_order.confirmed":"Sales order confirmed",
     "purchase_order.confirmed":"Purchase order confirmed",
     "invoice.issued":"Invoice issued",
