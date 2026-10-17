@@ -1,5 +1,5 @@
 import {approveInternalInvoice,trustedApprovalOrigin,validDocumentRef} from "./invoice-approval-client.mjs";
-import {readInternalInvoiceSource} from "./invoice-review-client.mjs";
+import {readInternalInvoiceSource,validateInternalInvoiceSource} from "./invoice-review-client.mjs";
 const LABELS=Object.freeze({
   ar:{heading:"مراجعة مصدر الفاتورة الداخلية",source:"مرجع الفاتورة",tenant:"الشركة",review:"تفاصيل المصدر المعتمد",loading:"جارٍ تحميل بيانات المراجعة…",confirm:"راجعت تفاصيل المصدر والمستندات الداعمة",approve:"الموافقة كمراجع مستقل",approved:"تمت الموافقة على المصدر الداخلي",unavailable:"لا يمكن عرض مصدر موثوق. الموافقة مقفولة.",denied:"غير مصرح بالموافقة أو تعذر الطلب",clear:"إغلاق المراجعة",notice:"هذه موافقة محاسبية داخلية وليست فاتورة ضريبية أو تصريحًا من زاتكا."},
   en:{heading:"Review internal invoice source",source:"Invoice reference",tenant:"Company",review:"Trusted source details",loading:"Loading reviewer data…",confirm:"I reviewed the source and supporting evidence",approve:"Approve as independent reviewer",approved:"Internal source approved",unavailable:"Trusted source unavailable. Approval blocked.",denied:"Approval denied or unavailable",clear:"Clear review",notice:"Internal accounting approval only, not a tax invoice or ZATCA clearance."}
@@ -59,22 +59,12 @@ export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetc
     try{
       const token=await getToken();
       if(disposed||current!==revision)return false;
-      const summary=await verifiedLoader({tenant,document_id,token,signal:controller.signal});
+      const loaded=await verifiedLoader({tenant,document_id,token,signal:controller.signal});
+      const summary=validateInternalInvoiceSource(loaded,{tenant,document_id});
       if(disposed||current!==revision)return false;
-      if(summary?.tenant!==tenant||summary?.document_id!==document_id||
-         summary?.reviewable!==true||!Array.isArray(summary?.fields)||!summary.fields.length||
-         summary.fields.length>30||summary.fields.some(f=>!f||typeof f.label!=="string"||
-         !f.label.trim()||f.label.length>100||!(["string","number"].includes(typeof f.value))||
-         String(f.value).length>500))throw new TypeError("Unreviewable invoice source");
+      // Shared API validation: no UI approval without authentic source marker,
+      // complete lines and unique valid line numbers, even with injected loaders.
       refs.textContent=words.tenant+": "+tenant+" | "+words.source+": "+document_id;
-      if(summary.lines!==undefined&&(
-          !Array.isArray(summary.lines)||summary.lines.length<1||summary.lines.length>100||
-          summary.lines.some(line=>!line||!Number.isInteger(line.line_number)||line.line_number<=0||
-            typeof line.description!=="string"||line.description.length>500||
-            ["quantity","unit_price","discount_amount","net","tax","gross"].some(k=>
-              typeof line[k]!=="string"||line[k].length>100)))){
-        throw new TypeError("Unreviewable source line detail");
-      }
       for(const field of summary.fields){
         const row=doc.createElement("p");row.textContent=field.label+": "+safeText(field.value);details.append(row);
       }
