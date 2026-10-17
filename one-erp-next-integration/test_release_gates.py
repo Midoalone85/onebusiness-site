@@ -58,6 +58,17 @@ class ReleaseGateTests(unittest.TestCase):
         self.roles("BEGIN; CREATE ROLE demo NOLOGIN SUPERUSER NOBYPASSRLS; COMMIT;")
         self.assertTrue(any("Unexpected privileged" in e for e in gate.privilege_template_checks()))
 
+    def test_multiline_grant_all_rejected(self):
+        self.roles("BEGIN; CREATE ROLE demo NOLOGIN NOSUPERUSER NOBYPASSRLS;\\n"
+                   "GRANT\\n ALL\\n PRIVILEGES\\n ON TABLE data TO demo; COMMIT;")
+        self.assertTrue(any("Unbounded GRANT ALL" in e
+                            for e in gate.privilege_template_checks()))
+
+    def test_commented_grant_all_is_not_executable(self):
+        self.roles("BEGIN; CREATE ROLE demo NOLOGIN NOSUPERUSER NOBYPASSRLS;\\n"
+                   "-- GRANT ALL ON ALL TABLES IN SCHEMA public TO demo;\\nCOMMIT;")
+        self.assertEqual(gate.privilege_template_checks(), [])
+
     def test_broad_grant_rejected(self):
         self.roles("BEGIN; CREATE ROLE demo NOLOGIN NOSUPERUSER NOBYPASSRLS; GRANT ALL ON ALL TABLES IN SCHEMA public TO demo; COMMIT;")
         self.assertTrue(any("Unbounded GRANT ALL" in e for e in gate.privilege_template_checks()))
