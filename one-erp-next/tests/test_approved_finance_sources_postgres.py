@@ -935,6 +935,24 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 (self.tenant,self.doc_id),
             ).fetchone()
             self.assertEqual(ar,(Decimal("200.000"),))
+            gl=conn.execute(
+                """SELECT l.account_id,sum(l.debit-l.credit)
+                     FROM one_journal_lines l
+                     JOIN one_journal_entries j
+                       ON j.tenant_id=l.tenant_id AND j.id=l.entry_id
+                    WHERE l.tenant_id=%s AND j.status='posted'
+                    GROUP BY l.account_id""",
+                (self.tenant,),
+            ).fetchall()
+            totals=dict(gl)
+            self.assertEqual(totals,{
+                "inventory":Decimal("400.000"),
+                "grni":Decimal("-500.000"),
+                "cogs":Decimal("100.000"),
+                "ar":Decimal("200.000"),
+                "sales":Decimal("-200.000"),
+            })
+            self.assertEqual(sum(totals.values(),Decimal("0")),Decimal("0"))
 
     def test_unvalued_sales_dispatch_blocks_invoice_at_maker(self):
         from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
