@@ -33,7 +33,7 @@ const TENANT=DOC;
  * Browsers never choose a finance SQL role, source amount, login or DSN.
  */
 export function mountPrivateFinanceWorkspace({
-  root,baseUrl,tenant,as_of,getToken,language="ar",fetchImpl,
+  root,baseUrl,tenant,as_of,getToken,language="ar",timeZone="Asia/Riyadh",fetchImpl,
 }){
   if(!root?.ownerDocument||typeof getToken!=="function"||
      typeof tenant!=="string"||!TENANT.test(tenant)||
@@ -104,7 +104,7 @@ export function mountPrivateFinanceWorkspace({
         root:reviewer,baseUrl,getToken,language:lang,fetchImpl,
       });
       const history=mountActivityTimeline({root:activity,tenant,baseUrl,getToken,
-        language:lang,fetchImpl,timeZone:"Asia/Riyadh"});
+        language:lang,fetchImpl,timeZone});
       child={dispose:()=>{review.dispose();history.dispose();}};
       let requestId=0;
       open.addEventListener("click",()=>{
