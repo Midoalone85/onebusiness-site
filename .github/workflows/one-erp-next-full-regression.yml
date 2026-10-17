@@ -1,0 +1,58 @@
+name: ONE ERP NEXT Full Non-Production Regression
+
+# This workflow ONLY inspects and tests sources. No deployments, database
+# migrations on external hosts, workflow dispatch or merge permissions.
+on:
+  pull_request:
+    paths:
+      - "one-erp-next/**"
+      - "one-erp-next-integration/**"
+      - "one-erp-preview/**"
+      - ".github/workflows/one-erp-next-full-regression.yml"
+  push:
+    branches:
+      - feature/finance-replay-private-http-20261017
+    paths:
+      - "one-erp-next/**"
+      - "one-erp-next-integration/**"
+      - "one-erp-preview/**"
+      - ".github/workflows/one-erp-next-full-regression.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  release-contracts:
+    name: Non-mutating release and migration contract tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Release safety gate unit suite
+        run: python -m unittest discover -s one-erp-next-integration -p 'test_release_gates.py' -v
+      - name: Inventory business operation regression names
+        run: python one-erp-next-integration/operational_acceptance.py
+      - name: Check migrations, privileges and protected main assets
+        run: python one-erp-next-integration/verify_integration.py
+  bilingual-ui:
+    name: Arabic-English navigation and private UI contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check preview JavaScript syntax
+        run: node --check one-erp-preview/ui.js
+      - name: Public fictional-data preview navigation regression
+        run: node --test one-erp-preview/tests/navigation.test.cjs
+      - name: Private data-only operations client/page/view regression
+        run: node --test one-erp-next/private-ui/*.test.mjs
