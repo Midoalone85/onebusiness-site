@@ -40,7 +40,7 @@ export function mountActivityTimeline({root,tenant,baseUrl,getToken,fetchImpl,
   if(!root?.ownerDocument||typeof getToken!=="function")
     throw new TypeError("Authenticated private activity host required");
   const doc=root.ownerDocument,lang=language==="en"?"en":"ar",words=LABELS[lang];
-  const formatter=new Intl.DateTimeFormat(lang==="ar"?"ar-EG":"en-GB",{
+  const formatter=new Intl.DateTimeFormat(lang==="ar"?"ar-EG-u-nu-latn":"en-GB",{
     timeZone,year:"numeric",month:"2-digit",day:"2-digit",
     hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23",
   });
@@ -80,7 +80,7 @@ export function mountActivityTimeline({root,tenant,baseUrl,getToken,fetchImpl,
         const action=doc.createElement("strong");
         action.textContent=ACTIONS[lang][item.action]||item.action;
         const at=doc.createElement("time");at.dateTime=item.occurred_at;
-        at.textContent=formatter.format(new Date(item.occurred_at));
+        at.textContent=formatter.format(new Date(item.occurred_at))+" ("+timeZone+")";
         const actor=doc.createElement("span");
         actor.textContent=words.user+": "+item.actor_id;
         li.append(action,at,actor);events.append(li);
