@@ -56,7 +56,7 @@ class StagingSmokeConfig:
             u.hostname != self.allowed_host or
             self.allowed_host != self.allowed_host.lower() or
             not _HOST.fullmatch(self.allowed_host) or
-            self.allowed_host.endswith((".local", ".internal", ".localhost", ".test")) or
+            self.allowed_host.endswith((".local", ".internal", ".localhost", ".test", ".nip.io", ".sslip.io")) or
             self.allowed_host in ("localhost", "example.com")):
             raise InvalidStagingConfiguration("Public exact HTTPS staging host required")
         try:
