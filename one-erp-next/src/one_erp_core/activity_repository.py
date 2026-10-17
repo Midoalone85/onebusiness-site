@@ -12,10 +12,23 @@ from uuid import UUID
 # Only fixed SQL is allowed. No user-chosen table identifiers or SQL fragments.
 _AUDIT_SQL = {
     "invoice": """
-        SELECT id::text,event,actor_id,occurred_at
-        FROM public.one_invoice_audit
-        WHERE tenant_id=%s AND doc_id=%s
-        ORDER BY occurred_at DESC,id DESC LIMIT %s OFFSET %s
+        SELECT event_id,action,actor_id,occurred_at FROM (
+            SELECT 'issued:'||id::text AS event_id,
+                   event AS action,actor_id,occurred_at
+            FROM public.one_invoice_audit
+            WHERE tenant_id=%s AND doc_id=%s
+            UNION ALL
+            SELECT 'requested:'||document_id::text,
+                   'invoice.source_requested',requested_by,requested_at
+            FROM public.one_invoice_source_requests
+            WHERE tenant_id=%s AND document_id=%s
+            UNION ALL
+            SELECT 'approved:'||document_id::text,
+                   'invoice.source_approved',approved_by,approved_at
+            FROM public.one_invoice_source_approvals
+            WHERE tenant_id=%s AND document_id=%s
+        ) AS events
+        ORDER BY occurred_at DESC,event_id DESC LIMIT %s OFFSET %s
     """,
     "payment": """
         SELECT id::text,event,actor_id,occurred_at
@@ -88,7 +101,11 @@ def load_record_activity(connection, *, tenant_id: UUID, actor_id: UUID,
             permission = cur.fetchone()
             if permission is None or permission[0] is not True:
                 raise PermissionError("Activity visibility denied")
-            cur.execute(_AUDIT_SQL[record_type], (tenant_id,record_id,limit+1,offset))
+            if record_type=="invoice":
+                params=(tenant_id,record_id)*3+(limit+1,offset)
+            else:
+                params=(tenant_id,record_id,limit+1,offset)
+            cur.execute(_AUDIT_SQL[record_type],params)
             rows = cur.fetchall()
     more = len(rows) > limit
     items = []
