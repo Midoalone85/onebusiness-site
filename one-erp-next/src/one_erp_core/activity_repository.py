@@ -12,24 +12,40 @@ from uuid import UUID
 # Only fixed SQL is allowed. No user-chosen table identifiers or SQL fragments.
 _AUDIT_SQL = {
     "sales_order": """
-        SELECT 'confirmed:'||id::text AS event_id,
-               'sales_order.confirmed' AS action,
-               confirmed_by AS actor_id,confirmed_at AS occurred_at
-        FROM public.one_commercial_orders
-        WHERE tenant_id=%s AND id=%s AND kind='sale'
-          AND status='confirmed' AND confirmed_by IS NOT NULL
-          AND confirmed_at IS NOT NULL
-        ORDER BY confirmed_at DESC,id DESC LIMIT %s OFFSET %s
+        SELECT event_id,action,actor_id,occurred_at FROM (
+            SELECT 'confirmed:'||id::text AS event_id,
+                   'sales_order.confirmed' AS action,
+                   confirmed_by AS actor_id,confirmed_at AS occurred_at
+            FROM public.one_commercial_orders
+            WHERE tenant_id=%s AND id=%s AND kind='sale'
+              AND status='confirmed' AND confirmed_by IS NOT NULL
+              AND confirmed_at IS NOT NULL
+            UNION ALL
+            SELECT 'change:'||event_id::text AS event_id,
+                   'sales_order.'||action AS action,
+                   actor_id,occurred_at
+            FROM public.one_commercial_change_audit
+            WHERE tenant_id=%s AND order_id=%s AND kind='sale'
+        ) AS events
+        ORDER BY occurred_at DESC,event_id DESC LIMIT %s OFFSET %s
     """,
     "purchase_order": """
-        SELECT 'confirmed:'||id::text AS event_id,
-               'purchase_order.confirmed' AS action,
-               confirmed_by AS actor_id,confirmed_at AS occurred_at
-        FROM public.one_commercial_orders
-        WHERE tenant_id=%s AND id=%s AND kind='purchase'
-          AND status='confirmed' AND confirmed_by IS NOT NULL
-          AND confirmed_at IS NOT NULL
-        ORDER BY confirmed_at DESC,id DESC LIMIT %s OFFSET %s
+        SELECT event_id,action,actor_id,occurred_at FROM (
+            SELECT 'confirmed:'||id::text AS event_id,
+                   'purchase_order.confirmed' AS action,
+                   confirmed_by AS actor_id,confirmed_at AS occurred_at
+            FROM public.one_commercial_orders
+            WHERE tenant_id=%s AND id=%s AND kind='purchase'
+              AND status='confirmed' AND confirmed_by IS NOT NULL
+              AND confirmed_at IS NOT NULL
+            UNION ALL
+            SELECT 'change:'||event_id::text AS event_id,
+                   'purchase_order.'||action AS action,
+                   actor_id,occurred_at
+            FROM public.one_commercial_change_audit
+            WHERE tenant_id=%s AND order_id=%s AND kind='purchase'
+        ) AS events
+        ORDER BY occurred_at DESC,event_id DESC LIMIT %s OFFSET %s
     """,
     "invoice": """
         SELECT event_id,action,actor_id,occurred_at FROM (
@@ -135,6 +151,8 @@ def load_record_activity(connection, *, tenant_id: UUID, actor_id: UUID,
                     raise PermissionError("Commercial activity visibility denied")
             if record_type=="invoice":
                 params=(tenant_id,record_id)*3+(limit+1,offset)
+            elif record_type in _ORDER_VIEW_PERMISSIONS:
+                params=(tenant_id,record_id)*2+(limit+1,offset)
             else:
                 params=(tenant_id,record_id,limit+1,offset)
             cur.execute(_AUDIT_SQL[record_type],params)
