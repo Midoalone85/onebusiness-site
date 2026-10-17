@@ -1,30 +1,39 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createOperationsView } from "./operations-view.mjs";
+import {createOperationsView} from "./operations-view.mjs";
+const tenant="11111111-1111-4111-8111-111111111111";
 const token="a.b.c";
-const success=data=>({ok:true,status:200,headers:{get:()=>"application/json"},json:async()=>data});
-const denied=()=>({ok:false,status:403,headers:{get:()=>"application/json"}});
-test("loads authenticated records without inserting demo data",async()=>{
-  const view=createOperationsView({baseUrl:"https://erp.example.test/",getToken:async()=>token,
-    fetchImpl:async()=>success({rows:[{id:"sale-1"}]})});
+const ok=(module,items=[])=>({ok:true,status:200,headers:{get:()=>"application/json"},
+  json:async()=>({module,tenant_id:tenant,items,
+    page:{limit:25,offset:0,has_more:false,next_offset:null},
+    source:"one_erp_next_postgresql",read_only:true})});
+const denied={ok:false,status:403,headers:{get:()=>"application/json"}};
+test("loads authenticated actual source items without demo data",async()=>{
+  let path;
+  const view=createOperationsView({baseUrl:"https://erp.example.test/",tenant,
+    getToken:async()=>token,fetchImpl:async url=>{path=url.pathname;return ok("sales",[{number:"SO1"}]);}});
   await view.load("sales");
-  assert.deepEqual(view.snapshot(),{status:"ready",module:"sales",data:{rows:[{id:"sale-1"}]},error:null});
+  assert.equal(path,"/api/v1/operations/sales");
+  assert.equal(view.snapshot().status,"ready");
+  assert.equal(view.snapshot().data.items[0].number,"SO1");
 });
-test("denied user never sees prior company records",async()=>{
-  let n=0;
-  const view=createOperationsView({baseUrl:"https://erp.example.test/",getToken:async()=>token,
-    fetchImpl:async()=>++n===1?success({rows:[{id:"private"}]}):denied()});
+test("failed tenant authorization immediately clears the previous company data",async()=>{
+  let calls=0;
+  const view=createOperationsView({baseUrl:"https://erp.example.test/",tenant,
+    getToken:async()=>token,
+    fetchImpl:async()=>++calls===1?ok("sales",[{id:"secret"}]):denied});
   await view.load("sales");await view.load("inventory");
   assert.equal(view.snapshot().data,null);
   assert.equal(view.snapshot().error,"unauthorized");
 });
-test("clear erases client-side records and invalidates inflight requests",async()=>{
+test("clear and new navigation invalidates inflight responses",async()=>{
   let resolve;
-  const view=createOperationsView({baseUrl:"https://erp.example.test/",getToken:async()=>token,
-    fetchImpl:()=>new Promise(r=>{resolve=r})});
+  const view=createOperationsView({baseUrl:"https://erp.example.test/",tenant,
+    getToken:async()=>token,
+    fetchImpl:()=>new Promise(r=>{resolve=r;})});
   const pending=view.load("returns");await Promise.resolve();await Promise.resolve();
   view.clear();
-  if(resolve)resolve(success({rows:[{id:"private"}]}));
+  if(resolve)resolve(ok("returns",[{id:"private"}]));
   await pending;
   assert.equal(view.snapshot().data,null);
   assert.equal(view.snapshot().status,"idle");

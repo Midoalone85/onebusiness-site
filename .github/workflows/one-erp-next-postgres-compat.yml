@@ -1,0 +1,68 @@
+name: ONE ERP NEXT PostgreSQL 16-17 Compatibility (Non-Production)
+
+# Compatibility gate for future PostgreSQL upgrades. No production access,
+# deployment, external migrations, or customer data.
+on:
+  pull_request:
+    paths:
+      - "one-erp-next/**"
+      - ".github/workflows/one-erp-next-postgres-compat.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-compatibility:
+    name: PostgreSQL ${{ matrix.postgres }} / Python 3.11
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ["16", "17"]
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}
+        env:
+          POSTGRES_PASSWORD: ci_testing_only
+          POSTGRES_DB: one_erp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d one_erp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: "true"
+      ONE_TEST_PG_DSN: "host=localhost port=5432 dbname=one_erp_test user=postgres password=ci_testing_only"
+      ONE_TEST_PG_HOST: localhost
+      ONE_TEST_PG_PORT: "5432"
+      ONE_TEST_PG_DB: one_erp_test
+    defaults:
+      run:
+        working-directory: one-erp-next
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test-only database and token dependencies
+        run: python -m pip install "psycopg[binary]>=3.1,<4" "PyJWT[crypto]>=2.10,<3"
+      - name: Compile source and tests
+        run: python -m compileall -q src tests
+      - name: Run full finance tests and reject silent skips
+        shell: bash
+        env:
+          PYTHONPATH: src
+        run: |
+          set -o pipefail
+          python -m unittest discover -s tests -v 2>&1 | tee /tmp/one-erp-pg-compat-tests.log
+          grep -Eq '^Ran [0-9]+ tests in ' /tmp/one-erp-pg-compat-tests.log
+          grep -q 'test_062_database_rejects_spoofed_approver_then_accepts_real_reviewer' /tmp/one-erp-pg-compat-tests.log
+          if grep -Eq '^OK \(skipped=[1-9]|\.\.\. skipped ' /tmp/one-erp-pg-compat-tests.log; then
+            echo "Tests skipped: failing PostgreSQL compatibility gate"
+            exit 1
+          fi

@@ -1,0 +1,211 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {mountPrivateFinanceWorkspace} from "./finance-workspace.mjs";
+
+const tenant="11111111-1111-4111-8111-111111111111";
+const document_id="22222222-2222-4222-8222-222222222222";
+const as_of="2026-10-17";
+class Element{
+  constructor(ownerDocument,tag){
+    this.ownerDocument=ownerDocument;this.tagName=tag;
+    this.children=[];this.attributes={};this.textContent="";this.listeners={};
+    this.value="";this.checked=false;this.disabled=false;this.hidden=false;
+  }
+  setAttribute(key,value){this.attributes[key]=value;}
+  replaceChildren(...children){this.children=children;this.textContent="";}
+  append(...children){this.children.push(...children);}
+  addEventListener(event,handler){this.listeners[event]=handler;}
+}
+const document={createElement(tag){return new Element(document,tag);}};
+const success=body=>({ok:true,status:200,
+  headers:{get:()=>"application/json; charset=utf-8"},
+  json:async()=>body});
+function operations(module){
+  return {module,tenant_id:tenant,items:[{number:"SO-REAL-01",total:"100.00"}],
+    page:{limit:25,offset:0,has_more:false,next_offset:null},
+    source:"one_erp_next_postgresql",read_only:true};
+}
+const receivables={module:"receivables",tenant_id:tenant,as_of,items:[],
+  page:{limit:25,offset:0,has_more:false,next_offset:null},
+  source:"one_erp_next_postgresql",read_only:true};
+function harness(language="ar",override={}){
+  const root=document.createElement("div"),calls=[];
+  const workspace=mountPrivateFinanceWorkspace({
+    root,tenant,as_of,language,baseUrl:"https://erp.example.test/",
+    getToken:async()=> "a.b.c",
+    fetchImpl:async(url,opts)=>{
+      calls.push({url:url.href,method:opts.method,headers:opts.headers});
+      const mod=url.pathname.split("/").at(-1);
+      if(["sales","purchases","inventory","returns"].includes(mod))return success(operations(mod));
+      if(mod==="receivables")return success(receivables);
+      return {ok:false,status:403,headers:{get:()=>"application/json"}};
+    },
+    ...override,
+  });
+  return {root,workspace,calls};
+}
+test("full private Arabic navigation opens separate module pages under one compact menu",async()=>{
+  const {root,workspace,calls}=harness();
+  assert.equal(root.attributes.dir,"rtl");
+  assert.deepEqual(root.children[1].children.map(x=>x.textContent),[
+    "المبيعات","المشتريات","المخزون","المرتجعات","أعمار الديون","مراجعة الفواتير",
+  ]);
+  assert.equal(await workspace.select("sales"),true);
+  assert.equal(workspace.snapshot().active,"sales");
+  assert.equal(calls[0].method,"GET");
+  assert.match(calls[0].url,/tenant=11111111/);
+  const page=root.children[3].children[0];
+  assert.equal(page.attributes["aria-label"],"المبيعات");
+  assert.equal(page.children[0].hidden,true);
+  assert.equal(page.children[3].children[0].tagName,"table");
+  assert.equal(await workspace.select("inventory"),true);
+  assert.equal(workspace.snapshot().active,"inventory");
+  assert.equal(root.children[3].children.length,1);
+  assert.equal(calls.length,2);
+  workspace.clear();
+  assert.equal(root.children[3].children.length,0);
+  assert.equal(workspace.snapshot().active,null);
+  workspace.dispose();assert.equal(root.children.length,0);
+});
+test("receivables view is source-only, has currency note and is read-only",async()=>{
+  const {root,workspace,calls}=harness("en");
+  assert.equal(root.attributes.dir,"ltr");
+  assert.equal(await workspace.select("receivables"),true);
+  const panel=root.children[3].children[0];
+  assert.equal(panel.attributes["aria-label"],"Receivables aging");
+  assert.match(panel.children[1].textContent,/NOT verified bank deposits/);
+  assert.equal(calls.length,0);
+  await workspace.select("sales");
+  assert.equal(calls.length,1);
+  workspace.dispose();
+});
+test("invoice review cannot approve until protected API provides source and reviewer acknowledges",async()=>{
+  const {root,workspace,calls}=harness();
+  await workspace.select("review");
+  const panel=root.children[3].children[0],controls=panel.children[0];
+  const input=controls.children[1],open=controls.children[2];
+  input.value="not-a-document";
+  open.listeners.click();
+  assert.equal(calls.length,0);
+  assert.match(controls.children[3].textContent,/غير صالح/);
+  input.value=document_id;
+  open.listeners.click();
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].method,"GET");
+  assert.match(calls[0].url,/internal-invoice-source/);
+  assert.equal(workspace.snapshot().active,"review");
+  await workspace.select("returns");
+  assert.equal(workspace.snapshot().active,"returns");
+  workspace.dispose();
+});
+test("verified invoice opens left/bottom database activity without client-generated events",async()=>{
+  const seen=[];
+  const source={tenant,document_id,reviewable:true,
+    source:"verified_internal_postgresql",
+    fields:[{label:"Gross",value:"115.00"}],
+    lines:[{line_number:1,description:"Original goods",quantity:"1",
+      unit_price:"100.00",discount_amount:"0.00",tax_category:"standard",
+      tax_rate:"0.150000",tax_code:"KSA_STANDARD",
+      net:"100.00",tax:"15.00",gross:"115.00"}],
+  };
+  const {root,workspace}=harness("ar",{fetchImpl:async(url,opts)=>{
+    seen.push(url.pathname);
+    if(url.pathname==="/api/v1/finance/internal-invoice-source")return success(source);
+    if(url.pathname==="/api/v1/activity/timeline")return success({
+      module:"activity",tenant_id:tenant,record_type:"invoice",record_id:document_id,
+      items:[{event_id:"approved:"+document_id,action:"invoice.source_approved",
+        actor_id:tenant,occurred_at:"2026-10-17T19:00:00.000000Z"}],
+      page:{limit:20,offset:0,has_more:false,next_offset:null},
+      read_only:true,source:"one_erp_next_postgresql",
+    });
+    return {ok:false,status:403};
+  }});
+  assert.equal(await workspace.select("review"),true);
+  const panel=root.children[3].children[0];
+  const controls=panel.children[0],layout=panel.children[1];
+  assert.equal(layout.attributes.class,"one-review-with-activity");
+  controls.children[1].value=document_id;
+  controls.children[2].listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(seen,[
+    "/api/v1/finance/internal-invoice-source",
+    "/api/v1/activity/timeline"
+  ]);
+  assert.equal(layout.children[1].children[3].children.length,1);
+  const history=layout.children[1].children[3].children[0];
+  assert.equal(history.children[0].textContent,"اعتماد مصدر الفاتورة بمراجع مستقل");
+  workspace.dispose();
+  assert.equal(root.children.length,0);
+});
+test("no accepted UI state for invalid company, missing token or malformed date",()=>{
+  for(const cfg of [{tenant:"bogus"},{as_of:"2026-02-30"},{getToken:null}]){
+    const root=document.createElement("main");
+    assert.throws(()=>mountPrivateFinanceWorkspace({
+      root,baseUrl:"https://erp.example.test/",tenant,as_of,
+      getToken:async()=> "a.b.c",...cfg
+    }),TypeError);
+  }
+});
+test("any stopped workspace blocks stale module transitions",async()=>{
+  let resolver;
+  const {root,workspace}=harness("en",{getToken:()=>new Promise(resolve=>{resolver=resolve;})});
+  const pending=workspace.select("sales");
+  await Promise.resolve();await Promise.resolve();
+  workspace.dispose();
+  resolver?.("a.b.c");
+  assert.equal(await pending,false);
+  assert.equal(workspace.snapshot().disposed,true);
+  assert.equal(root.children.length,0);
+});
+
+test("confirmed invoice approval refreshes only persisted activity for the current document",async()=>{
+  let approved=false,historyReads=0;
+  const paths=[];
+  const source={tenant,document_id,reviewable:true,source:"verified_internal_postgresql",
+    fields:[{label:"Amount",value:"115.00"}],lines:[{
+      line_number:1,description:"Goods",quantity:"1",unit_price:"100.00",
+      discount_amount:"0.00",tax_category:"standard",tax_rate:"0.150000",
+      tax_code:"KSA_STANDARD",net:"100.00",tax:"15.00",gross:"115.00",
+    }]};
+  const {root,workspace}=harness("ar",{fetchImpl:async(url,opts)=>{
+    paths.push(url.pathname);
+    if(url.pathname==="/api/v1/finance/internal-invoice-source")return success(source);
+    if(url.pathname==="/api/v1/finance/internal-invoice-approvals"){
+      assert.equal(opts.method,"POST");approved=true;
+      return success({tenant,document_id,status:"approved_internal_source",ok:true});
+    }
+    if(url.pathname==="/api/v1/activity/timeline"){
+      historyReads++;
+      return success({module:"activity",tenant_id:tenant,record_type:"invoice",record_id:document_id,
+        items:approved?[{event_id:"approved:"+document_id,
+          action:"invoice.source_approved",actor_id:tenant,
+          occurred_at:"2026-10-17T19:00:00.000000Z"}]:[],
+        page:{limit:20,offset:0,has_more:false,next_offset:null},
+        read_only:true,source:"one_erp_next_postgresql"});
+    }
+    return {ok:false,status:403};
+  }});
+  await workspace.select("review");
+  const panel=root.children[3].children[0];
+  const controls=panel.children[0],layout=panel.children[1];
+  controls.children[1].value=document_id;controls.children[2].listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(historyReads,1);
+  assert.equal(layout.children[1].children[3].children.length,0);
+  const review=layout.children[0];
+  review.children[6].checked=true;review.children[6].listeners.change();
+  await review.children[7].listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(historyReads,2);
+  assert.equal(layout.children[1].children[3].children.length,1);
+  assert.equal(layout.children[1].children[3].children[0].children[0].textContent,
+    "اعتماد مصدر الفاتورة بمراجع مستقل");
+  assert.deepEqual(paths,[
+    "/api/v1/finance/internal-invoice-source",
+    "/api/v1/activity/timeline",
+    "/api/v1/finance/internal-invoice-approvals",
+    "/api/v1/activity/timeline",
+  ]);
+  workspace.dispose();
+});

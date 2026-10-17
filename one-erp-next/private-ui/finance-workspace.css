@@ -1,0 +1,197 @@
+/* ONE ERP NEXT: isolated private finance workspace skin.
+   Import only from a trusted authenticated app; never publish tenant data.
+   Accessible blue navigation, compact controls, responsive tables, RTL/LTR.
+ */
+.one-private-finance{
+  --one-ink:#162c47;
+  --one-secondary:#516883;
+  --one-blue:#1261ae;
+  --one-blue-strong:#09467e;
+  --one-surface:#ffffff;
+  --one-muted:#f2f6fb;
+  --one-line:#dbe5f0;
+  --one-focus:#1d75ca;
+  color:var(--one-ink);
+  background:var(--one-surface);
+  font:400 0.875rem/1.5 system-ui,"Noto Sans Arabic","Segoe UI",sans-serif;
+  width:100%;
+  min-height:100%;
+  padding:clamp(12px,2vw,22px);
+  box-sizing:border-box;
+}
+.one-private-finance *,
+.one-private-finance *::before,
+.one-private-finance *::after{box-sizing:border-box}
+.one-private-finance header{
+  background:var(--one-blue-strong);
+  color:white;
+  border-radius:13px;
+  padding:16px 20px;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:6px 20px;
+}
+.one-private-finance header h1{
+  margin:0;
+  font-size:clamp(1rem,1.5vw,1.28rem);
+  font-weight:750;
+  letter-spacing:.01em;
+}
+.one-private-finance header p{
+  margin:0;
+  font-size:.8rem;
+  max-width:680px;
+  color:#e0effe;
+}
+.one-private-finance .one-finance-nav{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px;
+  border-bottom:1px solid var(--one-line);
+  padding:10px 0;
+  margin-bottom:8px;
+}
+.one-private-finance button{
+  appearance:none;
+  border:1px solid var(--one-line);
+  border-radius:8px;
+  color:var(--one-blue-strong);
+  background:var(--one-surface);
+  padding:6px 11px;
+  font:inherit;
+  font-size:.825rem;
+  font-weight:650;
+  min-height:34px;
+  max-width:100%;
+  cursor:pointer;
+}
+.one-private-finance button:hover:not(:disabled){
+  background:#e9f2fc;
+  border-color:#afd2f5;
+}
+.one-private-finance button:disabled{opacity:.45;cursor:not-allowed}
+.one-private-finance .one-finance-nav button[aria-pressed="true"]{
+  color:white;
+  border-color:var(--one-blue);
+  background:var(--one-blue);
+}
+.one-private-finance :focus-visible{
+  outline:3px solid var(--one-focus);
+  outline-offset:2px;
+}
+.one-private-finance .one-finance-content{margin-top:8px}
+.one-private-finance .one-finance-content>section{
+  width:100%;
+  min-width:0;
+  padding:14px;
+  border:1px solid var(--one-line);
+  border-radius:12px;
+}
+.one-private-finance section[aria-label] h2{
+  margin:0 0 10px;
+  font-size:1.05rem;
+  font-weight:700;
+}
+.one-private-finance input{
+  padding:7px 10px;
+  font:inherit;
+  border:1px solid #b5c7d9;
+  border-radius:8px;
+  min-height:36px;
+  max-width:100%;
+  color:var(--one-ink);
+  background:var(--one-surface);
+}
+.one-private-finance input[type="text"]{width:min(430px,100%)}
+.one-private-finance label{color:var(--one-secondary);font-size:.825rem}
+.one-private-finance p[role="status"]{color:var(--one-blue-strong)}
+.one-private-finance table{
+  border-collapse:separate;
+  border-spacing:0;
+  font-variant-numeric:tabular-nums;
+  min-width:580px;
+  width:100%;
+  font-size:.8rem;
+}
+.one-private-finance .one-finance-content section:has(>table){
+  overflow-x:auto;
+  max-width:100%;
+}
+.one-private-finance table th,.one-private-finance table td{
+  text-align:start;
+  padding:8px 10px;
+  vertical-align:top;
+  border-bottom:1px solid var(--one-line);
+  white-space:nowrap;
+}
+.one-private-finance table th{
+  background:var(--one-muted);
+  font-weight:750;
+  position:sticky;
+  top:0;
+  z-index:1;
+}
+.one-private-finance table tbody tr:hover{background:#f8fbff}
+.one-private-finance nav[aria-label="ONE ERP operations"][hidden]{display:none}
+.one-private-finance .one-finance-content nav{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-block:8px;
+}
+@media(max-width:640px){
+  .one-private-finance{padding:9px}
+  .one-private-finance header{padding:12px}
+  .one-private-finance header h1{font-size:1rem}
+  .one-private-finance .one-finance-content>section{padding:8px}
+  .one-private-finance .one-finance-nav button{font-size:.75rem;padding:5px 8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .one-private-finance *{animation:none!important;transition:none!important}
+}
+
+/* Authenticated per-document activity: left column on wide Arabic layouts;
+   stacked under document on small screens. No overlay or floating widget. */
+.one-private-finance .one-review-with-activity{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(255px,310px);
+  align-items:start;
+  gap:12px;
+  direction:rtl;
+  min-width:0;
+}
+.one-private-finance .one-review-with-activity > section{min-width:0;overflow-x:auto}
+.one-private-finance .one-activity-panel{
+  display:block;min-width:0;
+  max-height:540px;overflow-y:auto;
+  border:1px solid var(--one-line);
+  background:var(--one-muted);
+  border-radius:12px;
+  padding:12px;
+}
+.one-private-finance .one-activity-panel h2{font-size:.95rem;margin:0 0 8px}
+.one-private-finance .one-activity-panel p{font-size:.75rem;color:var(--one-secondary)}
+.one-private-finance .one-activity-panel ol{list-style:none;padding:0;margin:8px 0}
+.one-private-finance .one-activity-panel li{
+  display:grid;gap:3px;
+  padding:10px 9px;
+  border-inline-start:3px solid var(--one-blue);
+  border-radius:6px;
+  background:var(--one-surface);
+  margin-block:7px;
+  overflow-wrap:anywhere;
+}
+.one-private-finance .one-activity-panel li strong{color:var(--one-blue-strong)}
+.one-private-finance .one-activity-panel li time,
+.one-private-finance .one-activity-panel li span{
+  font-size:.73rem;color:var(--one-secondary);
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:860px){
+  .one-private-finance .one-review-with-activity{grid-template-columns:minmax(0,1fr)}
+  .one-private-finance .one-activity-panel{max-height:none}
+}
+
+/* Source-backed order history opens only on valid order references. */
+.one-private-finance .one-operations-activity{margin-top:12px;max-width:360px}
+.one-private-finance .one-operations-activity[hidden]{display:none}
