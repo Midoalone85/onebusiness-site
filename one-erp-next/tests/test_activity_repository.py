@@ -54,7 +54,7 @@ class ActivityAuditReaderTests(unittest.TestCase):
         sqls=[sql for sql,args in cursor.queries]
         self.assertEqual(sqls[0],"SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
         self.assertTrue(any("one_actor_has_permission" in sql for sql in sqls))
-        self.assertEqual(cursor.queries[-1][1],(self.tenant,self.record,21,0))
+        self.assertEqual(cursor.queries[-1][1],(self.tenant,self.record)*3+(21,0))
         self.assertIn("FROM public.one_invoice_audit",cursor.queries[-1][0])
 
     def test_empty_and_paginated_results_do_not_invent_history(self):
