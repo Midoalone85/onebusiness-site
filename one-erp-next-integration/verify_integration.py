@@ -26,8 +26,14 @@ def migration_checks():
     if not migrations:
         return ["No numbered PostgreSQL migrations found"]
     numbers = {}
+    seen_casefold = set()
     for path in migrations:
         number = int(path.name[:3])
+        if path.name.casefold() in seen_casefold:
+            errors.append(f"Case-insensitive duplicate migration filename: {path.name}")
+        seen_casefold.add(path.name.casefold())
+        if number == 0:
+            errors.append(f"Zero migration number: {path.name}")
         numbers.setdefault(number, []).append(path.name)
         if not path.read_text(encoding="utf-8").strip():
             errors.append(f"Empty migration: {path.name}")
