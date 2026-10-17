@@ -49,6 +49,8 @@ class TrustedInvoiceSource:
     memberships: tuple[Membership, ...]
     minor_units: int = 2
     goods_receipt_liability_accounts: frozenset[str] = frozenset()
+    sales_order_id: UUID | None = None
+    sales_order_line_nos: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,7 +180,50 @@ def execute_verified_document_request(
                            action=Action.WRITE_ACCOUNTING,
                            memberships=source.memberships)):
             raise PermissionError("Approved document, accounting role and IDs required")
+        # A sales-sourced invoice and its dispatch allocation are ONE
+        # PostgreSQL transaction. A failing source link rolls back the
+        # journal, issue record and replay receipt, not merely an error UI.
+        if command["action"] == "issue_internal_invoice":
+            source_order = source.sales_order_id
+            source_lines = source.sales_order_line_nos
+            if source_order is not None:
+                if (not isinstance(source_order, UUID) or source_order.int==0 or
+                    not isinstance(source_lines, tuple) or
+                    not 1 <= len(source_lines) <= 100 or
+                    len(source_lines) != len(document.lines) or
+                    any(type(n) is not int or n<=0 for n in source_lines) or
+                    len(set(source_lines)) != len(source_lines)):
+                    raise PermissionError("Immutable sales dispatch link required")
+            elif source_lines:
+                raise PermissionError("Sales line mapping lacks approved order")
         receipt = invoke(connection, **kwargs)
+        if command["action"] == "issue_internal_invoice" and source.sales_order_id is not None:
+            with connection.cursor() as cur:
+                if not receipt.replayed:
+                    cur.execute(
+                        "SELECT public.one_link_sales_invoice(%s,%s,%s,%s,%s)",
+                        (tenant,doc_id,source.sales_order_id,actor,
+                         list(source.sales_order_line_nos)),
+                    )
+                    if cur.fetchone() != (doc_id,):
+                        raise PermissionError("Sales invoice allocation rejected")
+                # Audit both initial posting and replay against the
+                # frozen order mapping, never silently return an unlinked
+                # sales invoice that would invite duplicate invoicing.
+                cur.execute(
+                    """SELECT order_id,order_line_no,invoice_line_number
+                         FROM public.one_sales_invoice_allocations
+                        WHERE tenant_id=%s AND invoice_id=%s
+                        ORDER BY invoice_line_number""",
+                    (tenant,doc_id),
+                )
+                found=cur.fetchall()
+                required=[
+                    (source.sales_order_id,no,i) for i,no
+                    in enumerate(source.sales_order_line_nos,start=1)
+                ]
+                if found != required:
+                    raise PermissionError("Sales invoice source allocations missing")
         if (not isinstance(receipt, FinanceReplayReceipt) or
             receipt.document_id != doc_id or
             receipt.operation != (
