@@ -56,3 +56,36 @@ jobs:
         run: node --test one-erp-preview/tests/navigation.test.cjs
       - name: Private data-only operations client/page/view regression
         run: node --test one-erp-next/private-ui/*.test.mjs
+
+  brand-identity:
+    name: Prevent private repository owner leaking into distributed source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check tracked text for private repository owner
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, re, subprocess
+          from pathlib import Path
+          owner=os.environ["GITHUB_REPOSITORY_OWNER"].strip()
+          assert owner, "Missing repository owner"
+          pattern=re.compile(re.escape(owner),re.IGNORECASE)
+          files=[Path(os.fsdecode(p)) for p in subprocess.check_output(
+              ["git","ls-files","-z"]).split(b"\\0")
+              if p and Path(os.fsdecode(p)).suffix.lower()
+              in {".md",".html",".js",".css",".json",".py",".yml",".yaml",".sql",".txt"}]
+          matches=[]
+          for f in files:
+              try:
+                  if pattern.search(f.read_text(encoding="utf-8")):
+                      matches.append(str(f))
+              except UnicodeDecodeError:
+                  continue
+          if matches:
+              raise SystemExit("Private repository owner leaked in: "+", ".join(matches))
+          print(f"Owner privacy PASS for {len(files)} tracked text files")
+          PY
