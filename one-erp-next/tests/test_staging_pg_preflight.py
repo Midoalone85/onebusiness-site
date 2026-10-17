@@ -140,7 +140,7 @@ class StagingPostgresPreflightTests(unittest.TestCase):
         for db,role in (
             ("",ROLE),("mydb;DROP ROLE postgres",ROLE),
             ("UpperCase",ROLE),(DB,"postgres"),(DB,"public"),
-            (DB,"a"),(DB,"evil-owner");,
+            (DB,"a"),(DB,"evil-owner"),
         ):
             with self.subTest(db=db,role=role):
                 with self.assertRaises(ValueError):
