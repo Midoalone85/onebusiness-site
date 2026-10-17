@@ -2,7 +2,9 @@
 import {readActivity} from "./activity-client.mjs";
 const ACTIONS=Object.freeze({
   ar:{
-    "invoice.issued":"إصدار الفاتورة","payment.applied":"إثبات تخصيص دفعة داخلي",
+    "invoice.issued":"إصدار الفاتورة",
+    "invoice.source_requested":"إنشاء طلب اعتماد الفاتورة",
+    "invoice.source_approved":"اعتماد مصدر الفاتورة بمراجع مستقل","payment.applied":"إثبات تخصيص دفعة داخلي",
     "journal.posted":"ترحيل قيد","return.requested":"طلب مرتجع",
     "return.completed":"إكمال المرتجع","return.rejected":"رفض المرتجع",
     "stock.purchase_receipt":"استلام مخزون","stock.sale_dispatch":"صرف مخزون",
@@ -14,7 +16,9 @@ const ACTIONS=Object.freeze({
     "receiving.inspection_completed":"اكتمال فحص الوارد",
   },
   en:{
-    "invoice.issued":"Invoice issued","payment.applied":"Internal payment applied",
+    "invoice.issued":"Invoice issued",
+    "invoice.source_requested":"Invoice approval requested",
+    "invoice.source_approved":"Invoice source independently approved","payment.applied":"Internal payment applied",
     "journal.posted":"Journal posted","return.requested":"Return requested",
     "return.completed":"Return completed","return.rejected":"Return rejected",
     "stock.purchase_receipt":"Stock received","stock.sale_dispatch":"Stock dispatched",
