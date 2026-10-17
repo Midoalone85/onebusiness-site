@@ -100,7 +100,7 @@ test("invoice review cannot approve until protected API provides source and revi
   workspace.dispose();
 });
 test("no accepted UI state for invalid company, missing token or malformed date",()=>{
-  for(const cfg of [{tenant:"bogus"},{as_of:"2026-02-30"},{getToken:()=>null}]){
+  for(const cfg of [{tenant:"bogus"},{as_of:"2026-02-30"},{getToken:null}]){
     const root=document.createElement("main");
     assert.throws(()=>mountPrivateFinanceWorkspace({
       root,baseUrl:"https://erp.example.test/",tenant,as_of,
