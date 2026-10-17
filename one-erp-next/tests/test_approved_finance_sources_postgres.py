@@ -1103,5 +1103,95 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
 
 
+
+    def test_062_real_pg_reviewer_source_restricted_role_and_approval_lifecycle(self):
+        """Disposable DB: verified commercial draft visible only to a finance reviewer."""
+        from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
+        from one_erp_core.invoice_source_workflow import (
+            create_trusted_invoice_source, independently_approve_invoice_source,
+        )
+        from one_erp_core.invoice_review_source import load_invoice_review_summary
+
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        with self.connect() as conn:
+            create_trusted_invoice_source(
+                conn,identity=AuthenticatedFinanceIdentity(
+                    self.actor,frozenset({self.tenant})),
+                tenant_id=self.tenant,document_id=self.doc_id,
+                builder=PostgresDispatchedSalesInvoiceBuilder(),
+            )
+        role="one_review_ci_"+uuid4().hex[:14]
+        ident=self.sql.Identifier(role)
+        tables=(
+            "one_memberships","one_permission_templates",
+            "one_permission_change_requests","one_permission_change_approvals",
+            "one_invoice_source_requests","one_sales_invoice_source_links",
+            "one_sales_invoice_intents","one_commercial_orders",
+            "one_periods","one_invoice_source_approvals","one_currency_precision",
+        )
+        with self.connect() as conn:
+            conn.execute(self.sql.SQL("CREATE ROLE {} NOLOGIN").format(ident))
+            conn.execute(self.sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(ident))
+            cols=self.sql.SQL(",").join(self.sql.Identifier("public",table) for table in tables)
+            conn.execute(self.sql.SQL("GRANT SELECT ON {} TO {}").format(cols,ident))
+            conn.execute(self.sql.SQL(
+                "GRANT EXECUTE ON FUNCTION public.one_actor_has_permission(uuid,uuid,text)"
+                " TO {}").format(ident))
+        try:
+            with self.connect() as conn:
+                conn.execute(self.sql.SQL("SET ROLE {}").format(ident))
+                try:
+                    evidence=load_invoice_review_summary(
+                        conn,tenant_id=self.tenant,actor_id=self.reviewer,
+                        document_id=self.doc_id,
+                    )
+                    self.assertEqual(evidence["source"],"verified_internal_postgresql")
+                    self.assertEqual(evidence["fields"][-1],
+                                     {"label":"Gross","value":"200.00"})
+                    self.assertEqual(len(evidence["lines"]),1)
+                    self.assertEqual(evidence["lines"][0]["line_number"],1)
+                    self.assertEqual(evidence["lines"][0]["quantity"],"2.000000")
+                    self.assertEqual(evidence["lines"][0]["gross"],"200.00")
+                    with self.assertRaises(PermissionError):
+                        load_invoice_review_summary(
+                            conn,tenant_id=self.tenant,actor_id=self.actor,
+                            document_id=self.doc_id,
+                        )
+                    with self.assertRaises(PermissionError):
+                        load_invoice_review_summary(
+                            conn,tenant_id=uuid4(),actor_id=self.reviewer,
+                            document_id=self.doc_id,
+                        )
+                    with self.assertRaises(self.pg.Error):
+                        with conn.transaction():
+                            conn.execute(
+                                """UPDATE one_invoice_source_requests SET period_id=%s
+                                   WHERE tenant_id=%s AND document_id=%s""",
+                                (self.period_id,self.tenant,self.doc_id),
+                            )
+                finally:
+                    conn.execute("RESET ROLE")
+            with self.connect() as conn:
+                independently_approve_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        self.reviewer,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id,
+                )
+            with self.connect() as conn:
+                conn.execute(self.sql.SQL("SET ROLE {}").format(ident))
+                try:
+                    with self.assertRaises(PermissionError):
+                        load_invoice_review_summary(
+                            conn,tenant_id=self.tenant,actor_id=self.reviewer,
+                            document_id=self.doc_id,
+                        )
+                finally:
+                    conn.execute("RESET ROLE")
+        finally:
+            with self.connect() as conn:
+                conn.execute(self.sql.SQL("DROP OWNED BY {}").format(ident))
+                conn.execute(self.sql.SQL("DROP ROLE {}").format(ident))
+
 if __name__=="__main__":
     unittest.main()
