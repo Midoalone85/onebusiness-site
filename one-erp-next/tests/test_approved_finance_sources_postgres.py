@@ -528,5 +528,209 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             self.root.execute(self.sql.SQL("DROP ROLE {}").format(ident))
 
 
+
+    def test_trusted_maker_checker_source_is_postable_with_durable_replay(self):
+        from one_erp_core.invoice_source_workflow import (
+            BuiltInvoiceSource, create_trusted_invoice_source,
+            independently_approve_invoice_source,
+        )
+        class Builder:
+            calls=0
+            def build(builder_self,conn,*,tenant_id,document_id,actor_id):
+                builder_self.calls+=1
+                if tenant_id!=self.tenant or document_id!=self.doc_id or actor_id!=self.actor:
+                    raise PermissionError("Source builder identity mismatch")
+                return BuiltInvoiceSource(self.period_id,self.payload)
+        builder=Builder()
+        maker=AuthenticatedFinanceIdentity(self.actor,frozenset({self.tenant}))
+        checker=AuthenticatedFinanceIdentity(self.reviewer,frozenset({self.tenant}))
+        with self.connect() as conn:
+            self.assertEqual(create_trusted_invoice_source(
+                conn,identity=maker,tenant_id=self.tenant,
+                document_id=self.doc_id,builder=builder),self.doc_id)
+            self.assertEqual(builder.calls,1)
+            with self.assertRaises(PermissionError):
+                independently_approve_invoice_source(
+                    conn,identity=maker,tenant_id=self.tenant,
+                    document_id=self.doc_id)
+            self.assertEqual(independently_approve_invoice_source(
+                conn,identity=checker,tenant_id=self.tenant,
+                document_id=self.doc_id),self.doc_id)
+            with self.assertRaises(self.pg.Error):
+                independently_approve_invoice_source(
+                    conn,identity=checker,tenant_id=self.tenant,
+                    document_id=self.doc_id)
+            receipt=self.execute(conn)
+            self.assertFalse(receipt.replayed)
+        with self.connect() as conn:
+            again=self.execute(conn)
+        self.assertTrue(again.replayed)
+        self.assertEqual(self.count("one_invoice_docs","id"),1)
+        self.assertEqual(self.count("one_journal_entries","id"),1)
+        self.assertEqual(self.count("one_finance_requests","request_id"),1)
+
+    def test_trusted_invoice_maker_checker_fails_closed_on_permission_and_unavailable_period(self):
+        from copy import deepcopy
+        from one_erp_core.invoice_source_workflow import (
+            BuiltInvoiceSource, create_trusted_invoice_source,
+            independently_approve_invoice_source,
+        )
+        class Builder:
+            calls=0
+            def build(builder_self,*args,**kwargs):
+                builder_self.calls+=1
+                return BuiltInvoiceSource(self.period_id,deepcopy(self.payload))
+        builder=Builder()
+        valid=AuthenticatedFinanceIdentity(self.actor,frozenset({self.tenant}))
+        viewer=uuid4()
+        with self.connect() as conn:
+            conn.execute(
+                """INSERT INTO one_memberships(tenant_id,actor_id,role)
+                   VALUES(%s,%s,'viewer')""",(self.tenant,viewer))
+            foreign=AuthenticatedFinanceIdentity(self.actor,frozenset({uuid4()}))
+            with self.assertRaises(PermissionError):
+                create_trusted_invoice_source(
+                    conn,identity=foreign,tenant_id=self.tenant,
+                    document_id=self.doc_id,builder=builder)
+            with self.assertRaises(PermissionError):
+                create_trusted_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        viewer,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id,builder=builder)
+            with self.assertRaises(PermissionError):
+                independently_approve_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        viewer,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id)
+            self.assertEqual(builder.calls,0)
+            # A period may only be closed through the separate audited
+            # period-close permission workflow; never bypass that protection
+            # merely to manufacture a test fixture.
+            self.period_id=uuid4()  # unavailable accounting period
+            with self.assertRaises(PermissionError):
+                create_trusted_invoice_source(
+                    conn,identity=valid,tenant_id=self.tenant,
+                    document_id=self.doc_id,builder=builder)
+        self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
+        self.assertEqual(self.count("one_invoice_source_approvals","document_id"),0)
+
+    def test_trusted_source_builder_rejects_tampered_amount_and_does_not_leave_draft(self):
+        from copy import deepcopy
+        from one_erp_core.invoice_source_workflow import (
+            BuiltInvoiceSource,create_trusted_invoice_source,
+        )
+        maker=AuthenticatedFinanceIdentity(self.actor,frozenset({self.tenant}))
+        for index,value in enumerate((12.5,"NaN","1e10","inf")):
+            with self.subTest(index=index):
+                self.doc_id=uuid4()
+                fake=deepcopy(self.payload)
+                fake["lines"][0]["unit_price"]=value
+                class Builder:
+                    def build(builder_self,*args,**kwargs):
+                        return BuiltInvoiceSource(self.period_id,fake)
+                with self.connect() as conn:
+                    with self.assertRaises(PermissionError):
+                        create_trusted_invoice_source(
+                            conn,identity=maker,tenant_id=self.tenant,
+                            document_id=self.doc_id,builder=Builder())
+                self.assertEqual(
+                    self.count("one_invoice_source_requests","document_id"),0)
+
+    def test_approved_source_actor_revocation_prevents_new_approval(self):
+        from one_erp_core.invoice_source_workflow import (
+            independently_approve_invoice_source,
+        )
+        with self.connect() as conn:
+            self.prepare(conn)
+            conn.execute(
+                """UPDATE one_memberships SET active=false
+                   WHERE tenant_id=%s AND actor_id=%s""",
+                (self.tenant,self.reviewer))
+            with self.assertRaises(PermissionError):
+                independently_approve_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        self.reviewer,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id)
+        self.assertEqual(
+            self.count("one_invoice_source_approvals","document_id"),0)
+
+
+
+    def test_approved_invoice_signin_review_http_then_post_once_real_postgres(self):
+        """HTTP approval accepts reference only, and SQL enforces different actor."""
+        from io import BytesIO
+        from one_erp_core.finance_wsgi import TenantFinanceConnections
+        from one_erp_core.invoice_approval_wsgi import OneInvoiceApprovalWSGI
+        from one_erp_core.invoice_source_workflow import (
+            BuiltInvoiceSource, create_trusted_invoice_source,
+        )
+
+        class Builder:
+            def build(builder_self,conn,*,tenant_id,document_id,actor_id):
+                if tenant_id!=self.tenant or actor_id!=self.actor:
+                    raise PermissionError("Wrong maker identity")
+                return BuiltInvoiceSource(self.period_id,self.payload)
+
+        with self.connect() as conn:
+            create_trusted_invoice_source(
+                conn,identity=AuthenticatedFinanceIdentity(
+                    self.actor,frozenset({self.tenant})),
+                tenant_id=self.tenant,document_id=self.doc_id,
+                builder=Builder())
+
+        class Verifier:
+            who=self.actor
+            def verify_access_token(verifier_self,token):
+                if token!="header.claims.signature":
+                    raise PermissionError("Expired/unknown token")
+                return AuthenticatedFinanceIdentity(
+                    verifier_self.who,frozenset({self.tenant}))
+        verifier=Verifier()
+        app=OneInvoiceApprovalWSGI(
+            verifier=verifier,
+            approval_connections=TenantFinanceConnections({
+                self.tenant:self.connect}),
+            allowed_hosts=frozenset({"staging.erp.example.net"}),
+        )
+
+        def call():
+            body=json.dumps({
+                "tenant":str(self.tenant),"document_id":str(self.doc_id),
+            }).encode()
+            status={}
+            response=b"".join(app({
+                "REQUEST_METHOD":"POST",
+                "PATH_INFO":"/api/v1/finance/internal-invoice-approvals",
+                "wsgi.url_scheme":"https",
+                "HTTP_HOST":"staging.erp.example.net",
+                "QUERY_STRING":"","HTTP_COOKIE":"",
+                "CONTENT_TYPE":"application/json",
+                "CONTENT_LENGTH":str(len(body)),
+                "HTTP_AUTHORIZATION":"Bearer header.claims.signature",
+                "wsgi.input":BytesIO(body),
+            },lambda code,headers:status.update(code=code,headers=dict(headers))))
+            return status,json.loads(response)
+
+        maker_code,_=call()
+        self.assertEqual(maker_code["code"],"403 Forbidden")
+        self.assertEqual(self.count("one_invoice_source_approvals","document_id"),0)
+        verifier.who=self.reviewer
+        checker_code,checker_body=call()
+        self.assertEqual(checker_code["code"],"200 OK")
+        self.assertEqual(checker_body["status"],"approved_internal_source")
+        self.assertEqual(self.count("one_invoice_source_approvals","document_id"),1)
+        duplicate_code,_=call()
+        self.assertEqual(duplicate_code["code"],"409 Conflict")
+        self.assertEqual(self.count("one_invoice_source_approvals","document_id"),1)
+        with self.connect() as conn:
+            first=self.execute(conn)
+        with self.connect() as conn:
+            replay=self.execute(conn)
+        self.assertFalse(first.replayed)
+        self.assertTrue(replay.replayed)
+        self.assertEqual(self.count("one_invoice_docs","id"),1)
+        self.assertEqual(self.count("one_journal_entries","id"),1)
+
+
 if __name__=="__main__":
     unittest.main()

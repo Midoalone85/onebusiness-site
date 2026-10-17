@@ -284,6 +284,47 @@ class StagingRouterTests(unittest.TestCase):
                 self.tenant:FakeDB,
             }))
 
+    def test_invoice_review_route_is_unmounted_by_default(self):
+        self.assertEqual(self.request(
+            "/api/v1/finance/internal-invoice-approvals",
+            method="POST",body=b"{}")[0],"404 Not Found")
+        self.assertEqual(self.db_calls,0)
+
+    def test_approval_requires_explicit_separate_registry_and_readiness(self):
+        dedicated=TenantFinanceConnections({self.tenant:FakeDB})
+        app=self.router(
+            approval_connections=dedicated,enable_invoice_source_approvals=True)
+        payload=json.dumps({
+            "tenant":str(self.tenant),"document_id":str(uuid4()),
+        }).encode()
+        self.ready_values["trusted_identity_provider"]=False
+        self.assertEqual(self.request(
+            "/api/v1/finance/internal-invoice-approvals",
+            method="POST",body=payload,app=app)[0],
+            "503 Service Unavailable")
+        self.ready_values["trusted_identity_provider"]=True
+        self.assertEqual(self.request(
+            "/api/v1/finance/internal-invoice-approvals",
+            method="POST",body=payload,app=app,
+            HTTP_AUTHORIZATION="")[0],"401 Unauthorized")
+        self.assertEqual(self.db_calls,0)
+
+    def test_approval_registry_cannot_reuse_reporting_or_write_credentials(self):
+        for registry in (self.connections,self.report_connections):
+            with self.subTest(which=registry):
+                with self.assertRaises(ValueError):
+                    self.router(
+                        approval_connections=registry,
+                        enable_invoice_source_approvals=True)
+        with self.assertRaises(ValueError):
+            self.router(enable_invoice_source_approvals=True)
+        with self.assertRaises(ValueError):
+            self.router(enable_invoice_source_approvals=1)
+        with self.assertRaises(ValueError):
+            self.router(
+                approval_connections=TenantFinanceConnections({
+                    self.tenant:FakeDB}))
+
     def test_config_rejects_unknown_tenant_registry_and_bad_hosts(self):
         for connection in (None,object()):
             with self.assertRaises(ValueError):
