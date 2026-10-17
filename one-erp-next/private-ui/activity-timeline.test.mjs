@@ -83,3 +83,33 @@ test("manual refresh re-reads server facts without creating local events",async(
   result.clear();assert.equal(root.children[4].children[2].disabled,true);
   result.dispose();
 });
+
+test("authenticated diff click re-reads database and renders only allowlisted fields",async()=>{
+  let reads=0;
+  const {root,result,calls}=fixture((url)=>{
+    reads++;
+    return {ok:true,status:200,headers:{get:()=>"application/json"},
+      json:async()=>({
+        module:"activity",record_type:"sales_order",record_id,
+        tenant_id:tenant,source:"one_erp_next_postgresql",read_only:true,
+        page:{limit:20,offset:0,has_more:false,next_offset:null},
+        items:[{event_id:"change:"+record_id,action:"sales_order.line_changed",
+          actor_id:actor,occurred_at:"2026-10-17T18:00:00.000000Z",
+          ...(url.searchParams.get("include_changes")==="1"?{
+            changes:{before:{unit_price:"10.000"},
+              after:{unit_price:"12.000"}}}:{})}],
+      })};
+  });
+  assert.equal(await result.load("sales_order",record_id),true);
+  assert.equal(root.children[3].children[0].children.length,3);
+  assert.equal(root.children[4].children[3].disabled,false);
+  root.children[4].children[3].listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(reads,2);
+  assert.equal(calls[1].url.searchParams.get("include_changes"),"1");
+  assert.equal(root.children[3].children[0].children.length,4);
+  const value=root.children[3].children[0].children[3].children[0].children[1].textContent;
+  assert.match(value,/10.000/);assert.match(value,/12.000/);
+  assert.equal(root.children[4].children[3].disabled,true);
+  result.dispose();
+});
