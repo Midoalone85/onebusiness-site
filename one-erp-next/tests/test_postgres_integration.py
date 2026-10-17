@@ -5162,9 +5162,10 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(after[1]-before[1],Decimal("17.50"))
         self.assertEqual(after[2]-before[2],Decimal("10.00"))
         self.assertEqual(after[3]-before[3],Decimal("7.50"))
-        self.assertEqual(after[4],date(2026,10,15))
+        self.assertEqual(after[4],date.today())
         day=self.inventory_nrv_activity(
-            tenant,self.actor,start=date(2026,10,16),end=date(2026,11,1))
+            tenant,self.actor,start=date.today()+timedelta(days=1),
+            end=date.today()+timedelta(days=3))
         self.assertEqual(day[:4],(0,Decimal("0"),Decimal("0"),Decimal("0")))
 
     def test_nrv_company_reader_refuses_wrong_actor_tenant_and_period(self):
@@ -5487,7 +5488,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         self.assertEqual(after[5]-before[5],0)
         self.assertTrue(after[6])
         later=self.nrv_sales_activity(tenant,self.actor,
-            start=date(2026,10,16),end=date(2026,11,1))
+            start=date.today()+timedelta(days=1),
+            end=date.today()+timedelta(days=3))
         self.assertEqual(later[:6],(
             0,Decimal("0"),Decimal("0"),Decimal("0"),Decimal("0"),0))
         self.assertTrue(later[6])
@@ -6450,7 +6452,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 payment_reference=None,
                 transaction_ref=None,
                 statement_ref="STATEMENT-TEST-20261015",
-                value_date=date(2026,10,16)):
+                value_date=None):
         bank_line=bank_line or uuid4()
         return bank_line,self.commerce_execute(
             tenant,actor,"SELECT one_register_refund_bank_candidate("
@@ -6458,7 +6460,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,order,bank_line,actor,"BANK-ACCOUNT-DEMO",
              statement_ref,transaction_ref or "TX-"+bank_line.hex,
              payment_reference or "ORDER-"+str(order),beneficiary,
-             currency,amount,value_date))
+             currency,amount,value_date or date.today()))
 
     def bank_candidate_company_report(self,tenant,actor):
         with self.db.transaction():
@@ -6561,7 +6563,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                             (tenant,order,line_id,clerk,"BANK-ACCOUNT-DEMO",
                              "STATEMENT-TEST-20261015","TX-"+line_id.hex,
                              "ORDER-"+str(order),"BENEFICIARY-REVIEW-CI",
-                             "SAR",Decimal("10"),date(2026,10,16)))
+                             "SAR",Decimal("10"),date.today()))
                     return True
                 except self.psycopg.Error:
                     return False
