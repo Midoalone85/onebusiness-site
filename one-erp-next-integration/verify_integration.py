@@ -81,6 +81,12 @@ def privilege_template_checks():
                 errors.append(f"Unexpected privileged role flag: {path.name}")
         if re.search(r"\bGRANT\s+ALL\b", upper):
             errors.append(f"Unbounded GRANT ALL detected: {path.name}")
+        # Named roles may receive only reviewed object-scoped privileges.
+        # Bulk grants or privileges to PUBLIC bypass the allowlist review.
+        if re.search(r"\bGRANT\b[^;]*\bON\s+ALL\s+(?:TABLES|SEQUENCES|FUNCTIONS|ROUTINES)\b", upper):
+            errors.append(f"Unbounded object-class GRANT detected: {path.name}")
+        if re.search(r"\bGRANT\b[^;]*\bTO\s+PUBLIC\b", upper):
+            errors.append(f"GRANT to PUBLIC detected: {path.name}")
         if "BEGIN;" not in upper or "COMMIT;" not in upper:
             errors.append(f"Missing transactional scope: {path.name}")
     return errors

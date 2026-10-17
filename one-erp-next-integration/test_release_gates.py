@@ -81,6 +81,24 @@ class ReleaseGateTests(unittest.TestCase):
         self.assertTrue(any("Missing minimum role protections" in e
                             for e in gate.privilege_template_checks()))
 
+    def test_select_on_all_tables_rejected(self):
+        self.roles("BEGIN; CREATE ROLE demo NOLOGIN NOSUPERUSER NOBYPASSRLS; "
+                   "GRANT SELECT ON ALL TABLES IN SCHEMA public TO demo; COMMIT;")
+        self.assertTrue(any("Unbounded object-class GRANT" in e
+                            for e in gate.privilege_template_checks()))
+
+    def test_public_grant_rejected(self):
+        self.roles("BEGIN; CREATE ROLE demo NOLOGIN NOSUPERUSER NOBYPASSRLS; "
+                   "GRANT SELECT ON TABLE data TO PUBLIC; COMMIT;")
+        self.assertTrue(any("GRANT to PUBLIC" in e
+                            for e in gate.privilege_template_checks()))
+
+    def test_commented_bulk_and_public_grants_allowed(self):
+        self.roles("BEGIN; CREATE ROLE demo NOLOGIN NOSUPERUSER NOBYPASSRLS;\n"
+                   "-- GRANT SELECT ON ALL TABLES IN SCHEMA public TO demo;\n"
+                   "-- GRANT SELECT ON TABLE data TO PUBLIC;\nCOMMIT;")
+        self.assertEqual(gate.privilege_template_checks(), [])
+
     def test_multiline_grant_all_rejected(self):
         self.roles("BEGIN; CREATE ROLE demo NOLOGIN NOSUPERUSER NOBYPASSRLS;\n"
                    "GRANT\n ALL\n PRIVILEGES\n ON TABLE data TO demo; COMMIT;")
