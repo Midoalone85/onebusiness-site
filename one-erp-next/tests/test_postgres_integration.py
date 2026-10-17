@@ -4927,7 +4927,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             (tenant,warehouse,product,event,journal,
              period or self.period_id,allowance,expense,admin,
              revision,qty,cost,selling,completion,selling_cost,
-             evidence,date(2026,10,15)))
+             evidence,date.today()))
 
     def nrv_report(self,tenant,admin,warehouse,product):
         with self.db.transaction():
