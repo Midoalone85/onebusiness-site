@@ -8,7 +8,7 @@ CREATE TABLE one_finance_requests (
     request_id uuid NOT NULL,
     actor_id uuid NOT NULL,
     request_sha256 text NOT NULL CHECK (request_sha256 ~ '^[0-9a-f]{64}$'),
-    result_id uuid,
+    result_id uuid CHECK (result_id IS NULL OR result_id=request_id),
     PRIMARY KEY (tenant_id,operation,request_id)
 );
 
@@ -21,8 +21,14 @@ CREATE POLICY finance_requests_tenant_scope ON one_finance_requests
 -- A completed request is immutable, including its identity and result.
 -- Incomplete requests must not be committed; Python keeps reservation and
 -- action within a single transaction, and explicitly refuses stale pending rows.
-CREATE FUNCTION one_finance_request_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION one_finance_request_guard() RETURNS trigger LANGUAGE plpgsql AS $
 BEGIN
+    IF TG_OP='INSERT' THEN
+        IF NEW.result_id IS NOT NULL THEN
+            RAISE EXCEPTION 'Finance request must start pending';
+        END IF;
+        RETURN NEW;
+    END IF;
     IF TG_OP='DELETE' OR OLD.result_id IS NOT NULL THEN
         RAISE EXCEPTION 'Completed finance request cannot change';
     END IF;
@@ -34,7 +40,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END $$;
-CREATE TRIGGER finance_request_immutable BEFORE UPDATE OR DELETE
+CREATE TRIGGER finance_request_immutable BEFORE INSERT OR UPDATE OR DELETE
     ON one_finance_requests FOR EACH ROW
     EXECUTE FUNCTION one_finance_request_guard();
 
