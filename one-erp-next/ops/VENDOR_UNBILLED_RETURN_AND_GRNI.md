@@ -74,7 +74,7 @@ An invoice for 4 units is rejected because only 3 retained units remain.
 
 - **335 / 335 tests under Python 3.11 and 335 / 335 under Python 3.13**
   against disposable PostgreSQL 14.
-- GitHub CI: https://github.com/Midoalone85/onebusiness-site/actions/runs/38717071409
+- GitHub CI: https://github.com/REPOSITORY_OWNER/onebusiness-site/actions/runs/38717071409
 - A supplier return of 2 from 5 units makes a bill for 4 invalid, while the
   retained 3 can be billed. Reported outstanding GRNI SAR 37.50 before
   that invoice, then zero after.
