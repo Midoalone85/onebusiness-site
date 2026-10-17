@@ -6,7 +6,7 @@ import {validReportDate} from "./receivables-client.mjs";
 
 const LABELS=Object.freeze({
   ar:{
-    title:"ONE ERP NEXT | مساحة العمل المالية",back:"رجوع للعمليات",clear:"إغلاق الجلسة",
+    title:"ONE ERP NEXT | مساحة العمل المالية",back:"رجوع للعمليات",clear:"مسح البيانات المعروضة",
     reviewRef:"مرجع الفاتورة الداخلية (UUID)",reviewOpen:"فتح الفاتورة للمراجعة",
     invalid:"مرجع غير صالح، لم يتم فتح مستند",notice:
       "عرض محاسبي داخلي فقط. المبالغ المحصلة داخليًا ليست تأكيدًا بنكيًا. إصدار الفواتير الضريبية غير مفعل.",
@@ -14,7 +14,7 @@ const LABELS=Object.freeze({
     returns:"المرتجعات",receivables:"أعمار الديون",review:"مراجعة الفواتير",
   },
   en:{
-    title:"ONE ERP NEXT | Private finance",back:"Back to operations",clear:"Clear session",
+    title:"ONE ERP NEXT | Private finance",back:"Back to operations",clear:"Clear displayed data",
     reviewRef:"Internal invoice UUID",reviewOpen:"Load invoice for review",
     invalid:"Invalid reference; no document opened",notice:
       "Internal accounting only. Applied receipts are not bank verified. Fiscal invoice issuance is not enabled.",
@@ -42,14 +42,17 @@ export function mountPrivateFinanceWorkspace({
   const doc=root.ownerDocument,lang=language==="en"?"en":"ar",words=LABELS[lang];
   let disposed=false,active=null,child=null,generation=0;
   root.replaceChildren();root.setAttribute("dir",lang==="ar"?"rtl":"ltr");
+  root.setAttribute("class","one-private-finance");
   const header=doc.createElement("header"),brand=doc.createElement("h1");
   brand.textContent=words.title;
   const notice=doc.createElement("p");notice.textContent=words.notice;
   header.append(brand,notice);
   const navigation=doc.createElement("nav");
+  navigation.setAttribute("class","one-finance-nav");
   navigation.setAttribute("aria-label","ONE ERP private finance sections");
   const buttons=new Map();
   const content=doc.createElement("main");
+  content.setAttribute("class","one-finance-content");
   const clear=doc.createElement("button");clear.type="button";clear.textContent=words.clear;
   for(const module of MODES){
     const button=doc.createElement("button");button.type="button";
