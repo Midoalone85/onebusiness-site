@@ -1,4 +1,5 @@
 import {approveInternalInvoice,trustedApprovalOrigin,validDocumentRef} from "./invoice-approval-client.mjs";
+import {readInternalInvoiceSource} from "./invoice-review-client.mjs";
 const LABELS=Object.freeze({
   ar:{heading:"مراجعة مصدر الفاتورة الداخلية",source:"مرجع الفاتورة",tenant:"الشركة",review:"تفاصيل المصدر المعتمد",loading:"جارٍ تحميل بيانات المراجعة…",confirm:"راجعت تفاصيل المصدر والمستندات الداعمة",approve:"الموافقة كمراجع مستقل",approved:"تمت الموافقة على المصدر الداخلي",unavailable:"لا يمكن عرض مصدر موثوق. الموافقة مقفولة.",denied:"غير مصرح بالموافقة أو تعذر الطلب",clear:"إغلاق المراجعة",notice:"هذه موافقة محاسبية داخلية وليست فاتورة ضريبية أو تصريحًا من زاتكا."},
   en:{heading:"Review internal invoice source",source:"Invoice reference",tenant:"Company",review:"Trusted source details",loading:"Loading reviewer data…",confirm:"I reviewed the source and supporting evidence",approve:"Approve as independent reviewer",approved:"Internal source approved",unavailable:"Trusted source unavailable. Approval blocked.",denied:"Approval denied or unavailable",clear:"Clear review",notice:"Internal accounting approval only, not a tax invoice or ZATCA clearance."}
@@ -10,8 +11,10 @@ function safeText(v){return typeof v==="string"||typeof v==="number"?String(v):"
  * Never mount on the public preview, persist tokens or enable CORS wildcard.
  */
 export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetchImpl,language="ar"}) {
-  if(!root?.ownerDocument||typeof getToken!=="function"||typeof loadSummary!=="function")
-    throw new TypeError("Private root, session and trusted reviewer loader required");
+  if(!root?.ownerDocument||typeof getToken!=="function"||
+     (loadSummary!=null&&typeof loadSummary!=="function"))
+    throw new TypeError("Private root and verified session required");
+  const verifiedLoader=loadSummary||((args)=>readInternalInvoiceSource({baseUrl,fetchImpl,...args}));
   trustedApprovalOrigin(baseUrl);
   const doc=root.ownerDocument,words=LABELS[language==="en"?"en":"ar"];
   let revision=0,disposed=false,openRequest=null,approved=false,busy=false;
@@ -56,7 +59,7 @@ export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetc
     try{
       const token=await getToken();
       if(disposed||current!==revision)return false;
-      const summary=await loadSummary({tenant,document_id,token,signal:controller.signal});
+      const summary=await verifiedLoader({tenant,document_id,token,signal:controller.signal});
       if(disposed||current!==revision)return false;
       if(summary?.tenant!==tenant||summary?.document_id!==document_id||
          summary?.reviewable!==true||!Array.isArray(summary?.fields)||!summary.fields.length||
@@ -64,8 +67,30 @@ export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetc
          !f.label.trim()||f.label.length>100||!(["string","number"].includes(typeof f.value))||
          String(f.value).length>500))throw new TypeError("Unreviewable invoice source");
       refs.textContent=words.tenant+": "+tenant+" | "+words.source+": "+document_id;
+      if(summary.lines!==undefined&&(
+          !Array.isArray(summary.lines)||summary.lines.length<1||summary.lines.length>100||
+          summary.lines.some(line=>!line||!Number.isInteger(line.line_number)||line.line_number<=0||
+            typeof line.description!=="string"||line.description.length>500||
+            ["quantity","unit_price","discount_amount","net","tax","gross"].some(k=>
+              typeof line[k]!=="string"||line[k].length>100)))){
+        throw new TypeError("Unreviewable source line detail");
+      }
       for(const field of summary.fields){
         const row=doc.createElement("p");row.textContent=field.label+": "+safeText(field.value);details.append(row);
+      }
+      if(Array.isArray(summary.lines)){
+        const table=doc.createElement("table");
+        const names=["line_number","description","quantity","unit_price",
+          "discount_amount","net","tax","gross"];
+        const header=doc.createElement("tr");
+        for(const name of names){const cell=doc.createElement("th");cell.textContent=name;header.append(cell);}
+        table.append(header);
+        for(const line of summary.lines){
+          const tr=doc.createElement("tr");
+          for(const name of names){const cell=doc.createElement("td");cell.textContent=safeText(line[name]);tr.append(cell);}
+          table.append(tr);
+        }
+        details.append(table);
       }
       openRequest={tenant,document_id};status.textContent="";update();return true;
     }catch{if(!disposed&&current===revision){erase();status.textContent=words.unavailable;}return false;}
