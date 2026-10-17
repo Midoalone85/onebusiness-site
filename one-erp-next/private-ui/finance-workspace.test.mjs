@@ -99,6 +99,45 @@ test("invoice review cannot approve until protected API provides source and revi
   assert.equal(workspace.snapshot().active,"returns");
   workspace.dispose();
 });
+test("verified invoice opens left/bottom database activity without client-generated events",async()=>{
+  const seen=[];
+  const source={tenant,document_id,reviewable:true,
+    source:"verified_internal_postgresql",
+    fields:[{label:"Gross",value:"115.00"}],
+    lines:[{line_number:1,description:"Original goods",quantity:"1",
+      unit_price:"100.00",discount_amount:"0.00",tax_category:"standard",
+      tax_rate:"0.150000",tax_code:"KSA_STANDARD",
+      net:"100.00",tax:"15.00",gross:"115.00"}],
+  };
+  const {root,workspace}=harness("ar",{fetchImpl:async(url,opts)=>{
+    seen.push(url.pathname);
+    if(url.pathname==="/api/v1/finance/internal-invoice-source")return success(source);
+    if(url.pathname==="/api/v1/activity/timeline")return success({
+      module:"activity",tenant_id:tenant,record_type:"invoice",record_id:document_id,
+      items:[{event_id:"approved:"+document_id,action:"invoice.source_approved",
+        actor_id:tenant,occurred_at:"2026-10-17T19:00:00.000000Z"}],
+      page:{limit:20,offset:0,has_more:false,next_offset:null},
+      read_only:true,source:"one_erp_next_postgresql",
+    });
+    return {ok:false,status:403};
+  }});
+  assert.equal(await workspace.select("review"),true);
+  const panel=root.children[3].children[0];
+  const controls=panel.children[0],layout=panel.children[1];
+  assert.equal(layout.attributes.class,"one-review-with-activity");
+  controls.children[1].value=document_id;
+  controls.children[2].listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(seen,[
+    "/api/v1/finance/internal-invoice-source",
+    "/api/v1/activity/timeline"
+  ]);
+  assert.equal(layout.children[1].children[3].children.length,1);
+  const history=layout.children[1].children[3].children[0];
+  assert.equal(history.children[0].textContent,"اعتماد مصدر الفاتورة بمراجع مستقل");
+  workspace.dispose();
+  assert.equal(root.children.length,0);
+});
 test("no accepted UI state for invalid company, missing token or malformed date",()=>{
   for(const cfg of [{tenant:"bogus"},{as_of:"2026-02-30"},{getToken:null}]){
     const root=document.createElement("main");
