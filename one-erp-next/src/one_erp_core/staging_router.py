@@ -28,6 +28,7 @@ _OPERATIONS = frozenset((
     "/api/v1/operations/purchases",
     "/api/v1/operations/inventory",
     "/api/v1/operations/returns",
+    "/api/v1/operations/receivables",
 ))
 _HEALTH = frozenset(("/healthz", "/readyz"))
 _REPORT = "/api/v1/finance/dashboard"
