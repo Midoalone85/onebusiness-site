@@ -56,7 +56,7 @@ class BankBatchReconciliationTests(unittest.TestCase):
 
     def test_ambiguous_second_bank_still_blocks_unique_first_bank_from_claiming_ledger(self):
         other=replace(self.ledger,id="OTHER",amount=Decimal("4519.50"),
-                      reference="different invoice",occurred_on=date(2026,10,15))
+                      reference="different invoice",occurred_on=date(2026,10,10))
         second=replace(self.bank,id="SNB-LINE-02",value_date=date(2026,10,14),
                        reference="different invoice")
         x=propose_bank_batch(self.tenant,bank_lines=[self.bank,second],
@@ -93,8 +93,8 @@ class BankBatchReconciliationTests(unittest.TestCase):
         ]
         for changed in cases:
             with self.subTest(changed=changed),self.assertRaises(AccountingError):
-                propose_bank_batch(self.tenant,bank_lines=[self.bank],
-                    ledger_rows=[self.ledger],**changed)
+                propose_bank_batch(self.tenant,**{
+                    "bank_lines":[self.bank], "ledger_rows":[self.ledger],**changed})
 
     def test_large_inputs_and_malformed_day_window_refused(self):
         with self.assertRaises(AccountingError):
