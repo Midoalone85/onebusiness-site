@@ -48,6 +48,25 @@ def migration_checks():
     print(f"PostgreSQL migrations checked: {len(migrations)}, range {min(numbers):03d}-{max(numbers):03d}")
     return errors
 
+def privilege_template_checks():
+    """Static safety preflight only; PostgreSQL permissions need live role tests."""
+    scripts = [
+        ROOT / "one-erp-next/ops/finance_command_privileges.sql",
+        ROOT / "one-erp-next/ops/report_reader_privileges.sql",
+    ]
+    errors = []
+    for path in scripts:
+        if not path.is_file():
+            errors.append(f"Missing reviewed privilege template: {path.name}")
+            continue
+        sql = path.read_text(encoding="utf-8")
+        upper = sql.upper()
+        if "NOLOGIN" not in upper or "NOBYPASSRLS" not in upper:
+            errors.append(f"Missing minimum role protections: {path.name}")
+        if "BEGIN;" not in upper or "COMMIT;" not in upper:
+            errors.append(f"Missing transactional scope: {path.name}")
+    return errors
+
 def check():
     missing_main = [p for p in REQUIRED_MAIN if not (ROOT / p).is_file()]
     missing_finance = [p for p in REQUIRED_FINANCE if not (ROOT / p).is_file()]
@@ -55,7 +74,7 @@ def check():
         print("MISSING MAIN ASSET:", path)
     for path in missing_finance:
         print("FINANCE NOT INTEGRATED:", path)
-    migration_errors = migration_checks()
+    migration_errors = migration_checks()\n    migration_errors.extend(privilege_template_checks())
     for issue in migration_errors:
         print("MIGRATION GATE:", issue)
     if not (missing_main or missing_finance or migration_errors):
