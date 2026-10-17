@@ -49,7 +49,10 @@ def check():
         print("MISSING MAIN ASSET:", path)
     for path in missing_finance:
         print("FINANCE NOT INTEGRATED:", path)
-    migration_errors = migration_checks()\n    for issue in migration_errors:\n        print("MIGRATION GATE:", issue)\n    if not (missing_main or missing_finance or migration_errors):
+    migration_errors = migration_checks()
+    for issue in migration_errors:
+        print("MIGRATION GATE:", issue)
+    if not (missing_main or missing_finance or migration_errors):
         print("Source presence gates PASS. This is not a security or deployment approval.")
     return 1 if missing_main or missing_finance or migration_errors else 0
 if __name__ == "__main__":
