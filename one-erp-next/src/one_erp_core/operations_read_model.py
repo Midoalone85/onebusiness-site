@@ -49,7 +49,8 @@ _QUERIES = {
       SELECT b.warehouse_id,w.name AS warehouse,
              b.product_id,p.sku,p.name AS product,
              b.on_hand,b.reserved,(b.on_hand-b.reserved) AS available,
-             v.qty AS valued_qty,v.book_value,v.currency
+             v.qty AS valued_qty,v.book_value,v.currency,
+             (v.qty IS NOT NULL AND v.qty=b.on_hand) AS quantity_reconciled
         FROM one_stock_balances b
         JOIN one_warehouses w ON w.tenant_id=b.tenant_id
           AND w.id=b.warehouse_id
@@ -106,7 +107,7 @@ _FIELDS = {
                   "ordered_qty","fulfilled_qty","order_value"),
     "inventory": ("warehouse_id","warehouse","product_id","sku","product",
                   "on_hand","reserved","available","valued_qty",
-                  "book_value","currency"),
+                  "book_value","currency","quantity_reconciled"),
     "returns": ("id","return_kind","status","quantity","accepted_qty",
                 "reason","source_event_id","processed_event_id",
                 "requested_at","destination_warehouse_id"),
