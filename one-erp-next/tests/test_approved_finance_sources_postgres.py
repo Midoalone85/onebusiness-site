@@ -333,5 +333,143 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         self.assertEqual(self.count("one_journal_entries","id"),1)
 
 
+
+    def test_restricted_runtime_role_obeys_rls_and_cannot_write(self):
+        """Actual LOGIN role with only SELECT must be unable to mutate source or GL."""
+        role="one_ci_source_read_"+uuid4().hex[:12]
+        password="ci_temporary_read_only"
+        ident=self.sql.Identifier(role)
+        self.root.execute(
+            self.sql.SQL("CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS")
+            .format(ident,self.sql.Literal(password)))
+        try:
+            with self.connect() as admin:
+                admin.execute(self.sql.SQL(
+                    "GRANT USAGE ON SCHEMA public TO {}").format(ident))
+                admin.execute(self.sql.SQL(
+                    "GRANT SELECT ON public.one_invoice_source_requests,"
+                    " public.one_invoice_source_approvals TO {}").format(ident))
+            with self.connect() as admin:
+                self.prepare(admin)
+                self.approve(admin)
+            args=dict(self.args,dbname=self.db_name,user=role,password=password)
+            with self.pg.connect(**args,autocommit=True) as reader:
+                with reader.transaction():
+                    reader.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                   (str(self.tenant),))
+                    reader.execute("SELECT set_config('one.actor_id',%s,true)",
+                                   (str(self.actor),))
+                    count=reader.execute(
+                        """SELECT count(*) FROM one_invoice_source_requests
+                           WHERE tenant_id=%s AND document_id=%s""",
+                        (self.tenant,self.doc_id)).fetchone()[0]
+                    self.assertEqual(count,1)
+                    # A restricted LOGIN has no source or journal write grants.
+                    with self.assertRaises(self.pg.errors.InsufficientPrivilege):
+                        with reader.transaction():
+                            reader.execute(
+                                """UPDATE one_invoice_source_requests
+                                   SET payload=payload WHERE tenant_id=%s""",
+                                (self.tenant,))
+                    with self.assertRaises(self.pg.errors.InsufficientPrivilege):
+                        with reader.transaction():
+                            reader.execute(
+                                """DELETE FROM one_invoice_source_approvals
+                                   WHERE tenant_id=%s""",(self.tenant,))
+                    with self.assertRaises(self.pg.errors.InsufficientPrivilege):
+                        with reader.transaction():
+                            reader.execute("SELECT count(*) FROM one_journal_entries")
+                    # RLS never allows browsing another tenant's approved inputs.
+                    reader.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                   (str(uuid4()),))
+                    self.assertEqual(reader.execute(
+                        """SELECT count(*) FROM one_invoice_source_requests
+                           WHERE tenant_id=%s""",(self.tenant,)).fetchone()[0],0)
+        finally:
+            with self.connect() as admin:
+                admin.execute(self.sql.SQL("DROP OWNED BY {}").format(ident))
+            self.root.execute(self.sql.SQL("DROP ROLE {}").format(ident))
+
+    def test_many_simultaneous_approved_invoice_submissions_post_only_once(self):
+        """Real multi-connection race, never a fake database mock."""
+        from concurrent.futures import ThreadPoolExecutor
+        with self.connect() as conn:
+            self.prepare(conn)
+            self.approve(conn)
+        def submit(_):
+            with self.connect() as conn:
+                return self.execute(conn)
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results=list(pool.map(submit,range(8)))
+        self.assertEqual(sum(not r.replayed for r in results),1)
+        self.assertEqual(sum(r.replayed for r in results),7)
+        for table,col in (
+            ("one_invoice_docs","id"),("one_journal_entries","id"),
+            ("one_invoice_audit","doc_id"),("one_finance_requests","request_id"),
+        ):
+            self.assertEqual(self.count(table,col),1)
+
+    def test_viewer_cannot_prepare_or_approve_source(self):
+        viewer=uuid4()
+        with self.connect() as conn:
+            conn.execute("""INSERT INTO one_memberships(tenant_id,actor_id,role)
+                            VALUES(%s,%s,'viewer')""",(self.tenant,viewer))
+            with self.assertRaises(self.pg.Error):
+                self.prepare(conn,requested_by=viewer)
+            self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
+            self.prepare(conn)
+            with self.assertRaises(self.pg.Error):
+                self.approve(conn,viewer)
+            self.assertEqual(self.count("one_invoice_source_approvals","document_id"),0)
+
+    def test_invalid_approved_source_variations_never_post(self):
+        """Reject tampered invoice snapshot inputs without residual ledger rows."""
+        from copy import deepcopy
+        mutations=(
+            lambda p: p["lines"][0].update(unit_price="NaN"),
+            lambda p: p["lines"][0].update(unit_price="1e10"),
+            lambda p: p["lines"][0].update(quantity="-1"),
+            lambda p: p["lines"][0].update(quantity="0"),
+            lambda p: p["lines"][0].update(tax_rate="0.15"),
+            lambda p: p["lines"][0].update(tax_category="standard"),
+            lambda p: p.update(currency="sar"),
+            lambda p: p.update(issued_on="2026-14-01"),
+            lambda p: p.update(due_on="2026-01-01"),
+            lambda p: p.update(kind="unknown"),
+            lambda p: p.update(lines=[]),
+            lambda p: p.update(source_invoice_id=str(self.doc_id)),
+        )
+        for index,mutate in enumerate(mutations):
+            with self.subTest(index=index):
+                self.doc_id=uuid4()
+                payload=deepcopy(self.payload)
+                mutate(payload)
+                with self.connect() as conn:
+                    self.prepare(conn,payload=payload)
+                    self.approve(conn)
+                    with self.assertRaises((PermissionError,AccountingError,
+                                            ValueError,self.pg.Error)):
+                        self.execute(conn)
+                self.assertEqual(self.count("one_invoice_docs","id"),0)
+                self.assertEqual(self.count("one_journal_entries","id"),0)
+                self.assertEqual(self.count("one_finance_requests","request_id"),0)
+
+    def test_real_payment_source_is_disabled_not_simulated(self):
+        with self.connect() as conn:
+            self.prepare(conn)
+            self.approve(conn)
+            with self.assertRaisesRegex(PermissionError,"not enabled"):
+                execute_verified_document_request(
+                    conn,
+                    identity=AuthenticatedFinanceIdentity(
+                        self.actor,frozenset({self.tenant})),
+                    command={"action":"apply_internal_payment",
+                             "tenant":self.tenant,"document_id":self.doc_id},
+                    source_loader=self.loader,
+                )
+        self.assertEqual(self.count("one_payment_docs","id"),0)
+        self.assertEqual(self.count("one_finance_requests","request_id"),0)
+
+
 if __name__=="__main__":
     unittest.main()
