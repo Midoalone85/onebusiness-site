@@ -104,7 +104,7 @@ AR already derecognized by the claim is blocked and completely rolled back.
 
 PostgreSQL 14 CI for this feature completed with **441 tests passing under
 Python 3.11 and 441 passing under Python 3.13**:
-https://github.com/Midoalone85/onebusiness-site/actions/runs/38735719927
+https://github.com/REPOSITORY_OWNER/onebusiness-site/actions/runs/38735719927
 
 These numbers are development-test evidence, not sign-off for production,
 external payment rails, official tax notes, or statutory compliance.
