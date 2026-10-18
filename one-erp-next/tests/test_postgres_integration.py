@@ -42,13 +42,26 @@ from one_erp_core.finance_wsgi import OneFinanceWSGI, TenantFinanceConnections
 from one_erp_core.statement_details import balance_sheet, general_ledger_detail
 from one_erp_core.tenancy import Membership, Role
 
-DSN = os.environ.get("ONE_TEST_PG_DSN")
+DSN = os.environ.get("ONE_TEST_PG_DSN", "")
 
-@unittest.skipUnless(DSN, "PostgreSQL integration suite requires ONE_TEST_PG_DSN")
+@unittest.skipUnless(
+    os.environ.get("CI") == "true" and "dbname=one_erp_test" in DSN,
+    "Destructive integration suite requires disposable one_erp_test CI database",
+)
 class PostgreSQLIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         import psycopg
+        # These tests install migrations/roles, so reject external and
+        # customer servers BEFORE opening even the initial admin session.
+        params = psycopg.conninfo.conninfo_to_dict(DSN)
+        local = ("localhost", "127.0.0.1", "::1")
+        if (params.get("dbname") != "one_erp_test" or
+            params.get("host") not in local or params.get("hostaddr") or
+            params.get("port", "5432") != "5432" or
+            os.environ.get("ONE_TEST_PG_HOST", "localhost") not in local or
+            os.environ.get("ONE_TEST_PG_PORT", "5432") != "5432"):
+            raise RuntimeError("Refusing non-loopback or non-disposable CI PostgreSQL")
         cls.psycopg = psycopg
         cls.admin = psycopg.connect(DSN, autocommit=True)
         migration_dir = Path(__file__).resolve().parents[1] / "db"
