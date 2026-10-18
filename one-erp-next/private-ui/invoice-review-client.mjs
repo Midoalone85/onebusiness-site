@@ -65,6 +65,25 @@ export async function readInternalInvoiceSource({baseUrl,tenant,document_id,toke
   return validateInternalInvoiceSource(body,{tenant,document_id});
 }
 
+// Header figures are informative, but if shown they must agree exactly
+// with all immutable source lines. Do not let contradictory totals reach a
+// human reviewer even though server-side maker/checker remains authoritative.
+function validDisplayedTotals(fields,lines){
+  const totals=new Map([
+    ["Net","net"],["Tax (internal)","tax"],["Gross","gross"],
+  ]);
+  const seen=new Set();
+  for(const field of fields){
+    const key=totals.get(field.label);
+    if(!key)continue;
+    if(seen.has(key)||typeof field.value!=="string"||!DECIMAL.test(field.value))return false;
+    seen.add(key);
+    const sum=lines.reduce((value,line)=>value+fixed(line[key]),0n);
+    if(fixed(field.value)!==sum)return false;
+  }
+  return true;
+}
+
 /** Same strict source-evidence contract for API and any custom private UI loader. */
 export function validateInternalInvoiceSource(body,{tenant,document_id}){
   if(!body||body.tenant!==tenant||body.document_id!==document_id||
@@ -72,7 +91,8 @@ export function validateInternalInvoiceSource(body,{tenant,document_id}){
      !validFields(body.fields)||!Array.isArray(body.lines)||
      body.lines.length<1||body.lines.length>100||
      !body.lines.every(validLine)||
-     new Set(body.lines.map(line=>line.line_number)).size!==body.lines.length){
+     new Set(body.lines.map(line=>line.line_number)).size!==body.lines.length||
+     !validDisplayedTotals(body.fields,body.lines)){
     throw new InternalApprovalError(502);
   }
   return {tenant,document_id,reviewable:true,source:body.source,
