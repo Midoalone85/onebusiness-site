@@ -221,6 +221,69 @@ class RuntimeReadOnlyRoleAuditPostgresTests(unittest.TestCase):
                 self.sql.SQL("REVOKE {} FROM {}").format(
                     self.sql.Identifier(self.group),self.sql.Identifier(self.reader)))
 
+    def test_nonpublic_schema_table_grants_are_not_invisible_to_audit(self):
+        self.statement("CREATE SCHEMA one_ci_private")
+        try:
+            self.statement("CREATE TABLE one_ci_private.one_secret (id integer)")
+            self.statement(
+                self.sql.SQL("GRANT USAGE ON SCHEMA one_ci_private TO {}").format(
+                    self.sql.Identifier(self.reader)))
+            self.statement(
+                self.sql.SQL("GRANT SELECT ON one_ci_private.one_secret TO {}").format(
+                    self.sql.Identifier(self.reader)))
+            with self.assertRaisesRegex(AccountingError,"nonpublic relation"):
+                self.inspect()
+        finally:
+            self.statement("DROP SCHEMA one_ci_private CASCADE")
+
+    def test_nonpublic_schema_create_grant_is_release_blocking(self):
+        self.statement("CREATE SCHEMA one_ci_extension")
+        try:
+            self.statement(
+                self.sql.SQL("GRANT CREATE ON SCHEMA one_ci_extension TO {}").format(
+                    self.sql.Identifier(self.reader)))
+            with self.assertRaisesRegex(AccountingError,"custom schema"):
+                self.inspect()
+        finally:
+            self.statement("DROP SCHEMA one_ci_extension CASCADE")
+
+    def test_reader_cannot_use_unreviewed_owner_privileged_view(self):
+        self.statement(
+            "CREATE VIEW public.one_ci_reader_view AS "
+            "SELECT id,tenant_id FROM public.one_demo_rows")
+        try:
+            self.statement(
+                self.sql.SQL("GRANT SELECT ON public.one_ci_reader_view TO {}").format(
+                    self.sql.Identifier(self.reader)))
+            with self.assertRaisesRegex(AccountingError,"Unapproved SELECT"):
+                self.inspect()
+            expanded=RestrictedReaderPolicy(
+                login_role=self.reader,required_tables=self.policy.required_tables,
+                allowed_tables=self.policy.allowed_tables | {"one_ci_reader_view"},
+                allowed_function_signatures=self.policy.allowed_function_signatures)
+            with self.assertRaisesRegex(AccountingError,"Unreviewed view"):
+                self.inspect(expanded)
+        finally:
+            self.statement("DROP VIEW public.one_ci_reader_view")
+
+    def test_nonpublic_executable_function_grants_are_rejected(self):
+        self.statement("CREATE SCHEMA one_ci_external")
+        try:
+            self.statement(
+                "CREATE FUNCTION one_ci_external.one_privileged() "
+                "RETURNS integer LANGUAGE sql AS $ SELECT 42 $")
+            self.statement(
+                self.sql.SQL("GRANT USAGE ON SCHEMA one_ci_external TO {}").format(
+                    self.sql.Identifier(self.reader)))
+            self.statement(
+                self.sql.SQL("GRANT EXECUTE ON FUNCTION "
+                             "one_ci_external.one_privileged() TO {}").format(
+                                 self.sql.Identifier(self.reader)))
+            with self.assertRaisesRegex(AccountingError,"unapproved function"):
+                self.inspect()
+        finally:
+            self.statement("DROP SCHEMA one_ci_external CASCADE")
+
     def test_directly_granted_function_not_in_review_allowlist_blocks(self):
         self.statement(
             self.sql.SQL("GRANT EXECUTE ON FUNCTION "
