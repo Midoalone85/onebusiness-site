@@ -22,8 +22,13 @@ class RuntimeReadOnlyRoleAuditPostgresTests(unittest.TestCase):
         from psycopg import sql
         cls.pg, cls.sql = psycopg, sql
         cls.args = psycopg.conninfo.conninfo_to_dict(DSN)
-        if cls.args.get("dbname") != "one_erp_test":
-            raise RuntimeError("Never run runtime role audit fixture outside one_erp_test")
+        local = ("localhost", "127.0.0.1", "::1")
+        if (cls.args.get("dbname") != "one_erp_test" or
+            cls.args.get("host") not in local or cls.args.get("hostaddr") or
+            cls.args.get("port", "5432") != "5432" or
+            os.environ.get("ONE_TEST_PG_HOST", "localhost") not in local or
+            os.environ.get("ONE_TEST_PG_PORT", "5432") != "5432"):
+            raise RuntimeError("Refusing non-loopback or non-disposable CI DB")
         cls.admin = psycopg.connect(DSN, autocommit=True)
         suffix = uuid4().hex[:12]
         cls.db_name = "one_ci_acl_" + suffix
