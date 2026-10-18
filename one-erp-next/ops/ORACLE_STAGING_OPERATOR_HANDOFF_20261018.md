@@ -56,6 +56,25 @@ Never install finance/report SQL privileges into a customer DB just to make a te
 - Saudi tax/ZATCA statutory integration and final IFRS/SOCPA finance acceptance.
 - Audit retention and operations/on-call, alerting, regulatory privacy, backup rotation, app/browser E2E, load testing and independent security review.
 
+## Strict CI acceptance before operator handoff
+
+- GitHub finance CI and PostgreSQL 16/17 compatibility now use the same
+  `one-erp-next-integration/strict_ci_runner.py` and a disposable loopback
+  PostgreSQL instance. The gate checks exact CI DB/host/port, minimum 700
+  collected Python cases, eight critical finance/tenant/security tests,
+  no duplicate IDs, no collection errors, no expected failures, and
+  **zero skipped tests**. Ordinary unittest can report green with skips;
+  the strict runner fails that case.
+- Independent self-tests reject remote DBs, absent CI, missing/duplicate
+  acceptance tests, skipped cases, partial runs and hidden failures.
+- This guards *test integrity*, not business release or real Oracle staging.
+  Never aim destructive fixture suites at Oracle/customer databases.
+- Require passing finance Python 3.11/3.13, PostgreSQL 16/17, UI
+  contracts, and candidate Git tree source audit on one exact SHA.
+- Independent OCI operator must still verify DNS/TLS, identity and MFA,
+  separated tenant DBs, runtime grants, backup restore, browser flow,
+  official tax and rollback before approval.
+
 ## Destructive CI policy
 
 Some integration suites apply all SQL migrations and create/drop ephemeral DBs or users. As of this review, their `setUpClass` entrypoints require **`CI=true`, `dbname=one_erp_test`, loopback host, port 5432, and no `hostaddr` override before obtaining an admin connection**. Run those suites on GitHub's disposable PostgreSQL service, **never** through a connection copied from Oracle. The review of all future test scripts remains an operator responsibility.
