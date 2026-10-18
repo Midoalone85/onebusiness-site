@@ -107,7 +107,7 @@ class StrictCIGateTests(unittest.TestCase):
 
     def test_unrecognized_discovery_entries_block(self):
         with self.assertRaisesRegex(ValueError, "Unrecognized"):
-            gate.collected_test_ids(unittest.TestSuite((object(),)))
+            gate.collected_test_ids(unittest.TestSuite((lambda: None,)))
 
 
 if __name__ == "__main__":
