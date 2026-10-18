@@ -460,5 +460,56 @@ class StagingRouterTests(unittest.TestCase):
                 {self.tenant:FakeDB}))
 
 
+    def test_two_router_instances_keep_tenant_and_readiness_independent(self):
+        # Two app objects are NOT a multi-process/load test. This safeguards
+        # current per-instance trust configuration for future topology changes.
+        other_tenant,other_actor=uuid4(),uuid4()
+        verifier_b=FakeVerifier(AuthenticatedFinanceIdentity(
+            other_actor,frozenset({other_tenant})))
+        opened_b=[]
+        def open_other():
+            db=FakeDB()
+            opened_b.append(db)
+            return db
+        ops_b=TenantFinanceConnections({other_tenant:open_other})
+        reports_b=TenantFinanceConnections({other_tenant:FakeDB})
+        ready_b={name:True for name in _CHECKS}
+        app_b=OneERPStagingRouter(
+            allowed_hosts=frozenset({HOST}),deployed_sha=SHA,
+            verifier=verifier_b,operations_connections=ops_b,
+            finance_report_connections=reports_b,
+            readiness_probe=lambda:StagingReadiness(ready_b),
+        )
+        first_q=f"tenant={self.tenant}&limit=1&offset=0"
+        second_q=f"tenant={other_tenant}&limit=1&offset=0"
+        self.assertEqual(self.request(
+            app=app_b,QUERY_STRING=first_q)[0],"403 Forbidden")
+        self.assertEqual(self.request(
+            app=self.app,QUERY_STRING=second_q)[0],"403 Forbidden")
+        self.assertEqual((self.db_calls,len(opened_b)),(0,0))
+
+        second_source={
+            "module":"sales","tenant_id":str(other_tenant),"items":[],
+            "read_only":True,"source":"one_erp_next_postgresql",
+        }
+        with patch("one_erp_core.operations_read_wsgi.load_operations_page",
+                   return_value=second_source):
+            status,headers,result=self.request(app=app_b,QUERY_STRING=second_q)
+        self.assertEqual((status,result),("200 OK",second_source))
+        self.assertEqual(len(opened_b),1)
+        self.assertTrue(opened_b[0].closed)
+        self.assertIn("no-store",headers["Cache-Control"])
+
+        ready_b["trusted_identity_provider"]=False
+        self.assertEqual(self.request(
+            app=app_b,QUERY_STRING=second_q)[0],"503 Service Unavailable")
+        self.assertEqual(len(opened_b),1)
+        # B's readiness failure cannot alter A's operator-owned probe state.
+        self.assertEqual(self.request("/readyz",app=self.app)[0],"200 OK")
+        self.assertEqual(self.request(
+            app=self.app,QUERY_STRING=second_q)[0],"403 Forbidden")
+        self.assertEqual(self.db_calls,0)
+
+
 if __name__=="__main__":
     unittest.main()
