@@ -854,9 +854,12 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                              self.sales_admin),
                         )
 
-    def prepare_reviewed_sales_intent(self, *, invoice_id=None, reviewer=None):
+    def prepare_reviewed_sales_intent(self, *, invoice_id=None, reviewer=None,
+                                      issued_on=None, due_on=None):
         invoice_id=invoice_id or self.doc_id
         reviewer=reviewer or self.reviewer
+        invoice_day=issued_on or self.sale_invoice_day
+        due_day=due_on or self.sale_invoice_due
         with self.connect() as conn:
             with conn.transaction():
                 self.bind(conn,self.actor)
@@ -872,7 +875,7 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                        'out_of_scope',0,'NONE','INTERNAL-CI-NOT-ZATCA',%s,%s)""",
                     (self.tenant,invoice_id,self.sales_order,self.period_id,
                      "REAL-INV-"+uuid4().hex[:12],
-                     self.sale_invoice_day,self.sale_invoice_due,
+                     invoice_day,due_day,
                      reviewer,self.actor),
                 )
         return invoice_id
@@ -1142,6 +1145,39 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 )
         self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
 
+
+
+    def test_preconfirmed_sale_date_cannot_create_invoice_source(self):
+        """Real PostgreSQL: never weaken the sale-before-invoice date guard.
+
+        The sale confirmation timestamp is fetched from PostgreSQL, rather
+        than assuming a hardcoded CI calendar date or a runner timezone.
+        """
+        from one_erp_core.commercial_invoice_builder import (
+            PostgresDispatchedSalesInvoiceBuilder,
+        )
+        from one_erp_core.invoice_source_workflow import create_trusted_invoice_source
+        self.prepare_real_dispatched_sale()
+        with self.connect() as conn:
+            confirmed_at=conn.execute(
+                """SELECT confirmed_at FROM one_commercial_orders
+                   WHERE tenant_id=%s AND id=%s""",
+                (self.tenant,self.sales_order),
+            ).fetchone()[0]
+        self.assertIsNotNone(confirmed_at)
+        self.prepare_reviewed_sales_intent(
+            issued_on=confirmed_at.date()-timedelta(days=1))
+        with self.connect() as conn:
+            with self.assertRaisesRegex(PermissionError, "predate confirmed sale"):
+                create_trusted_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        self.actor,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id,
+                    builder=PostgresDispatchedSalesInvoiceBuilder(),
+                )
+        self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
+        self.assertEqual(self.count("one_sales_invoice_source_links","invoice_id"),0)
+        self.assertEqual(self.count("one_invoice_docs","id"),0)
 
 
     def test_real_receivables_aging_with_applied_internal_receipt_and_reader_rls(self):
