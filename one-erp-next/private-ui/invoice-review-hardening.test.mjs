@@ -28,7 +28,8 @@ test("full genuine reviewer source still passes after strict monetary checks",()
   const noTax={...line,tax_category:"out_of_scope",tax_rate:"0",
     tax_code:"NONE",tax:"0.00",gross:"190.00"};
   assert.equal(validateInternalInvoiceSource(
-    {...source,lines:[noTax]},{tenant,document_id}).reviewable,true);
+    {...source,fields:[{label:"Gross",value:"190.00"}],lines:[noTax]},
+    {tenant,document_id}).reviewable,true);
 });
 
 test("fake financial evidence must not become an approvable reviewer source",()=>{
@@ -46,6 +47,25 @@ test("fake financial evidence must not become an approvable reviewer source",()=
         {...source,lines:[{...line,...change}]},{tenant,document_id}),
       {name:"InternalApprovalError"},JSON.stringify(change));
   }
+});
+
+test("visible header totals must exactly reconcile with lines, never show contradictory figures",()=>{
+  for(const fields of [
+    [{label:"Gross",value:"218.51"}],
+    [{label:"Net",value:"191.00"}],
+    [{label:"Tax (internal)",value:"29.00"}],
+    [{label:"Gross",value:"218.50"},{label:"Gross",value:"218.50"}],
+    [{label:"Gross",value:"NaN"}],
+  ]){
+    assert.throws(()=>validateInternalInvoiceSource(
+      {...source,fields},{tenant,document_id}),
+      {name:"InternalApprovalError"},JSON.stringify(fields));
+  }
+  assert.equal(validateInternalInvoiceSource({...source,fields:[
+    {label:"Net",value:"190.00"},
+    {label:"Tax (internal)",value:"28.50"},
+    {label:"Gross",value:"218.50"},
+  ]},{tenant,document_id}).reviewable,true);
 });
 
 class Element {
