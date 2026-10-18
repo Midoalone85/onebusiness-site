@@ -1,7 +1,7 @@
 import { readOperations } from "./operations-client.mjs";
 
 /** Controlled private view state. No demo data and no browser token persistence. */
-export function createOperationsView({ baseUrl, getToken, fetchImpl }) {
+export function createOperationsView({ baseUrl, tenant, getToken, fetchImpl }) {
   let revision = 0;
   let controller = null;
   let state = { status: "idle", module: null, data: null, error: null };
@@ -16,7 +16,7 @@ export function createOperationsView({ baseUrl, getToken, fetchImpl }) {
       try {
         const token = await getToken();
         if (current !== revision || controller.signal.aborted) return snapshot();
-        const data = await readOperations({ baseUrl, module, token, fetchImpl, signal: controller.signal });
+        const data = await readOperations({ baseUrl, module, tenant, token, fetchImpl, signal: controller.signal });
         if (current === revision && !controller.signal.aborted) {
           state = { status: "ready", module, data, error: null };
         }

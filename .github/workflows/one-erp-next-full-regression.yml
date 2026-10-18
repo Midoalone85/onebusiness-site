@@ -24,7 +24,7 @@ permissions:
 jobs:
   release-contracts:
     name: Non-mutating release and migration contract tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 7
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
         run: python one-erp-next-integration/verify_integration.py
   bilingual-ui:
     name: Arabic-English navigation and private UI contracts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 7
     steps:
       - uses: actions/checkout@v4
@@ -59,7 +59,7 @@ jobs:
 
   brand-identity:
     name: Prevent private repository owner leaking into distributed source
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4

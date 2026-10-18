@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from one_erp_core.staging_smoke import (
     InvalidStagingConfiguration, StagingSmokeConfig, main, run_staging_smoke, run_full_staging_smoke,
+    run_access_denial_staging_smoke,
 )
 
 HOST = "staging.erp.example.net"
@@ -310,6 +311,160 @@ class StagingSmokeTests(TestCase):
                 self.assertEqual(report["status"],"BLOCKED")
                 self.assertFalse(report["checks"][altered_module+"_read"])
                 self.assertFalse(report["release_approved"])
+
+
+    def pilot_responder(self, host, path, headers, timeout):
+        """In-memory staging WSGI contract, never a real IdP or database."""
+        from urllib.parse import parse_qs, urlsplit
+        self.calls.append((host, path, dict(headers), timeout))
+        response_headers = {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "private, no-store",
+        }
+        if path == "/healthz":
+            return 200, response_headers, json.dumps(self.health).encode()
+        if path == "/readyz":
+            return 200, response_headers, json.dumps(self.ready).encode()
+        query = parse_qs(urlsplit(path).query)
+        if "Authorization" not in headers:
+            return 401, response_headers, b'{"error":"authentication_required"}'
+        if query.get("tenant") != [str(self.tenant)]:
+            return 403, response_headers, b'{"error":"access_denied"}'
+        module = path.split("/api/v1/operations/")[-1].split("?")[0]
+        payload = {
+            "module": module, "tenant_id": str(self.tenant),
+            "items": [], "read_only": True,
+            "source": "one_erp_next_postgresql",
+            "page": {"limit": 1, "offset": 0},
+        }
+        return 200, response_headers, json.dumps(payload).encode()
+
+    def test_pilot_access_denials_require_exact_error_contract(self):
+        report = run_access_denial_staging_smoke(
+            self.conf, transport=self.pilot_responder)
+        self.assertEqual(report["status"], "SMOKE_PASS_NOT_PRODUCTION_APPROVAL")
+        self.assertEqual(report["scope"], "read_only_staging_access_denial")
+        self.assertEqual(len(report["checks"]), 8)
+        self.assertTrue(all(report["checks"].values()))
+        self.assertFalse(report["release_approved"])
+        self.assertEqual(len(self.calls), 8)
+        self.assertTrue(all(host == HOST for host, *_ in self.calls))
+        anonymous, peer = self.calls[-2:]
+        self.assertNotIn("Authorization", anonymous[2])
+        self.assertEqual(peer[2]["Authorization"], "Bearer " + TOKEN)
+        self.assertIn("tenant=", anonymous[1])
+        self.assertNotIn(str(self.tenant), peer[1])
+        self.assertTrue(all("?" not in path or "token=" not in path
+                            for _, path, *_ in self.calls))
+
+    def test_pilot_access_denials_block_if_anonymous_read_is_exposed(self):
+        def bypass(host, path, headers, timeout):
+            code, meta, body = self.pilot_responder(
+                host, path, headers, timeout)
+            if code == 401:
+                return 200, meta, b'{"items":[{"secret":"never print"}]}'
+            return code, meta, body
+        result = run_access_denial_staging_smoke(self.conf, transport=bypass)
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertFalse(result["checks"]["anonymous_denied"])
+        self.assertTrue(result["checks"]["foreign_tenant_denied"])
+        self.assertNotIn("never print", str(result))
+        self.assertNotIn(TOKEN, str(result))
+
+    def test_pilot_access_denials_block_cross_tenant_data_leak(self):
+        def bypass(host, path, headers, timeout):
+            code, meta, body = self.pilot_responder(
+                host, path, headers, timeout)
+            if code == 403:
+                return 200, meta, b'{"items":[{"bank":"secret"}]}'
+            return code, meta, body
+        result = run_access_denial_staging_smoke(self.conf, transport=bypass)
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertFalse(result["checks"]["foreign_tenant_denied"])
+        self.assertTrue(result["checks"]["anonymous_denied"])
+        self.assertNotIn("secret", str(result))
+
+    def test_pilot_access_denials_refuse_redirect_wrong_code_and_error_shape(self):
+        for code, body in (
+            (302, b'{"error":"authentication_required"}'),
+            (401, b'{"error":"access_denied"}'),
+            (401, b'{"error":"authentication_required","items":[]}'),
+            (401, b'not-json'),
+        ):
+            def tampered(host, path, headers, timeout):
+                status, meta, data = self.pilot_responder(
+                    host, path, headers, timeout)
+                if status == 401:
+                    return code, meta, body
+                return status, meta, data
+            with self.subTest(status=code, response=body):
+                self.assertFalse(run_access_denial_staging_smoke(
+                    self.conf, transport=tampered
+                )["checks"]["anonymous_denied"])
+
+    def test_pilot_access_denials_refuse_cacheable_and_oversized_response(self):
+        for mode in ("cacheable", "html", "oversized", "broken"):
+            def altered(host, path, headers, timeout):
+                code, meta, body = self.pilot_responder(
+                    host, path, headers, timeout)
+                if code == 403:
+                    if mode == "broken":
+                        raise OSError("private DSN and secret")
+                    if mode == "cacheable":
+                        return code, {**meta, "cache-control": "public"}, body
+                    if mode == "html":
+                        return code, {**meta, "content-type": "text/html"}, body
+                    return code, meta, b"x" * 8193
+                return code, meta, body
+            with self.subTest(mode=mode):
+                report = run_access_denial_staging_smoke(
+                    self.conf, transport=altered)
+                self.assertFalse(report["checks"]["foreign_tenant_denied"])
+                self.assertFalse(report["release_approved"])
+                self.assertNotIn("private DSN", str(report))
+
+    def test_pilot_never_tries_denial_probes_before_exact_sha_and_readiness(self):
+        for setting in ("sha", "ready"):
+            self.calls.clear()
+            if setting == "sha":
+                self.health["commit_sha"] = "0" * 40
+            else:
+                self.ready["ready"] = False
+            report = run_access_denial_staging_smoke(
+                self.conf, transport=self.pilot_responder)
+            self.assertEqual(report["status"], "BLOCKED")
+            self.assertFalse(report["checks"]["anonymous_denied"])
+            self.assertFalse(report["checks"]["foreign_tenant_denied"])
+            self.assertTrue(all("Authorization" not in h
+                                for _, _, h, _ in self.calls))
+            self.assertTrue(all(path in ("/healthz", "/readyz")
+                                for _, path, _, _ in self.calls))
+            self.health["commit_sha"] = SHA
+            self.ready["ready"] = True
+
+    def test_cli_uses_pilot_denial_contract_without_printing_token(self):
+        env = {
+            "ONE_STAGING_ORIGIN": "https://" + HOST,
+            "ONE_STAGING_ALLOWED_HOST": HOST,
+            "ONE_STAGING_COMMIT_SHA": SHA,
+            "ONE_STAGING_TENANT_ID": str(self.tenant),
+            "ONE_STAGING_ACCESS_TOKEN": TOKEN,
+        }
+        result = {"status": "SMOKE_PASS_NOT_PRODUCTION_APPROVAL",
+                  "checks": {"anonymous_denied": True,
+                             "foreign_tenant_denied": True},
+                  "release_approved": False}
+        with mock.patch.dict(os.environ, env, clear=False):
+            with mock.patch("one_erp_core.staging_smoke.run_access_denial_staging_smoke",
+                            return_value=result) as probe:
+                with mock.patch("sys.stdout",
+                                new_callable=io.StringIO) as output:
+                    exit_code = main()
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(probe.call_count, 1)
+        self.assertEqual(probe.call_args.args[0].commit_sha, SHA)
+        self.assertNotIn(TOKEN, output.getvalue())
+        self.assertFalse(json.loads(output.getvalue())["release_approved"])
 
 
 if __name__ == "__main__":

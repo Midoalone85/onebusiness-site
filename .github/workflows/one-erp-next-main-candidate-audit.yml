@@ -1,0 +1,73 @@
+name: ONE ERP NEXT Non-Mutating Main Candidate Audit
+
+# Read-only comparison of Git trees, not a deployment, PR merge or migration.
+# Branch tip remains draft; no credentials, servers or customer records accessed.
+on:
+  push:
+    branches:
+      - feature/one-erp-next-private-finance-workspace-20261017
+    paths:
+      - ".github/workflows/one-erp-next-main-candidate-audit.yml"
+      - "one-erp-next/**"
+      - "one-erp-next-integration/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-next-main-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-preservation:
+    name: Compare exact main tree with both reviewed sibling lines
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Read reviewed candidate tree without persisting credentials
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Use supported Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Test every fail-closed comparison behavior
+        run: |
+          python -m unittest discover -s one-erp-next-integration -p 'test_main_candidate_rehearsal.py' -v
+          python -m py_compile one-erp-next-integration/rehearse_main_candidate.py
+
+      - name: Read three exact source refs (no external scripts)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/feature/one-erp-next-invoice-source-review-api-20261017:refs/remotes/origin/reviewer-source \
+            +refs/heads/feature/one-erp-next-receivables-ui-20261017:refs/remotes/origin/receivables-source
+          git rev-parse --verify HEAD
+          git rev-parse --verify origin/main
+          git rev-parse --verify origin/reviewer-source
+          git rev-parse --verify origin/receivables-source
+
+      - name: Rehearse candidate as an ephemeral Git tree, never merge or push
+        shell: bash
+        run: |
+          set -euo pipefail
+          python one-erp-next-integration/rehearse_main_candidate.py \
+            --main origin/main \
+            --candidate HEAD \
+            --invoice origin/reviewer-source \
+            --ar origin/receivables-source
+
+      - name: Validate unchanged preview, finance integrations and brand rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          python one-erp-next-integration/verify_integration.py
+          python one-erp-next-integration/operational_acceptance.py
+          node --check one-erp-preview/ui.js
+          # Real financial/PostgreSQL tests run in the distinct finance/compat pipelines.

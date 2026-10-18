@@ -3,7 +3,7 @@
 Creates and destroys a disposable database in GitHub CI ONLY. No customer
 records, bank payments, ZATCA action or deployed HTTP server.
 """
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 import json
 import os
@@ -32,8 +32,13 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         cls.pg=psycopg
         cls.sql=sql
         cls.args=psycopg.conninfo.conninfo_to_dict(DSN)
-        if cls.args.get("dbname")!="one_erp_test":
-            raise RuntimeError("Refusing non-CI database")
+        local=("localhost","127.0.0.1","::1")
+        if (cls.args.get("dbname")!="one_erp_test" or
+            cls.args.get("host") not in local or cls.args.get("hostaddr") or
+            cls.args.get("port","5432")!="5432" or
+            os.environ.get("ONE_TEST_PG_HOST","localhost") not in local or
+            os.environ.get("ONE_TEST_PG_PORT","5432")!="5432"):
+            raise RuntimeError("Refusing non-loopback or non-disposable CI DB")
         cls.root=psycopg.connect(DSN,autocommit=True)
         cls.db_name="one_erp_ci_source_"+uuid4().hex[:12]
         cls.root.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(cls.db_name)))
@@ -70,10 +75,16 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         self.tenant,self.actor,self.reviewer=uuid4(),uuid4(),uuid4()
         self.doc_id,self.period_id=uuid4(),uuid4()
         self.loader=ApprovedPostgresFinanceSourceLoader()
+        # Test sale timestamps must be after real CI confirmation dates.
+        # Never weaken the production pre-confirmation invoice check.
+        self.sale_invoice_day=date.today()
+        self.sale_invoice_due=self.sale_invoice_day+timedelta(days=31)
         self.payload={
             "kind":"customer_invoice","number":"CI-"+uuid4().hex[:12],
-            "partner_id":"customer-ci","issued_on":"2026-10-17",
-            "due_on":"2026-11-17","currency":"SAR","source_invoice_id":None,
+            "partner_id":"customer-ci",
+            "issued_on":self.sale_invoice_day.isoformat(),
+            "due_on":self.sale_invoice_due.isoformat(),
+            "currency":"SAR","source_invoice_id":None,
             "accounts":{
                 "receivable_id":"ar","payable_id":"ap",
                 "output_vat_id":"outputvat","input_vat_id":"inputvat",
@@ -94,8 +105,10 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                        VALUES(%s,%s,'accountant')""",(self.tenant,actor))
             conn.execute(
                 """INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive)
-                   VALUES(%s,%s,'2026-01-01','2027-01-01')""",
-                (self.tenant,self.period_id))
+                   VALUES(%s,%s,%s,%s)""",
+                (self.tenant,self.period_id,
+                 date(self.sale_invoice_day.year,1,1),
+                 date(self.sale_invoice_day.year+1,1,1)))
             for key,kind in (
                 ("ar","asset"),("ap","liability"),("sales","revenue"),
                 ("outputvat","liability"),("inputvat","asset"),
@@ -205,6 +218,36 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                             (self.tenant,self.doc_id),
                         )
         self.assertEqual(self.count("one_invoice_source_approvals","document_id"),1)
+
+    def test_062_database_rejects_spoofed_approver_then_accepts_real_reviewer(self):
+        """059 binds approved_by to transaction actor; 062 also checks permission.
+
+        A valid second accountant UUID alone is NOT enough for approval:
+        the trusted SQL actor context must match, and duplicate approval
+        must remain impossible even across separate SQL transactions.
+        """
+        with self.connect() as conn:
+            self.prepare(conn)
+            with conn.transaction():
+                # The maker is authenticated in the transaction, but tries to
+                # attribute the approval to a different authorized accountant.
+                self.bind(conn,self.actor)
+                with self.assertRaises(self.pg.Error):
+                    with conn.transaction():
+                        conn.execute(
+                            """INSERT INTO public.one_invoice_source_approvals
+                               (tenant_id,document_id,approved_by)
+                               VALUES(%s,%s,%s)""",
+                            (self.tenant,self.doc_id,self.reviewer),
+                        )
+            self.assertEqual(
+                self.count("one_invoice_source_approvals","document_id"),0)
+            # A genuinely distinct reviewer is allowed exactly once.
+            self.approve(conn,self.reviewer)
+            with self.assertRaises(self.pg.Error):
+                self.approve(conn,self.reviewer)
+        self.assertEqual(
+            self.count("one_invoice_source_approvals","document_id"),1)
 
     def test_malformed_amount_does_not_write_any_financial_document(self):
         source=dict(self.payload)
@@ -816,9 +859,12 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                              self.sales_admin),
                         )
 
-    def prepare_reviewed_sales_intent(self, *, invoice_id=None, reviewer=None):
+    def prepare_reviewed_sales_intent(self, *, invoice_id=None, reviewer=None,
+                                      issued_on=None, due_on=None):
         invoice_id=invoice_id or self.doc_id
         reviewer=reviewer or self.reviewer
+        invoice_day=issued_on or self.sale_invoice_day
+        due_day=due_on or self.sale_invoice_due
         with self.connect() as conn:
             with conn.transaction():
                 self.bind(conn,self.actor)
@@ -829,11 +875,13 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                        revenue_account_id,output_vat_account_id,input_vat_account_id,
                        tax_category,tax_rate,tax_code,tax_policy_reference,
                        tax_policy_reviewed_by,requested_by)
-                       VALUES (%s,%s,%s,%s,%s,'2026-10-17','2026-11-17',
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,
                        'ar','ap','sales','outputvat','inputvat',
                        'out_of_scope',0,'NONE','INTERNAL-CI-NOT-ZATCA',%s,%s)""",
                     (self.tenant,invoice_id,self.sales_order,self.period_id,
-                     "REAL-INV-"+uuid4().hex[:12],reviewer,self.actor),
+                     "REAL-INV-"+uuid4().hex[:12],
+                     invoice_day,due_day,
+                     reviewer,self.actor),
                 )
         return invoice_id
 
@@ -1104,6 +1152,39 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
 
 
 
+    def test_preconfirmed_sale_date_cannot_create_invoice_source(self):
+        """Real PostgreSQL: never weaken the sale-before-invoice date guard.
+
+        The sale confirmation timestamp is fetched from PostgreSQL, rather
+        than assuming a hardcoded CI calendar date or a runner timezone.
+        """
+        from one_erp_core.commercial_invoice_builder import (
+            PostgresDispatchedSalesInvoiceBuilder,
+        )
+        from one_erp_core.invoice_source_workflow import create_trusted_invoice_source
+        self.prepare_real_dispatched_sale()
+        with self.connect() as conn:
+            confirmed_at=conn.execute(
+                """SELECT confirmed_at FROM one_commercial_orders
+                   WHERE tenant_id=%s AND id=%s""",
+                (self.tenant,self.sales_order),
+            ).fetchone()[0]
+        self.assertIsNotNone(confirmed_at)
+        self.prepare_reviewed_sales_intent(
+            issued_on=confirmed_at.date()-timedelta(days=1))
+        with self.connect() as conn:
+            with self.assertRaisesRegex(PermissionError, "predate confirmed sale"):
+                create_trusted_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        self.actor,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id,
+                    builder=PostgresDispatchedSalesInvoiceBuilder(),
+                )
+        self.assertEqual(self.count("one_invoice_source_requests","document_id"),0)
+        self.assertEqual(self.count("one_sales_invoice_source_links","invoice_id"),0)
+        self.assertEqual(self.count("one_invoice_docs","id"),0)
+
+
     def test_real_receivables_aging_with_applied_internal_receipt_and_reader_rls(self):
         """Real restricted reader, dated ledger and actual internal payment journal.
 
@@ -1135,7 +1216,7 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             payment_id=uuid4()
             payment=PaymentRequest(
                 id=payment_id,tenant_id=self.tenant,partner_id="customer-ci",
-                occurred_on=date(2026,10,19),currency="SAR",
+                occurred_on=self.sale_invoice_day+timedelta(days=2),currency="SAR",
                 direction=PaymentDirection.CUSTOMER_RECEIPT,
                 amount=Decimal("60.00"),
                 allocations=(PaymentAllocation(self.doc_id,Decimal("60.00")),),
@@ -1145,7 +1226,7 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 conn,payment=payment,
                 invoices=(OpenInvoice(
                     self.doc_id,self.tenant,"customer-ci","SAR",
-                    date(2026,10,17),Decimal("200.00"),True,
+                    self.sale_invoice_day,Decimal("200.00"),True,
                 ),),
                 accounts=PaymentLedgerAccounts("bank","ar","ap"),
                 chart=source.chart,period=source.period,
@@ -1190,7 +1271,8 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             with self.pg.connect(**args,autocommit=True) as readonly:
                 historical=load_operations_page(
                     readonly,tenant_id=self.tenant,actor_id=self.actor,
-                    module="receivables",as_of=date(2026,10,18),limit=20)
+                    module="receivables",
+                    as_of=self.sale_invoice_day+timedelta(days=1),limit=20)
                 self.assertEqual(len(historical["items"]),1)
                 before=historical["items"][0]
                 self.assertEqual(before["gross"],"200.000")
@@ -1199,8 +1281,10 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 self.assertEqual(before["aging_bucket"],"current")
                 current=load_operations_page(
                     readonly,tenant_id=self.tenant,actor_id=self.actor,
-                    module="receivables",as_of=date(2026,10,20),limit=20)
-                self.assertEqual(current["as_of"],"2026-10-20")
+                    module="receivables",
+                    as_of=self.sale_invoice_day+timedelta(days=3),limit=20)
+                self.assertEqual(current["as_of"],
+                                 (self.sale_invoice_day+timedelta(days=3)).isoformat())
                 self.assertEqual(current["read_only"],True)
                 self.assertEqual(len(current["items"]),1)
                 ar=current["items"][0]
@@ -1209,16 +1293,19 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 self.assertEqual(ar["status"],"open")
                 overdue=load_operations_page(
                     readonly,tenant_id=self.tenant,actor_id=self.actor,
-                    module="receivables",as_of=date(2026,12,31),limit=20)
+                    module="receivables",
+                    as_of=self.sale_invoice_due+timedelta(days=44),limit=20)
                 self.assertEqual(overdue["items"][0]["aging_bucket"],"31_60")
                 empty=load_operations_page(
                     readonly,tenant_id=self.tenant,actor_id=self.actor,
-                    module="receivables",as_of=date(2026,10,16),limit=20)
+                    module="receivables",
+                    as_of=self.sale_invoice_day-timedelta(days=1),limit=20)
                 self.assertEqual(empty["items"],[])
                 with self.assertRaises(PermissionError):
                     load_operations_page(
                         readonly,tenant_id=self.tenant,actor_id=uuid4(),
-                        module="receivables",as_of=date(2026,10,20))
+                        module="receivables",
+                        as_of=self.sale_invoice_day+timedelta(days=3))
                 with self.assertRaises(self.pg.errors.InsufficientPrivilege):
                     with readonly.transaction():
                         readonly.execute(
@@ -1230,6 +1317,317 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             with self.connect() as admin:
                 admin.execute(self.sql.SQL("DROP OWNED BY {}").format(ident))
             self.root.execute(self.sql.SQL("DROP ROLE {}").format(ident))
+
+
+    def test_062_real_pg_reviewer_source_restricted_role_and_approval_lifecycle(self):
+        """Disposable DB: verified commercial draft visible only to a finance reviewer."""
+        from one_erp_core.commercial_invoice_builder import PostgresDispatchedSalesInvoiceBuilder
+        from one_erp_core.invoice_source_workflow import (
+            create_trusted_invoice_source, independently_approve_invoice_source,
+        )
+        from one_erp_core.invoice_review_source import load_invoice_review_summary
+
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        with self.connect() as conn:
+            create_trusted_invoice_source(
+                conn,identity=AuthenticatedFinanceIdentity(
+                    self.actor,frozenset({self.tenant})),
+                tenant_id=self.tenant,document_id=self.doc_id,
+                builder=PostgresDispatchedSalesInvoiceBuilder(),
+            )
+        role="one_review_ci_"+uuid4().hex[:14]
+        ident=self.sql.Identifier(role)
+        tables=(
+            "one_memberships","one_permission_templates",
+            "one_permission_change_requests","one_permission_change_approvals",
+            "one_invoice_source_requests","one_sales_invoice_source_links",
+            "one_sales_invoice_intents","one_commercial_orders",
+            "one_periods","one_invoice_source_approvals","one_currency_precision",
+        )
+        with self.connect() as conn:
+            conn.execute(self.sql.SQL("CREATE ROLE {} NOLOGIN").format(ident))
+            conn.execute(self.sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(ident))
+            cols=self.sql.SQL(",").join(self.sql.Identifier("public",table) for table in tables)
+            conn.execute(self.sql.SQL("GRANT SELECT ON {} TO {}").format(cols,ident))
+            conn.execute(self.sql.SQL(
+                "GRANT EXECUTE ON FUNCTION public.one_actor_has_permission(uuid,uuid,text)"
+                " TO {}").format(ident))
+        try:
+            with self.connect() as conn:
+                conn.execute(self.sql.SQL("SET ROLE {}").format(ident))
+                try:
+                    evidence=load_invoice_review_summary(
+                        conn,tenant_id=self.tenant,actor_id=self.reviewer,
+                        document_id=self.doc_id,
+                    )
+                    self.assertEqual(evidence["source"],"verified_internal_postgresql")
+                    self.assertEqual(evidence["fields"][-1],
+                                     {"label":"Gross","value":"200.00"})
+                    self.assertEqual(len(evidence["lines"]),1)
+                    self.assertEqual(evidence["lines"][0]["line_number"],1)
+                    self.assertEqual(Decimal(evidence["lines"][0]["quantity"]),Decimal("2"))
+                    self.assertEqual(evidence["lines"][0]["gross"],"200.00")
+                    with self.assertRaises(PermissionError):
+                        load_invoice_review_summary(
+                            conn,tenant_id=self.tenant,actor_id=self.actor,
+                            document_id=self.doc_id,
+                        )
+                    with self.assertRaises(PermissionError):
+                        load_invoice_review_summary(
+                            conn,tenant_id=uuid4(),actor_id=self.reviewer,
+                            document_id=self.doc_id,
+                        )
+                    with self.assertRaises(self.pg.Error):
+                        with conn.transaction():
+                            conn.execute(
+                                """UPDATE one_invoice_source_requests SET period_id=%s
+                                   WHERE tenant_id=%s AND document_id=%s""",
+                                (self.period_id,self.tenant,self.doc_id),
+                            )
+                finally:
+                    conn.execute("RESET ROLE")
+            with self.connect() as conn:
+                independently_approve_invoice_source(
+                    conn,identity=AuthenticatedFinanceIdentity(
+                        self.reviewer,frozenset({self.tenant})),
+                    tenant_id=self.tenant,document_id=self.doc_id,
+                )
+            with self.connect() as conn:
+                conn.execute(self.sql.SQL("SET ROLE {}").format(ident))
+                try:
+                    with self.assertRaises(PermissionError):
+                        load_invoice_review_summary(
+                            conn,tenant_id=self.tenant,actor_id=self.reviewer,
+                            document_id=self.doc_id,
+                        )
+                finally:
+                    conn.execute("RESET ROLE")
+        finally:
+            with self.connect() as conn:
+                conn.execute(self.sql.SQL("DROP OWNED BY {}").format(ident))
+                conn.execute(self.sql.SQL("DROP ROLE {}").format(ident))
+
+
+    def test_real_invoice_to_private_readonly_wsgi_pilot_chain(self):
+        """One disposable PG sale through receipt, COGS, invoice and two APIs.
+
+        This proves a fully connected *test* transaction, not live Oracle,
+        a real OIDC provider, official ZATCA invoice or bank settlement.
+        Unlike mock-only route tests, both private GETs read the actual
+        posted SQL data with DIFFERENT restricted PostgreSQL logins.
+        """
+        from io import BytesIO
+        from urllib.parse import urlencode
+        from one_erp_core.finance_wsgi import TenantFinanceConnections
+        from one_erp_core.staging_health import StagingReadiness, _CHECKS
+        from one_erp_core.staging_router import OneERPStagingRouter
+
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        self.make_approved_sales_invoice()
+        with self.connect() as conn:
+            first = self.execute(conn)
+        self.assertFalse(first.replayed)
+
+        # Do not reuse the owner connection as a "private" application role.
+        # Each connection factory below uses its own restricted runtime login.
+        suffix = uuid4().hex[:12]
+        readers = (
+            ("one_ci_ops_" + suffix,
+             ("one_memberships", "one_permission_templates",
+              "one_permission_change_requests", "one_permission_change_approvals",
+              "one_commercial_orders", "one_commercial_order_lines",
+              "one_products", "one_warehouses", "one_stock_balances",
+              "one_return_jobs")),
+            ("one_ci_ar_" + suffix,
+             ("one_memberships", "one_permission_templates",
+              "one_permission_change_requests", "one_permission_change_approvals",
+              "one_invoice_docs", "one_payment_docs",
+              "one_payment_allocations")),
+        )
+        password = "ci_only_not_a_customer_password"
+        created = []
+        try:
+            with self.connect() as admin:
+                for login, tables in readers:
+                    ident = self.sql.Identifier(login)
+                    admin.execute(self.sql.SQL(
+                        "CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS"
+                    ).format(ident, self.sql.Literal(password)))
+                    created.append(login)
+                    admin.execute(self.sql.SQL(
+                        "GRANT USAGE ON SCHEMA public TO {}").format(ident))
+                    identifiers = self.sql.SQL(",").join(
+                        self.sql.Identifier("public", table) for table in tables)
+                    admin.execute(self.sql.SQL(
+                        "GRANT SELECT ON {} TO {}").format(identifiers, ident))
+                    admin.execute(self.sql.SQL(
+                        "GRANT EXECUTE ON FUNCTION "
+                        "public.one_actor_has_permission(uuid,uuid,text) TO {}"
+                    ).format(ident))
+
+            def connection_for(login):
+                return lambda: self.pg.connect(
+                    **dict(self.args, dbname=self.db_name, user=login,
+                           password=password), autocommit=True)
+
+            ops_registry = TenantFinanceConnections({
+                self.tenant: connection_for(readers[0][0])})
+            ar_registry = TenantFinanceConnections({
+                self.tenant: connection_for(readers[1][0])})
+
+            class VerifiedCIIdentity:
+                """Test verifier only. Never wired into an actual server."""
+                who = self.sales_admin
+
+                def verify_access_token(verifier, token):
+                    if token != "ci.claims.signature":
+                        raise PermissionError("Invalid CI test identity")
+                    return AuthenticatedFinanceIdentity(
+                        verifier.who, frozenset({self.tenant}))
+
+            verifier = VerifiedCIIdentity()
+            # A synthetic readiness probe is ONLY permitted in disposable CI,
+            # never copied to staging/production. No Oracle network is used.
+            app = OneERPStagingRouter(
+                allowed_hosts=frozenset({"staging.erp.example.net"}),
+                deployed_sha="a" * 40, verifier=verifier,
+                operations_connections=ops_registry,
+                finance_report_connections=ar_registry,
+                readiness_probe=lambda: StagingReadiness(
+                    {key: True for key in _CHECKS}),
+            )
+
+            def request(path, *, tenant=None, authorized=True, method="GET",
+                        as_of=None):
+                query = {"tenant": str(tenant or self.tenant),
+                         "limit": "20", "offset": "0"}
+                if as_of is not None:
+                    query["as_of"] = as_of.isoformat()
+                env = {
+                    "PATH_INFO": path, "QUERY_STRING": urlencode(query),
+                    "REQUEST_METHOD": method,
+                    "wsgi.url_scheme": "https",
+                    "HTTP_HOST": "staging.erp.example.net",
+                    "SCRIPT_NAME": "",
+                    "CONTENT_LENGTH": "",
+                    "HTTP_COOKIE": "",
+                    "HTTP_AUTHORIZATION": ("Bearer ci.claims.signature"
+                                           if authorized else ""),
+                    "wsgi.input": BytesIO(b""),
+                }
+                response = {}
+                raw = b"".join(app(
+                    env, lambda status, headers: response.update(
+                        status=status, headers=dict(headers))))
+                return response["status"], response["headers"], json.loads(raw)
+
+            # Real company sales read from a row persisted by purchase/dispatch.
+            verifier.who = self.sales_admin
+            code, head, body = request("/api/v1/operations/sales")
+            self.assertEqual(code, "200 OK")
+            self.assertIn("no-store", head["Cache-Control"])
+            rows = [item for item in body["items"]
+                    if item["order_id"] == str(self.sales_order)]
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["status"], "confirmed")
+            self.assertEqual(Decimal(rows[0]["fulfilled_quantity"]),
+                             Decimal("2"))
+            self.assertEqual(Decimal(rows[0]["unit_price"]),
+                             Decimal("100"))
+
+            code, _, purchase = request("/api/v1/operations/purchases")
+            self.assertEqual(code, "200 OK")
+            matching_purchase = [item for item in purchase["items"]
+                                 if item["order_id"] == str(self.purchase_order)]
+            self.assertEqual(len(matching_purchase), 1)
+            self.assertEqual(matching_purchase[0]["status"], "confirmed")
+            self.assertEqual(Decimal(
+                matching_purchase[0]["fulfilled_quantity"]), Decimal("10"))
+            code, _, stock = request("/api/v1/operations/inventory")
+            self.assertEqual(code, "200 OK")
+            self.assertEqual(len(stock["items"]), 1)
+            self.assertEqual(Decimal(stock["items"][0]["on_hand"]),
+                             Decimal("8"))
+            self.assertEqual(Decimal(stock["items"][0]["reserved"]),
+                             Decimal("0"))
+            self.assertEqual(Decimal(stock["items"][0]["available"]),
+                             Decimal("8"))
+            code, _, returns = request("/api/v1/operations/returns")
+            self.assertEqual(code, "200 OK")
+            self.assertEqual(returns["items"], [])
+            self.assertTrue(returns["read_only"])
+
+            # A different PostgreSQL reader sees the exact issued invoice,
+            # not fabricated website preview or bank-confirmed revenue.
+            verifier.who = self.actor
+            code, _, aging = request(
+                "/api/v1/operations/receivables",
+                as_of=self.sale_invoice_day + timedelta(days=1))
+            self.assertEqual(code, "200 OK")
+            self.assertEqual(aging["source"], "one_erp_next_postgresql")
+            self.assertEqual(aging["as_of"],
+                             (self.sale_invoice_day +
+                              timedelta(days=1)).isoformat())
+            self.assertEqual(len(aging["items"]), 1)
+            invoice = aging["items"][0]
+            self.assertEqual(invoice["invoice_id"], str(self.doc_id))
+            self.assertEqual(invoice["gross"], "200.000")
+            self.assertEqual(invoice["outstanding"], "200.000")
+            self.assertEqual(invoice["applied_receipts"], "0")
+            self.assertEqual(invoice["currency"], "SAR")
+
+            # A signed token alone never grants a different company.
+            code, _, denied = request("/api/v1/operations/receivables",
+                tenant=uuid4(), as_of=self.sale_invoice_day)
+            self.assertEqual(code, "403 Forbidden")
+            self.assertNotIn(str(self.doc_id), str(denied))
+            code, _, denied = request("/api/v1/operations/sales",
+                                      authorized=False)
+            self.assertEqual(code, "401 Unauthorized")
+            self.assertNotIn(str(self.sales_order), str(denied))
+            code, _, _ = request("/api/v1/operations/sales", method="POST")
+            self.assertEqual(code, "405 Method Not Allowed")
+            code, _, _ = request("/api/v1/finance/internal-documents",
+                                  method="POST")
+            self.assertEqual(code, "404 Not Found")
+
+            # Reconnecting with the same approved invoice reference replays
+            # but never posts a second journal.
+            with self.connect() as conn:
+                again = self.execute(conn)
+                self.assertTrue(again.replayed)
+                self.assertEqual(conn.execute(
+                    "SELECT count(*) FROM one_invoice_docs "
+                    "WHERE tenant_id=%s AND id=%s",
+                    (self.tenant, self.doc_id)).fetchone()[0], 1)
+                self.assertEqual(conn.execute(
+                    "SELECT count(*) FROM one_journal_entries "
+                    "WHERE tenant_id=%s AND id IN (%s,%s,%s)",
+                    (self.tenant, self.purchase_journal,
+                     self.cost_journal, self.doc_id)).fetchone()[0], 3)
+                totals = dict(conn.execute(
+                    "SELECT l.account_id, sum(l.debit-l.credit) "
+                    "FROM one_journal_lines l "
+                    "JOIN one_journal_entries j "
+                    " ON j.tenant_id=l.tenant_id AND j.id=l.entry_id "
+                    "WHERE l.tenant_id=%s AND j.status='posted' "
+                    "GROUP BY l.account_id", (self.tenant,)).fetchall())
+                self.assertEqual(totals, {
+                    "inventory": Decimal("400.000"),
+                    "grni": Decimal("-500.000"),
+                    "cogs": Decimal("100.000"),
+                    "ar": Decimal("200.000"),
+                    "sales": Decimal("-200.000"),
+                })
+        finally:
+            # CI-only role cleanup: no persistent service privileges.
+            with self.connect() as admin:
+                for login in reversed(created):
+                    ident = self.sql.Identifier(login)
+                    admin.execute(self.sql.SQL("DROP OWNED BY {}").format(ident))
+                    admin.execute(self.sql.SQL("DROP ROLE {}").format(ident))
 
 
 if __name__=="__main__":

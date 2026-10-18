@@ -22,7 +22,11 @@ PG_PORT = int(os.environ.get("ONE_TEST_PG_PORT", "5432"))
 MIGRATIONS = Path(__file__).resolve().parents[1] / "db"
 
 
-@unittest.skipUnless(DSN, "Requires disposable PostgreSQL CI database")
+@unittest.skipUnless(
+    os.environ.get("CI") == "true" and
+    isinstance(DSN, str) and "dbname=one_erp_test" in DSN,
+    "Requires explicit one_erp_test disposable GitHub CI database",
+)
 class PhysicallyIsolatedTenantDatabaseTests(unittest.TestCase):
     """CI simulation with two different databases and login principals.
 
@@ -36,6 +40,15 @@ class PhysicallyIsolatedTenantDatabaseTests(unittest.TestCase):
         import psycopg
         from psycopg import sql
 
+        # This suite CREATEs and DROPs databases/roles: NEVER accept a
+        # customer, Oracle, or other network PostgreSQL DSN by mistake.
+        args = psycopg.conninfo.conninfo_to_dict(DSN)
+        loopback = ("localhost", "127.0.0.1", "::1")
+        if (args.get("dbname") != "one_erp_test" or
+            args.get("host") not in loopback or
+            args.get("hostaddr") or args.get("port", "5432") != "5432" or
+            PG_HOST not in loopback or PG_PORT != 5432):
+            raise RuntimeError("Refusing non-loopback or non-disposable CI database")
         cls.psycopg = psycopg
         cls.sql = sql
         cls.admin = psycopg.connect(DSN, autocommit=True)

@@ -42,13 +42,26 @@ from one_erp_core.finance_wsgi import OneFinanceWSGI, TenantFinanceConnections
 from one_erp_core.statement_details import balance_sheet, general_ledger_detail
 from one_erp_core.tenancy import Membership, Role
 
-DSN = os.environ.get("ONE_TEST_PG_DSN")
+DSN = os.environ.get("ONE_TEST_PG_DSN", "")
 
-@unittest.skipUnless(DSN, "PostgreSQL integration suite requires ONE_TEST_PG_DSN")
+@unittest.skipUnless(
+    os.environ.get("CI") == "true" and "dbname=one_erp_test" in DSN,
+    "Destructive integration suite requires disposable one_erp_test CI database",
+)
 class PostgreSQLIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         import psycopg
+        # These tests install migrations/roles, so reject external and
+        # customer servers BEFORE opening even the initial admin session.
+        params = psycopg.conninfo.conninfo_to_dict(DSN)
+        local = ("localhost", "127.0.0.1", "::1")
+        if (params.get("dbname") != "one_erp_test" or
+            params.get("host") not in local or params.get("hostaddr") or
+            params.get("port", "5432") != "5432" or
+            os.environ.get("ONE_TEST_PG_HOST", "localhost") not in local or
+            os.environ.get("ONE_TEST_PG_PORT", "5432") != "5432"):
+            raise RuntimeError("Refusing non-loopback or non-disposable CI PostgreSQL")
         cls.psycopg = psycopg
         cls.admin = psycopg.connect(DSN, autocommit=True)
         migration_dir = Path(__file__).resolve().parents[1] / "db"
@@ -8808,6 +8821,91 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             load_operations_page(
                 self.admin,tenant_id=tenant,actor_id=owner,module="sales")
+
+
+    def test_064_committed_draft_changes_capture_real_actor_and_before_after(self):
+        # The legacy fixture uses a privileged CI bootstrap. This new source
+        # is created by the restricted runtime in a signed-identity-like context.
+        tenant,actor,product,warehouse,_,_=self.commerce_fixture()
+        order=uuid4()
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(tenant),))
+            self.db.execute("SELECT set_config('one.actor_id',%s,true)",(str(actor),))
+            self.db.execute(
+                "INSERT INTO one_commercial_orders "
+                "(tenant_id,id,kind,number,partner_id,currency) "
+                "VALUES(%s,%s,'sale',%s,'AUDITED-CI-PARTNER','SAR')",
+                (tenant,order,'AUDIT-'+order.hex))
+            self.db.execute(
+                "INSERT INTO one_commercial_order_lines "
+                "(tenant_id,order_id,line_no,product_id,warehouse_id,ordered_qty,unit_price)"
+                " VALUES(%s,%s,1,%s,%s,5,12.5)",(tenant,order,product,warehouse))
+            self.db.execute(
+                "UPDATE one_commercial_order_lines SET ordered_qty=7,unit_price=14"
+                " WHERE tenant_id=%s AND order_id=%s AND line_no=1",(tenant,order))
+            # Updating only operational fulfillment must not be misrepresented
+            # as a price/quantity edit in the draft change log.
+            self.db.execute(
+                "UPDATE one_commercial_order_lines SET unit_price=14"
+                " WHERE tenant_id=%s AND order_id=%s AND line_no=1",(tenant,order))
+            self.db.execute(
+                "DELETE FROM one_commercial_order_lines "
+                "WHERE tenant_id=%s AND order_id=%s AND line_no=1",(tenant,order))
+            rows=self.db.execute(
+                "SELECT action,line_no,actor_id,before_values,after_values "
+                "FROM one_commercial_change_audit "
+                "WHERE tenant_id=%s AND order_id=%s "
+                "ORDER BY occurred_at,event_id",(tenant,order)).fetchall()
+        self.assertEqual(len(rows),4)
+        self.assertEqual(set(r[0] for r in rows),
+            {'created','line_added','line_changed','line_removed'})
+        self.assertTrue(all(r[2]==actor for r in rows))
+        old=next(r[3] for r in rows if r[0]=='line_changed')
+        new=next(r[4] for r in rows if r[0]=='line_changed')
+        self.assertEqual(old['ordered_qty'],'5.000')
+        self.assertEqual(new['ordered_qty'],'7.000')
+        self.assertEqual(old['unit_price'],'12.500')
+        self.assertEqual(new['unit_price'],'14.000')
+        self.assertNotIn('partner_id',str(rows))
+        with self.assertRaises(self.psycopg.Error):
+            with self.db.transaction():
+                self.db.execute("SELECT set_config('one.tenant_id',%s,true)",(str(tenant),))
+                self.db.execute("SELECT set_config('one.actor_id',%s,true)",(str(actor),))
+                self.db.execute("UPDATE one_commercial_change_audit "
+                    "SET action='created' WHERE tenant_id=%s AND order_id=%s",
+                    (tenant,order))
+        # A mismatched tenant context can never read the preceding facts.
+        with self.db.transaction():
+            self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                            (str(self.tenant_b),))
+            count=self.db.execute(
+                "SELECT count(*) FROM one_commercial_change_audit WHERE order_id=%s",
+                (order,)).fetchone()[0]
+        self.assertEqual(count,0)
+
+    def test_064_unauthenticated_draft_write_rolls_back_without_fabricated_audit(self):
+        tenant,actor,product,warehouse,_,_=self.commerce_fixture()
+        for bad_actor in (None,uuid4()):
+            order=uuid4()
+            with self.subTest(bad_actor=bad_actor):
+                with self.assertRaises(self.psycopg.Error):
+                    with self.db.transaction():
+                        self.db.execute("SELECT set_config('one.tenant_id',%s,true)",
+                                        (str(tenant),))
+                        if bad_actor:
+                            self.db.execute("SELECT set_config('one.actor_id',%s,true)",
+                                            (str(bad_actor),))
+                        self.db.execute("INSERT INTO one_commercial_orders "
+                            "(tenant_id,id,kind,number,partner_id,currency) "
+                            "VALUES (%s,%s,'purchase',%s,'AUDIT-TEST','SAR')",
+                            (tenant,order,'AUD-FAIL-'+order.hex))
+                self.assertEqual(self.admin.execute(
+                    "SELECT count(*) FROM one_commercial_orders "
+                    "WHERE tenant_id=%s AND id=%s",(tenant,order)).fetchone()[0],0)
+                self.assertEqual(self.admin.execute(
+                    "SELECT count(*) FROM one_commercial_change_audit "
+                    "WHERE tenant_id=%s AND order_id=%s",(tenant,order)).fetchone()[0],0)
+
 
 if __name__ == "__main__":
     unittest.main()

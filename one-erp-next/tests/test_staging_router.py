@@ -360,5 +360,156 @@ class StagingRouterTests(unittest.TestCase):
                     verifier=self.verifier,operations_connections=self.connections,
                     finance_report_connections=self.report_connections)
 
+    def test_activity_route_disabled_by_default_and_readiness_gate(self):
+        query=f"tenant={self.tenant}&record_type=invoice&record_id={uuid4()}"
+        self.assertEqual(self.request(
+            "/api/v1/activity/timeline",QUERY_STRING=query)[0],"404 Not Found")
+        reader=TenantFinanceConnections({self.tenant:FakeDB})
+        app=self.router(activity_connections=reader,enable_activity_read=True)
+        self.ready_values["restricted_database_roles"]=False
+        self.assertEqual(self.request(
+            "/api/v1/activity/timeline",QUERY_STRING=query,app=app)[0],
+            "503 Service Unavailable")
+        self.ready_values["restricted_database_roles"]=True
+        self.assertEqual(self.request(
+            "/api/v1/activity/timeline",QUERY_STRING=query,app=app,
+            HTTP_AUTHORIZATION="")[0],"401 Unauthorized")
+        expected={"module":"activity","tenant_id":str(self.tenant),
+                  "record_type":"invoice","items":[]}
+        with patch("one_erp_core.activity_wsgi.load_record_activity",
+                   return_value=expected) as read:
+            status,headers,payload=self.request(
+                "/api/v1/activity/timeline",QUERY_STRING=query,app=app)
+        self.assertEqual(status,"200 OK")
+        self.assertEqual(payload,expected)
+        self.assertEqual(read.call_args.kwargs["actor_id"],self.actor)
+        self.assertIn("no-store",headers["Cache-Control"])
+        self.assertEqual(self.db_calls,0)
+        self.assertEqual(self.report_db_calls,0)
+
+    def test_activity_registry_rejects_privileged_reader_reuse(self):
+        for shared in (self.connections,self.report_connections):
+            with self.subTest(registry=shared):
+                with self.assertRaises(ValueError):
+                    self.router(activity_connections=shared,
+                                enable_activity_read=True)
+        with self.assertRaises(ValueError):
+            self.router(enable_activity_read=True)
+        with self.assertRaises(ValueError):
+            self.router(enable_activity_read=1)
+        with self.assertRaises(ValueError):
+            self.router(activity_connections=TenantFinanceConnections({
+                self.tenant:FakeDB,
+            }))
+
+    def test_source_review_get_unmounted_by_default_even_if_ready(self):
+        self.assertEqual(self.request(
+            "/api/v1/finance/internal-invoice-source",
+            QUERY_STRING=f"tenant={self.tenant}&document_id={uuid4()}"
+        )[0],"404 Not Found")
+        self.assertEqual(self.db_calls,0)
+        self.assertEqual(self.report_db_calls,0)
+
+    def test_invoice_review_get_requires_separate_scoped_reader_and_all_readiness(self):
+        review_calls=[]
+        def review_factory():
+            db=FakeDB();review_calls.append(db);return db
+        reader=TenantFinanceConnections({self.tenant:review_factory})
+        app=self.router(
+            invoice_review_connections=reader,
+            enable_invoice_source_review_read=True)
+        source_id=uuid4()
+        query=f"tenant={self.tenant}&document_id={source_id}"
+        expected={"tenant":str(self.tenant),"document_id":str(source_id),
+                  "reviewable":True,"fields":[{"label":"Net","value":"1.00"}]}
+        self.ready_values["restricted_database_roles"]=False
+        self.assertEqual(self.request(
+            "/api/v1/finance/internal-invoice-source",
+            QUERY_STRING=query,app=app)[0],"503 Service Unavailable")
+        self.assertFalse(review_calls)
+        self.ready_values["restricted_database_roles"]=True
+        self.assertEqual(self.request(
+            "/api/v1/finance/internal-invoice-source",
+            QUERY_STRING=query,app=app,HTTP_AUTHORIZATION="")[0],"401 Unauthorized")
+        self.assertFalse(review_calls)
+        with patch("one_erp_core.invoice_review_wsgi.load_invoice_review_summary",
+                   return_value=expected):
+            status,headers,payload=self.request(
+                "/api/v1/finance/internal-invoice-source",
+                QUERY_STRING=query,app=app)
+        self.assertEqual(status,"200 OK")
+        self.assertEqual(payload,expected)
+        self.assertIn("no-store",headers["Cache-Control"])
+        self.assertEqual(len(review_calls),1)
+        self.assertTrue(review_calls[0].closed)
+        self.assertEqual(self.db_calls,0)
+        self.assertEqual(self.report_db_calls,0)
+
+    def test_invoice_review_reader_never_reuses_privileged_registry(self):
+        for shared in (self.connections,self.report_connections):
+            with self.assertRaises(ValueError):
+                self.router(
+                    invoice_review_connections=shared,
+                    enable_invoice_source_review_read=True)
+        with self.assertRaises(ValueError):
+            self.router(enable_invoice_source_review_read=True)
+        with self.assertRaises(ValueError):
+            self.router(enable_invoice_source_review_read=1)
+        with self.assertRaises(ValueError):
+            self.router(invoice_review_connections=TenantFinanceConnections(
+                {self.tenant:FakeDB}))
+
+
+    def test_two_router_instances_keep_tenant_and_readiness_independent(self):
+        # Two app objects are NOT a multi-process/load test. This safeguards
+        # current per-instance trust configuration for future topology changes.
+        other_tenant,other_actor=uuid4(),uuid4()
+        verifier_b=FakeVerifier(AuthenticatedFinanceIdentity(
+            other_actor,frozenset({other_tenant})))
+        opened_b=[]
+        def open_other():
+            db=FakeDB()
+            opened_b.append(db)
+            return db
+        ops_b=TenantFinanceConnections({other_tenant:open_other})
+        reports_b=TenantFinanceConnections({other_tenant:FakeDB})
+        ready_b={name:True for name in _CHECKS}
+        app_b=OneERPStagingRouter(
+            allowed_hosts=frozenset({HOST}),deployed_sha=SHA,
+            verifier=verifier_b,operations_connections=ops_b,
+            finance_report_connections=reports_b,
+            readiness_probe=lambda:StagingReadiness(ready_b),
+        )
+        first_q=f"tenant={self.tenant}&limit=1&offset=0"
+        second_q=f"tenant={other_tenant}&limit=1&offset=0"
+        self.assertEqual(self.request(
+            app=app_b,QUERY_STRING=first_q)[0],"403 Forbidden")
+        self.assertEqual(self.request(
+            app=self.app,QUERY_STRING=second_q)[0],"403 Forbidden")
+        self.assertEqual((self.db_calls,len(opened_b)),(0,0))
+
+        second_source={
+            "module":"sales","tenant_id":str(other_tenant),"items":[],
+            "read_only":True,"source":"one_erp_next_postgresql",
+        }
+        with patch("one_erp_core.operations_read_wsgi.load_operations_page",
+                   return_value=second_source):
+            status,headers,result=self.request(app=app_b,QUERY_STRING=second_q)
+        self.assertEqual((status,result),("200 OK",second_source))
+        self.assertEqual(len(opened_b),1)
+        self.assertTrue(opened_b[0].closed)
+        self.assertIn("no-store",headers["Cache-Control"])
+
+        ready_b["trusted_identity_provider"]=False
+        self.assertEqual(self.request(
+            app=app_b,QUERY_STRING=second_q)[0],"503 Service Unavailable")
+        self.assertEqual(len(opened_b),1)
+        # B's readiness failure cannot alter A's operator-owned probe state.
+        self.assertEqual(self.request("/readyz",app=self.app)[0],"200 OK")
+        self.assertEqual(self.request(
+            app=self.app,QUERY_STRING=second_q)[0],"403 Forbidden")
+        self.assertEqual(self.db_calls,0)
+
+
 if __name__=="__main__":
     unittest.main()

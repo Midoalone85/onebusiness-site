@@ -17,7 +17,7 @@ import re
 import ssl
 from typing import Callable
 from urllib.parse import urlencode, urlsplit
-from uuid import UUID
+from uuid import UUID, NAMESPACE_URL, uuid5
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _HOST = re.compile(r"(?=.{4,253}\Z)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\Z")
@@ -218,6 +218,85 @@ def run_full_staging_smoke(
     }
 
 
+
+def _is_safe_denial_response(
+    *, response: tuple[int, dict[str, str], bytes],
+    expected_status: int, expected_error: str,
+) -> bool:
+    """Require a non-cacheable JSON error and no tenant/business payload.
+
+    Deliberately consume but never display the response body, even if a
+    misconfigured staging endpoint accidentally discloses company records.
+    """
+    try:
+        status, headers, body = response
+        if (status != expected_status or not isinstance(body, bytes) or
+            len(body) > _LIMIT or
+            not headers.get("content-type", "").lower().startswith(
+                "application/json") or
+            "no-store" not in headers.get("cache-control", "").lower()):
+            return False
+        result = json.loads(body.decode("utf-8"))
+        return result == {"error": expected_error}
+    except (TypeError, ValueError, UnicodeError, AttributeError):
+        return False
+
+
+def run_access_denial_staging_smoke(
+    config: StagingSmokeConfig, *, transport: Callable = _network_get,
+) -> dict:
+    """Operator-only pilot gate: four positive reads plus two negative GETs.
+
+    This checks the HTTPS/WSGI access contract, NOT physical tenant database
+    isolation, revocation, an actual user journey or commercial readiness.
+    The synthetic second tenant is deliberately NOT an actual peer customer's
+    identifier. Real tenant isolation still needs the separate DBA preflight.
+    No POST, write, billing, refund, approval or external service is invoked.
+    """
+    baseline = run_full_staging_smoke(config, transport=transport)
+    checks = dict(baseline["checks"])
+    checks.update(anonymous_denied=False, foreign_tenant_denied=False)
+    if baseline["status"] != "SMOKE_PASS_NOT_PRODUCTION_APPROVAL":
+        return {
+            "status": "BLOCKED", "checks": checks,
+            "scope": "read_only_staging_access_denial",
+            "release_approved": False,
+        }
+
+    path = "/api/v1/operations/sales?"
+    own_query = urlencode({"tenant": str(config.tenant_id), "limit": 1,
+                           "offset": 0})
+    foreign = uuid5(NAMESPACE_URL, "one-erp-staging-denial:" +
+                    str(config.tenant_id))
+    foreign_query = urlencode({"tenant": str(foreign), "limit": 1,
+                               "offset": 0})
+    common = {"Accept": "application/json",
+              "User-Agent": "one-erp-next-smoke"}
+    cases = (
+        ("anonymous_denied", path + own_query, common, 401,
+         "authentication_required"),
+        ("foreign_tenant_denied", path + foreign_query,
+         {**common, "Authorization": "Bearer " + config.access_token},
+         403, "access_denied"),
+    )
+    for name, target, headers, expected_code, expected_error in cases:
+        try:
+            reply = transport(config.allowed_host, target, headers,
+                              config.timeout_seconds)
+            checks[name] = _is_safe_denial_response(
+                response=reply, expected_status=expected_code,
+                expected_error=expected_error)
+        except Exception:
+            checks[name] = False
+
+    return {
+        "status": ("SMOKE_PASS_NOT_PRODUCTION_APPROVAL"
+                   if all(checks.values()) else "BLOCKED"),
+        "checks": checks, "scope": "read_only_staging_access_denial",
+        "release_approved": False,
+    }
+
+
 def main() -> int:
     """Explicit opt-in; secrets stay in environment and never in output."""
     required = (
@@ -239,7 +318,7 @@ def main() -> int:
             tenant_id=UUID(os.environ["ONE_STAGING_TENANT_ID"]),
             access_token=os.environ["ONE_STAGING_ACCESS_TOKEN"],
         )
-        report = run_full_staging_smoke(config)
+        report = run_access_denial_staging_smoke(config)
     except Exception:
         print(json.dumps({
             "status": "BLOCKED", "release_approved": False,

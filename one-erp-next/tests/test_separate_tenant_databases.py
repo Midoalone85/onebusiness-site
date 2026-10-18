@@ -26,10 +26,17 @@ class IndependentCompanyDatabasesTests(unittest.TestCase):
         from psycopg import sql
         cls.pg=psycopg
         cls.sql=sql
-        cls.admin=psycopg.connect(DSN,autocommit=True)
+        # Reject external/admin DSNs before opening any connection or DDL.
         cls.conn_args=psycopg.conninfo.conninfo_to_dict(DSN)
-        if cls.conn_args.get("dbname")!="one_erp_test":
-            raise RuntimeError("Refusing to create tenant DBs outside one_erp_test CI")
+        local=("localhost","127.0.0.1","::1")
+        if (cls.conn_args.get("dbname")!="one_erp_test" or
+            cls.conn_args.get("host") not in local or
+            cls.conn_args.get("hostaddr") or
+            cls.conn_args.get("port","5432")!="5432" or
+            os.environ.get("ONE_TEST_PG_HOST","localhost") not in local or
+            os.environ.get("ONE_TEST_PG_PORT","5432")!="5432"):
+            raise RuntimeError("Refusing non-loopback or non-disposable CI DB")
+        cls.admin=psycopg.connect(DSN,autocommit=True)
         suffix=uuid4().hex[:10]
         cls.db_names=[f"one_erp_ci_alpha_{suffix}",f"one_erp_ci_beta_{suffix}"]
         cls.user=f"one_erp_ci_read_{suffix}"

@@ -2,6 +2,21 @@
 
 **Status:** early, tested core rules, not a live service. Neither email, login, Oracle nor payment gateways are connected.
 
+> **2026-10-18 architecture addendum:** This file records the initial foundation, not
+> the full current feature-branch test count. Draft financial code, private UI
+> and integration gates have since been developed, but none proves a live
+> commercial ERP. The current scale decision is one **logical, modular
+> platform core**, a deliberately controlled initial deployment, and **NO
+> paid/automatic horizontal autoscaling until after commercial launch**.
+> Preserve tenant/identity, ledger idempotency, financial consistency and
+> audit invariants so future replicas can be introduced after real
+> concurrency/restore/security/load tests. See
+> [ADR_SINGLE_CORE_SCALE_LATER_20261018.md](ops/ADR_SINGLE_CORE_SCALE_LATER_20261018.md).
+> Neither this ADR nor the added router-boundary unit test changes production
+> configuration, activates replicas, deploys Oracle, or replaces independent
+> production acceptance.
+
+
 - Core owns tenant identities, authorization contracts, accounting invariants and trial states.
 - Versioned country packs will supply regional tax, forms, currency, legal rules and official integrations without changing core.
 - Sector packs (medical, pharmacy, laboratory, industrial, maintenance, trade and more) supply sector features via stable contracts. They must not bypass tenant or ledger rules.
