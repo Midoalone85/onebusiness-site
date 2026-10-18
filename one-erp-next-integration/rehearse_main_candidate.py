@@ -51,7 +51,7 @@ REVIEW_REQUIRED = (
     "one-erp-next/src/one_erp_core/staging_router.py",
     *RETAINED_PYTHON_TESTS,
 )
-_SAFE_REF = re.compile(r"[A-Za-z0-9_./-]+\\Z")
+_SAFE_REF = re.compile(r"[A-Za-z0-9_./-]+\Z")
 
 
 class GateFailure(RuntimeError):
