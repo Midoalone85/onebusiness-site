@@ -14,6 +14,14 @@ Earlier role templates are **not proof of effective least privilege**:
 
 **New tests:** `tests/test_runtime_reader_privilege_audit_postgres.py` provisions a **randomly named, disposable CI database and SQL login** and deliberately grants/revokes unsafe rights. It tests failure on PUBLIC function/table grants, direct mutation/sequence rights, hidden role membership, lost FORCE RLS, unapproved schema/table/view/function, TEMP/CREATE rights and mismatched deployment policies. All fixtures refuse to run on an unspecified/customer DB.
 
+
+**Additional PostgreSQL column ACL protection:** the inspector checks `has_any_column_privilege` as well as `has_table_privilege`. A column-only `SELECT` on an unapproved table, a partial read on an approved table, or any column-only `INSERT`, `UPDATE` or `REFERENCES` is a release blocker. This is tested on PostgreSQL, not inferred from SQL templates.
+
+**New composition:** `src/one_erp_core/staging_tenant_db_acceptance.py` exposes `verify_staging_finance_reader` for a *separately approved operator process*, consuming **two distinct connections**: a privileged catalog inspector and the named restricted financial reporting login, both pinned to the same tenant database. It requires all three independently implemented verifications to pass in order: `verify_exclusive_tenant_inventory`, `verify_physical_tenant_database`, and `inspect_restricted_reader`. A forged or contradictory result fails shut. The output explicitly sets `route_ready=False` and `release_approved=False`. It never enables the public /readyz endpoint or issues customer access on its own.
+
+The companion `tests/test_staging_tenant_db_acceptance.py` adds fail-closed composition tests. Existing real-PG suites independently validate the component SQL behavior and cross-tenant isolation; the composition tests are mocking the orchestration, not proof of a live Oracle tenant.
+
+
 ## Proposed reviewer scopes: starting checklist, NOT approved production role policy
 
 Every independently privileged route family must have a *separately verified runtime SQL login*. The finance dashboard and receivables currently share the same reviewed finance-report connection registry; the audit must allow only the union of their approved reads. The same login must never be reused between operational reads, privileged financial writes, reviewer approvals, invoice-review evidence and activity reads without an explicitly reviewed source-code change.
