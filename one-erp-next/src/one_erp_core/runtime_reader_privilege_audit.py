@@ -19,6 +19,8 @@ _ROLE = re.compile(r"[a-z][a-z0-9_]{5,62}\Z")
 _TABLE = re.compile(r"[a-z][a-z0-9_]{2,62}\Z")
 _FUNCTION = re.compile(r"public\.[a-z][a-z0-9_]*\([^)]*\)\Z")
 _READ_FORBIDDEN = ("INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER")
+# PostgreSQL column-level ACLs are independent of table-level ACLs.
+_COLUMN_FORBIDDEN = ("INSERT", "UPDATE", "REFERENCES")
 _SEQUENCE_FORBIDDEN = ("USAGE", "SELECT", "UPDATE")
 
 
@@ -186,12 +188,26 @@ def inspect_restricted_reader(connection, *, expected_database: str,
                             )
                             if cur.fetchone()[0]:
                                 raise AccountingError("Read-only role can modify a relation")
+                        # Table-level privilege checks alone miss a GRANT on
+                        # just one column, including INSERT/UPDATE/REFERENCES.
+                        for privilege in _COLUMN_FORBIDDEN:
+                            cur.execute(
+                                "SELECT has_any_column_privilege(%s,%s,%s)",
+                                (role,oid,privilege),
+                            )
+                            if cur.fetchone()[0]:
+                                raise AccountingError("Read-only role can modify a column")
                         cur.execute(
                             "SELECT has_table_privilege(%s,%s,'SELECT')",
                             (role,oid),
                         )
-                        can_select = cur.fetchone()[0]
-                        if can_select:
+                        table_select = cur.fetchone()[0]
+                        cur.execute(
+                            "SELECT has_any_column_privilege(%s,%s,'SELECT')",
+                            (role,oid),
+                        )
+                        column_select = cur.fetchone()[0]
+                        if table_select or column_select:
                             cur.execute(
                                 """SELECT n.nspname FROM pg_catalog.pg_class c
                                    JOIN pg_catalog.pg_namespace n
@@ -202,6 +218,11 @@ def inspect_restricted_reader(connection, *, expected_database: str,
                                 raise AccountingError("Reader can SELECT a nonpublic relation")
                             if name not in policy.allowed_tables:
                                 raise AccountingError("Unapproved SELECT grant on a relation")
+                            if not table_select:
+                                # A single column does not satisfy an approved
+                                # full-table reporting dependency. Require
+                                # explicitly reviewed, full read-only access.
+                                raise AccountingError("Partial-column SELECT is not approved")
                             # Views and materialized views can sidestep the
                             # source table's RLS/privilege boundary.
                             if kind not in ("r","p"):
