@@ -32,8 +32,13 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         cls.pg=psycopg
         cls.sql=sql
         cls.args=psycopg.conninfo.conninfo_to_dict(DSN)
-        if cls.args.get("dbname")!="one_erp_test":
-            raise RuntimeError("Refusing non-CI database")
+        local=("localhost","127.0.0.1","::1")
+        if (cls.args.get("dbname")!="one_erp_test" or
+            cls.args.get("host") not in local or cls.args.get("hostaddr") or
+            cls.args.get("port","5432")!="5432" or
+            os.environ.get("ONE_TEST_PG_HOST","localhost") not in local or
+            os.environ.get("ONE_TEST_PG_PORT","5432")!="5432"):
+            raise RuntimeError("Refusing non-loopback or non-disposable CI DB")
         cls.root=psycopg.connect(DSN,autocommit=True)
         cls.db_name="one_erp_ci_source_"+uuid4().hex[:12]
         cls.root.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(cls.db_name)))
