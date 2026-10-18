@@ -5,9 +5,9 @@ const LABEL_MAX=100,VALUE_MAX=500;
 // Source JSON is display evidence, not a browser authority to calculate/post.
 // Reject impossible numeric strings before enabling a human approval button.
 // Decimal strings only: no exponent, sign, NaN, Infinity or locale separators.
-const DECIMAL=/^(?:0|[1-9][0-9]{0,29})(?:\\.[0-9]{1,12})?$/;
-const RATE=/^(?:0(?:\\.[0-9]{1,12})?|1(?:\\.0{1,12})?)$/;
-const ZERO=/^0(?:\\.0+)?$/;
+const DECIMAL=/^(?:0|[1-9][0-9]{0,29})(?:\.[0-9]{1,12})?$/;
+const RATE=/^(?:0(?:\.[0-9]{1,12})?|1(?:\.0{1,12})?)$/;
+const ZERO=/^0(?:\.0+)?$/;
 const TAX_CATEGORIES=new Set(["standard","zero_rated","exempt","out_of_scope"]);
 function fixed(value){
   const [whole,part=""]=value.split(".");
