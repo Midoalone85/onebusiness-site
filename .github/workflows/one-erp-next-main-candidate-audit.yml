@@ -10,6 +10,12 @@ on:
       - ".github/workflows/one-erp-next-main-candidate-audit.yml"
       - "one-erp-next/**"
       - "one-erp-next-integration/**"
+  # Validate each proposed stacked PR; push-only checks miss follow-up fixes.
+  pull_request:
+    paths:
+      - ".github/workflows/one-erp-next-main-candidate-audit.yml"
+      - "one-erp-next/**"
+      - "one-erp-next-integration/**"
 
 permissions:
   contents: read
@@ -27,6 +33,9 @@ jobs:
       - name: Read reviewed candidate tree without persisting credentials
         uses: actions/checkout@v4
         with:
+          # Audit the author's exact proposed commit, not GitHub's synthetic
+          # pull-request merge ref. The merge-tree gate checks main separately.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
