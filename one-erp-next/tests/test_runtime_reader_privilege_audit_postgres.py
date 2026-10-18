@@ -271,7 +271,7 @@ class RuntimeReadOnlyRoleAuditPostgresTests(unittest.TestCase):
         try:
             self.statement(
                 "CREATE FUNCTION one_ci_external.one_privileged() "
-                "RETURNS integer LANGUAGE sql AS $ SELECT 42 $")
+                "RETURNS integer LANGUAGE sql AS 'SELECT 42'")
             self.statement(
                 self.sql.SQL("GRANT USAGE ON SCHEMA one_ci_external TO {}").format(
                     self.sql.Identifier(self.reader)))
