@@ -82,6 +82,8 @@ def inspect_restricted_reader(connection, *, expected_database: str,
         with connection.transaction():
             with connection.cursor() as cur:
                 cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+                # Force function signatures to be schema-qualified in regprocedure.
+                cur.execute("SET LOCAL search_path = pg_catalog")
                 # The SQL inspector is pre-authenticated outside this module.
                 cur.execute("SELECT current_database(), current_user")
                 if cur.fetchone()[0] != expected_database:
