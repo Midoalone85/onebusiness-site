@@ -134,6 +134,8 @@ test("Arabic private reviewer loads verified line evidence and requires explicit
   assert.equal(table.tagName,"table");
   assert.equal(table.children[1].children[1].textContent,"Genuine <strong>source</strong>");
   const approve=root.children[7],confirm=root.children[6];
+  assert.equal(root.children[5].attributes.for,confirm.attributes.id);
+  assert.match(confirm.attributes.id,/^one-private-approval-ack-[0-9]+$/);
   assert.equal(approve.disabled,true);
   await approve.listeners.click();assert.equal(log.length,1);
   confirm.checked=true;confirm.listeners.change();assert.equal(approve.disabled,false);
