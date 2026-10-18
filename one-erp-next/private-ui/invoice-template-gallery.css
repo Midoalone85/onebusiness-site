@@ -1,0 +1,78 @@
+/* ONE ERP NEXT private invoice gallery: fictional data and preview ONLY.
+   No real tenant content, fiscal signing, QR, or legal issuance. */
+.one-invoice-gallery{
+  --one-invoice-ink:#162c47;
+  --one-invoice-accent:#155eaa;
+  --one-invoice-muted:#f4f7fb;
+  --one-invoice-rule:#d9e3ed;
+  color:var(--one-invoice-ink);
+  font:400 14px/1.65 system-ui,"Noto Sans Arabic","Segoe UI",sans-serif;
+  max-width:100%;margin:0 auto;padding:16px;
+  background:#f4f7fb;
+}
+.one-invoice-gallery *, .one-invoice-gallery *::before, .one-invoice-gallery *::after{box-sizing:border-box}
+.one-invoice-gallery>h2{font-size:1.35rem;margin:0 0 8px}
+.one-invoice-warning{border:1px solid #a9bfd5;background:#eaf2fa;color:#18436c;padding:10px 14px;border-radius:8px;font-weight:600;margin:0 0 16px}
+.one-invoice-picker{display:flex;gap:10px;flex-wrap:wrap;margin-block:12px 20px}
+.one-invoice-picker button{min-height:44px;padding:10px 17px;cursor:pointer;background:#fff;color:#174b80;border:1px solid #abc3dc;border-radius:8px;font:inherit;font-weight:650}
+.one-invoice-picker button[aria-pressed="true"]{background:#155eaa;color:white;border-color:#155eaa}
+.one-invoice-picker button:focus-visible{outline:3px solid #2775be;outline-offset:3px}
+.one-invoice-preview{overflow-x:auto;padding:3px}
+.one-invoice-sheet{
+  width:210mm;min-height:297mm;max-width:none;
+  padding:15mm 14mm 16mm;
+  margin:0 auto;
+  background:#fff;color:#1c3043;
+  box-shadow:0 10px 26px rgba(19,41,66,.12);
+  border-top:8px solid var(--one-invoice-accent);
+  display:flex;flex-direction:column;gap:13px;
+  font-variant-numeric:tabular-nums;
+}
+.one-invoice-sheet .one-invoice-head{display:flex;justify-content:space-between;align-items:start;gap:18px;padding-bottom:12px;border-bottom:2px solid var(--one-invoice-accent)}
+.one-invoice-brand{display:flex;flex-direction:column;gap:0;font-size:15px}
+.one-invoice-brand strong{font-weight:800;font-size:21px}
+.one-invoice-brand span{font-size:12px;color:#53677c}
+.one-invoice-heading{text-align:end}
+.one-invoice-heading h2{margin:0;color:var(--one-invoice-accent);font-size:23px}
+.one-invoice-heading p{margin:0;color:#617387;font-size:13px}
+.one-invoice-preview-stamp{
+  color:#8a3043;text-align:center;margin:0;font-weight:800;
+  letter-spacing:.08em;padding:4px;border:2px dashed #be8391;background:#fff5f6
+}
+.one-invoice-meta,.one-invoice-parties{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:9px 0}
+.one-invoice-meta{grid-template-columns:repeat(3,minmax(0,1fr))}
+.one-invoice-parties>div{background:var(--one-invoice-muted);padding:12px;border-radius:7px}
+.one-invoice-detail{display:flex;flex-direction:column;gap:3px;min-width:0}
+.one-invoice-detail span{color:#53677c;font-size:11px;font-weight:600}
+.one-invoice-detail strong{font-size:14px;overflow-wrap:anywhere}
+.one-invoice-sheet table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:11px}
+.one-invoice-sheet th,.one-invoice-sheet td{padding:8px 5px;text-align:start;vertical-align:top;overflow-wrap:anywhere;border-bottom:1px solid var(--one-invoice-rule)}
+.one-invoice-sheet th{background:#eaf2fa;color:#173d61;font-weight:800}
+.one-invoice-sheet td:first-child{width:30%}
+.one-invoice-totals{width:52%;margin-inline-start:auto;border-top:2px solid var(--one-invoice-accent);margin-top:8px;padding-top:8px}
+.one-invoice-totals>.one-invoice-detail{display:flex;flex-direction:row;justify-content:space-between;gap:9px;padding-block:4px}
+.one-invoice-totals>.one-invoice-detail:last-child{background:#eaf2fa;padding:9px;border-radius:5px}
+.one-invoice-footer{margin-top:auto;border-top:1px solid var(--one-invoice-rule);padding-top:12px;font-size:11px;color:#6b3151;text-align:center}
+.one-invoice-minimal{--one-invoice-accent:#34465b;--one-invoice-muted:#f8f9fa;border-top:2px solid #34465b}
+.one-invoice-minimal .one-invoice-head{border-bottom-width:1px}
+.one-invoice-minimal th{background:#f3f5f7;color:#223449}
+.one-invoice-minimal .one-invoice-totals>.one-invoice-detail:last-child{background:#f1f3f5}
+.one-invoice-modern{--one-invoice-accent:#007f91;--one-invoice-muted:#eff9fa;border-top:9px solid #007f91}
+.one-invoice-modern .one-invoice-head{background:#eff9fa;padding:15px;border-radius:10px;border-bottom:0}
+.one-invoice-modern th,.one-invoice-modern .one-invoice-totals>.one-invoice-detail:last-child{background:#dff4f7;color:#1b4e56}
+@media(max-width:830px){
+  .one-invoice-gallery{padding:9px}
+  .one-invoice-preview{overflow-x:auto}
+  .one-invoice-sheet{margin-inline:0}
+}
+@page{size:A4 portrait;margin:0}
+@media print{
+  body{background:white}
+  .one-invoice-gallery{background:white;padding:0;margin:0}
+  .one-invoice-gallery>h2,.one-invoice-picker{display:none!important}
+  .one-invoice-warning{display:block;font-size:10px;border:0;margin:0 14mm 2mm}
+  .one-invoice-preview{padding:0;overflow:visible}
+  .one-invoice-sheet{box-shadow:none;margin:0;border-top-width:6px;break-after:page}
+  .one-invoice-sheet tr{break-inside:avoid}
+  .one-invoice-preview-stamp{display:block!important}
+}
