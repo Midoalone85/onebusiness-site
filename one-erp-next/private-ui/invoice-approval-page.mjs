@@ -4,6 +4,22 @@ const LABELS=Object.freeze({
   ar:{heading:"مراجعة مصدر الفاتورة الداخلية",source:"مرجع الفاتورة",tenant:"الشركة",review:"تفاصيل المصدر المعتمد",loading:"جارٍ تحميل بيانات المراجعة…",confirm:"راجعت تفاصيل المصدر والمستندات الداعمة",approve:"الموافقة كمراجع مستقل",approved:"تمت الموافقة على المصدر الداخلي",unavailable:"لا يمكن عرض مصدر موثوق. الموافقة مقفولة.",denied:"غير مصرح بالموافقة أو تعذر الطلب",clear:"إغلاق المراجعة",notice:"هذه موافقة محاسبية داخلية وليست فاتورة ضريبية أو تصريحًا من زاتكا."},
   en:{heading:"Review internal invoice source",source:"Invoice reference",tenant:"Company",review:"Trusted source details",loading:"Loading reviewer data…",confirm:"I reviewed the source and supporting evidence",approve:"Approve as independent reviewer",approved:"Internal source approved",unavailable:"Trusted source unavailable. Approval blocked.",denied:"Approval denied or unavailable",clear:"Clear review",notice:"Internal accounting approval only, not a tax invoice or ZATCA clearance."}
 });
+// Display every reviewer-relevant tax decision sent by the trusted server.
+// Labels are presentation only; the original source code stays visible.
+const COLUMNS=Object.freeze({
+  ar:{line_number:"رقم البند",description:"الوصف",quantity:"الكمية",
+    unit_price:"سعر الوحدة",discount_amount:"الخصم",tax_category:"تصنيف الضريبة",
+    tax_rate:"معدل الضريبة (عشري)",tax_code:"رمز الضريبة",
+    net:"الصافي",tax:"الضريبة",gross:"الإجمالي"},
+  en:{line_number:"Line",description:"Description",quantity:"Quantity",
+    unit_price:"Unit price",discount_amount:"Discount",tax_category:"Tax category",
+    tax_rate:"Tax rate (decimal)",tax_code:"Tax code",
+    net:"Net",tax:"Tax",gross:"Gross"},
+});
+const TAX_CATEGORY_LABELS=Object.freeze({
+  ar:{standard:"أساسية",zero_rated:"صفرية",exempt:"معفاة",out_of_scope:"خارج النطاق"},
+  en:{standard:"Standard",zero_rated:"Zero-rated",exempt:"Exempt",out_of_scope:"Out of scope"},
+});
 function safeText(v){return typeof v==="string"||typeof v==="number"?String(v):"";}
 let approvalCheckboxSequence=0;
 /** Private source-only UI, not deployed. loadSummary must use a protected server,
@@ -18,7 +34,7 @@ export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetc
     throw new TypeError("Private root and verified session required");
   const verifiedLoader=loadSummary||((args)=>readInternalInvoiceSource({baseUrl,fetchImpl,...args}));
   trustedApprovalOrigin(baseUrl);
-  const doc=root.ownerDocument,words=LABELS[language==="en"?"en":"ar"];
+  const doc=root.ownerDocument,lang=language==="en"?"en":"ar",words=LABELS[lang];
   let revision=0,disposed=false,openRequest=null,approved=false,busy=false;
   let controller=null,reviewAcknowledged=false;
   root.setAttribute("dir",language==="en"?"ltr":"rtl");
@@ -84,13 +100,22 @@ export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetc
       if(Array.isArray(summary.lines)){
         const table=doc.createElement("table");
         const names=["line_number","description","quantity","unit_price",
-          "discount_amount","net","tax","gross"];
+          "discount_amount","tax_category","tax_rate","tax_code","net","tax","gross"];
         const header=doc.createElement("tr");
-        for(const name of names){const cell=doc.createElement("th");cell.textContent=name;header.append(cell);}
+        for(const name of names){
+          const cell=doc.createElement("th");
+          cell.textContent=COLUMNS[lang][name];header.append(cell);
+        }
         table.append(header);
         for(const line of summary.lines){
           const tr=doc.createElement("tr");
-          for(const name of names){const cell=doc.createElement("td");cell.textContent=safeText(line[name]);tr.append(cell);}
+          for(const name of names){
+            const cell=doc.createElement("td");
+            cell.textContent=name==="tax_category"
+              ? TAX_CATEGORY_LABELS[lang][line.tax_category]+" ("+line.tax_category+")"
+              : safeText(line[name]);
+            tr.append(cell);
+          }
           table.append(tr);
         }
         details.append(table);
