@@ -117,6 +117,18 @@ class MainCandidateAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(gate.GateFailure,"invalid syntax"):
             self.check()
 
+    def test_candidate_audit_workflow_covers_prs_and_pins_exact_head(self):
+        # PRs stacked on the reviewed candidate must run the same source
+        # preservation check; otherwise successful finance CI misses this gate.
+        workflow = (Path(__file__).resolve().parents[1]
+                    / ".github/workflows/one-erp-next-main-candidate-audit.yml")
+        source = workflow.read_text(encoding="utf-8")
+        self.assertRegex(source, r"(?m)^  pull_request:\s*$")
+        self.assertIn("ref: ${{ github.event.pull_request.head.sha || github.sha }}", source)
+        self.assertIn("persist-credentials: false", source)
+        self.assertIn("--candidate HEAD", source)
+        self.assertIn("rehearse_main_candidate.py", source)
+
     def test_untrusted_refs_rejected_before_git_use(self):
         for value in ("--upload-pack", "HEAD:foo", "a..b", "feature//@x",
                       "ref@{1}", "ref\nother", "../secret", ""):
