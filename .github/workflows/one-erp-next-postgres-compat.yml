@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - "one-erp-next/**"
+      - "one-erp-next-integration/**"
       - ".github/workflows/one-erp-next-postgres-compat.yml"
 
 permissions:
@@ -53,16 +54,11 @@ jobs:
         run: python -m pip install "psycopg[binary]>=3.1,<4" "PyJWT[crypto]>=2.10,<3"
       - name: Compile source and tests
         run: python -m compileall -q src tests
-      - name: Run full finance tests and reject silent skips
-        shell: bash
+      - name: Test strict CI gate safety itself
+        env:
+          PYTHONPATH: ../one-erp-next-integration
+        run: python -m unittest discover -s ../one-erp-next-integration -p 'test_strict_ci_runner.py' -v
+      - name: Run complete finance tests with zero skips and critical cases
         env:
           PYTHONPATH: src
-        run: |
-          set -o pipefail
-          python -m unittest discover -s tests -v 2>&1 | tee /tmp/one-erp-pg-compat-tests.log
-          grep -Eq '^Ran [0-9]+ tests in ' /tmp/one-erp-pg-compat-tests.log
-          grep -q 'test_062_database_rejects_spoofed_approver_then_accepts_real_reviewer' /tmp/one-erp-pg-compat-tests.log
-          if grep -Eq '^OK \(skipped=[1-9]|\.\.\. skipped ' /tmp/one-erp-pg-compat-tests.log; then
-            echo "Tests skipped: failing PostgreSQL compatibility gate"
-            exit 1
-          fi
+        run: python ../one-erp-next-integration/strict_ci_runner.py
