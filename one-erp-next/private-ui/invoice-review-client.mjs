@@ -2,6 +2,17 @@
 import {trustedApprovalOrigin,validDocumentRef,InternalApprovalError} from "./invoice-approval-client.mjs";
 const JWT=/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const LABEL_MAX=100,VALUE_MAX=500;
+// Source JSON is display evidence, not a browser authority to calculate/post.
+// Reject impossible numeric strings before enabling a human approval button.
+// Decimal strings only: no exponent, sign, NaN, Infinity or locale separators.
+const DECIMAL=/^(?:0|[1-9][0-9]{0,29})(?:\\.[0-9]{1,12})?$/;
+const RATE=/^(?:0(?:\\.[0-9]{1,12})?|1(?:\\.0{1,12})?)$/;
+const ZERO=/^0(?:\\.0+)?$/;
+const TAX_CATEGORIES=new Set(["standard","zero_rated","exempt","out_of_scope"]);
+function fixed(value){
+  const [whole,part=""]=value.split(".");
+  return BigInt(whole)*1000000000000n+BigInt((part+"000000000000").slice(0,12));
+}
 const LINE_KEYS=["line_number","description","quantity","unit_price",
   "discount_amount","tax_category","tax_rate","tax_code","net","tax","gross"];
 function validFields(fields) {
@@ -11,12 +22,23 @@ function validFields(fields) {
     String(f.value).length<=VALUE_MAX);
 }
 function validLine(line){
-  return line&&typeof line==="object"&&!Array.isArray(line)&&
-    LINE_KEYS.every(key=>Object.hasOwn(line,key))&&
-    Number.isInteger(line.line_number)&&line.line_number>0&&
-    LINE_KEYS.filter(key=>key!=="line_number").every(key=>
-      typeof line[key]==="string"&&line[key].length<=500)&&
-    line.description.trim().length>0;
+  if(!line||typeof line!=="object"||Array.isArray(line)||
+     !LINE_KEYS.every(key=>Object.hasOwn(line,key))||
+     !Number.isInteger(line.line_number)||line.line_number<=0||
+     !LINE_KEYS.filter(key=>key!=="line_number").every(key=>
+       typeof line[key]==="string"&&line[key].length<=500)||
+     !line.description.trim()||!TAX_CATEGORIES.has(line.tax_category)||
+     !line.tax_code.trim()||line.tax_code.length>64)return false;
+  for(const key of ["quantity","unit_price","discount_amount","net","tax","gross"]){
+    if(!DECIMAL.test(line[key]))return false;
+  }
+  if(ZERO.test(line.quantity)||!RATE.test(line.tax_rate)||
+     (line.tax_category==="standard"
+       ? ZERO.test(line.tax_rate)||line.tax_code==="NONE"
+       : !ZERO.test(line.tax_rate)))return false;
+  // These three values are exact line-level currency amounts; there is no
+  // floating point rounding here. Country-level tax policy remains server-side.
+  return fixed(line.net)+fixed(line.tax)===fixed(line.gross);
 }
 export async function readInternalInvoiceSource({baseUrl,tenant,document_id,token,signal,fetchImpl=fetch}) {
   const origin=trustedApprovalOrigin(baseUrl);
