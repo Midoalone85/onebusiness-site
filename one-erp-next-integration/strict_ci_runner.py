@@ -48,6 +48,12 @@ def validate_ci_db(env: dict, params: dict) -> list[str]:
             params.get("hostaddr") or params.get("service") or
             params.get("servicefile")):
         problems.append("Refusing a non-loopback or non-disposable test database")
+    # libpq also reads process environment defaults. PGHOSTADDR can direct
+    # traffic to a remote IP even when the DSN explicitly says host=localhost.
+    # Service files and startup options also bypass the reviewed CI contract.
+    if any(env.get(key) for key in (
+            "PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE", "PGOPTIONS")):
+        problems.append("Unreviewed libpq environment overrides are forbidden")
     if (env.get("ONE_TEST_PG_HOST") != "localhost" or
             env.get("ONE_TEST_PG_PORT") != "5432" or
             env.get("ONE_TEST_PG_DB") != "one_erp_test"):
