@@ -1537,6 +1537,14 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             self.assertEqual(Decimal(rows[0]["unit_price"]),
                              Decimal("100"))
 
+            code, _, purchase = request("/api/v1/operations/purchases")
+            self.assertEqual(code, "200 OK")
+            matching_purchase = [item for item in purchase["items"]
+                                 if item["order_id"] == str(self.purchase_order)]
+            self.assertEqual(len(matching_purchase), 1)
+            self.assertEqual(matching_purchase[0]["status"], "confirmed")
+            self.assertEqual(Decimal(
+                matching_purchase[0]["fulfilled_quantity"]), Decimal("10"))
             code, _, stock = request("/api/v1/operations/inventory")
             self.assertEqual(code, "200 OK")
             self.assertEqual(len(stock["items"]), 1)
@@ -1546,6 +1554,10 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                              Decimal("0"))
             self.assertEqual(Decimal(stock["items"][0]["available"]),
                              Decimal("8"))
+            code, _, returns = request("/api/v1/operations/returns")
+            self.assertEqual(code, "200 OK")
+            self.assertEqual(returns["items"], [])
+            self.assertTrue(returns["read_only"])
 
             # A different PostgreSQL reader sees the exact issued invoice,
             # not fabricated website preview or bank-confirmed revenue.
