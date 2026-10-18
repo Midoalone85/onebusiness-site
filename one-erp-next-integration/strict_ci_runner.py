@@ -22,6 +22,8 @@ REQUIRED = frozenset({
     "test_approved_finance_sources_postgres.ApprovedSourcePostgresTests."
     "test_full_purchase_receipt_grni_dispatch_cogs_and_invoice_journal",
     "test_approved_finance_sources_postgres.ApprovedSourcePostgresTests."
+    "test_real_invoice_to_private_readonly_wsgi_pilot_chain",
+    "test_approved_finance_sources_postgres.ApprovedSourcePostgresTests."
     "test_062_real_pg_reviewer_source_restricted_role_and_approval_lifecycle",
     "test_runtime_reader_privilege_audit_postgres."
     "RuntimeReadOnlyRoleAuditPostgresTests."
