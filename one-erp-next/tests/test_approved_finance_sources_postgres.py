@@ -1409,5 +1409,214 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 conn.execute(self.sql.SQL("DROP ROLE {}").format(ident))
 
 
+    def test_real_invoice_to_private_readonly_wsgi_pilot_chain(self):
+        """One disposable PG sale through receipt, COGS, invoice and two APIs.
+
+        This proves a fully connected *test* transaction, not live Oracle,
+        a real OIDC provider, official ZATCA invoice or bank settlement.
+        Unlike mock-only route tests, both private GETs read the actual
+        posted SQL data with DIFFERENT restricted PostgreSQL logins.
+        """
+        from io import BytesIO
+        from urllib.parse import urlencode
+        from one_erp_core.finance_wsgi import TenantFinanceConnections
+        from one_erp_core.staging_health import StagingReadiness, _CHECKS
+        from one_erp_core.staging_router import OneERPStagingRouter
+
+        self.prepare_real_dispatched_sale()
+        self.prepare_reviewed_sales_intent()
+        self.make_approved_sales_invoice()
+        with self.connect() as conn:
+            first = self.execute(conn)
+        self.assertFalse(first.replayed)
+
+        # Do not reuse the owner connection as a "private" application role.
+        # Each connection factory below uses its own restricted runtime login.
+        suffix = uuid4().hex[:12]
+        readers = (
+            ("one_ci_ops_" + suffix,
+             ("one_memberships", "one_permission_templates",
+              "one_permission_change_requests", "one_permission_change_approvals",
+              "one_commercial_orders", "one_commercial_order_lines",
+              "one_products", "one_warehouses", "one_stock_balances",
+              "one_return_jobs")),
+            ("one_ci_ar_" + suffix,
+             ("one_memberships", "one_permission_templates",
+              "one_permission_change_requests", "one_permission_change_approvals",
+              "one_invoice_docs", "one_payment_docs",
+              "one_payment_allocations")),
+        )
+        password = "ci_only_not_a_customer_password"
+        created = []
+        try:
+            with self.connect() as admin:
+                for login, tables in readers:
+                    ident = self.sql.Identifier(login)
+                    admin.execute(self.sql.SQL(
+                        "CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS"
+                    ).format(ident, self.sql.Literal(password)))
+                    created.append(login)
+                    admin.execute(self.sql.SQL(
+                        "GRANT USAGE ON SCHEMA public TO {}").format(ident))
+                    identifiers = self.sql.SQL(",").join(
+                        self.sql.Identifier("public", table) for table in tables)
+                    admin.execute(self.sql.SQL(
+                        "GRANT SELECT ON {} TO {}").format(identifiers, ident))
+                    admin.execute(self.sql.SQL(
+                        "GRANT EXECUTE ON FUNCTION "
+                        "public.one_actor_has_permission(uuid,uuid,text) TO {}"
+                    ).format(ident))
+
+            def connection_for(login):
+                return lambda: self.pg.connect(
+                    **dict(self.args, dbname=self.db_name, user=login,
+                           password=password), autocommit=True)
+
+            ops_registry = TenantFinanceConnections({
+                self.tenant: connection_for(readers[0][0])})
+            ar_registry = TenantFinanceConnections({
+                self.tenant: connection_for(readers[1][0])})
+
+            class VerifiedCIIdentity:
+                """Test verifier only. Never wired into an actual server."""
+                who = self.sales_admin
+
+                def verify_access_token(verifier, token):
+                    if token != "ci.claims.signature":
+                        raise PermissionError("Invalid CI test identity")
+                    return AuthenticatedFinanceIdentity(
+                        verifier.who, frozenset({self.tenant}))
+
+            verifier = VerifiedCIIdentity()
+            # A synthetic readiness probe is ONLY permitted in disposable CI,
+            # never copied to staging/production. No Oracle network is used.
+            app = OneERPStagingRouter(
+                allowed_hosts=frozenset({"staging.erp.example.net"}),
+                deployed_sha="a" * 40, verifier=verifier,
+                operations_connections=ops_registry,
+                finance_report_connections=ar_registry,
+                readiness_probe=lambda: StagingReadiness(
+                    {key: True for key in _CHECKS}),
+            )
+
+            def request(path, *, tenant=None, authorized=True, method="GET",
+                        as_of=None):
+                query = {"tenant": str(tenant or self.tenant),
+                         "limit": "20", "offset": "0"}
+                if as_of is not None:
+                    query["as_of"] = as_of.isoformat()
+                env = {
+                    "PATH_INFO": path, "QUERY_STRING": urlencode(query),
+                    "REQUEST_METHOD": method,
+                    "wsgi.url_scheme": "https",
+                    "HTTP_HOST": "staging.erp.example.net",
+                    "SCRIPT_NAME": "",
+                    "CONTENT_LENGTH": "",
+                    "HTTP_COOKIE": "",
+                    "HTTP_AUTHORIZATION": ("Bearer ci.claims.signature"
+                                           if authorized else ""),
+                    "wsgi.input": BytesIO(b""),
+                }
+                response = {}
+                raw = b"".join(app(
+                    env, lambda status, headers: response.update(
+                        status=status, headers=dict(headers))))
+                return response["status"], response["headers"], json.loads(raw)
+
+            # Real company sales read from a row persisted by purchase/dispatch.
+            verifier.who = self.sales_admin
+            code, head, body = request("/api/v1/operations/sales")
+            self.assertEqual(code, "200 OK")
+            self.assertIn("no-store", head["Cache-Control"])
+            rows = [item for item in body["items"]
+                    if item["order_id"] == str(self.sales_order)]
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["status"], "confirmed")
+            self.assertEqual(Decimal(rows[0]["fulfilled_quantity"]),
+                             Decimal("2"))
+            self.assertEqual(Decimal(rows[0]["unit_price"]),
+                             Decimal("100"))
+
+            code, _, stock = request("/api/v1/operations/inventory")
+            self.assertEqual(code, "200 OK")
+            self.assertEqual(len(stock["items"]), 1)
+            self.assertEqual(Decimal(stock["items"][0]["on_hand"]),
+                             Decimal("8"))
+            self.assertEqual(Decimal(stock["items"][0]["reserved"]),
+                             Decimal("0"))
+            self.assertEqual(Decimal(stock["items"][0]["available"]),
+                             Decimal("8"))
+
+            # A different PostgreSQL reader sees the exact issued invoice,
+            # not fabricated website preview or bank-confirmed revenue.
+            verifier.who = self.actor
+            code, _, aging = request(
+                "/api/v1/operations/receivables",
+                as_of=self.sale_invoice_day + timedelta(days=1))
+            self.assertEqual(code, "200 OK")
+            self.assertEqual(aging["source"], "one_erp_next_postgresql")
+            self.assertEqual(aging["as_of"],
+                             (self.sale_invoice_day +
+                              timedelta(days=1)).isoformat())
+            self.assertEqual(len(aging["items"]), 1)
+            invoice = aging["items"][0]
+            self.assertEqual(invoice["invoice_id"], str(self.doc_id))
+            self.assertEqual(invoice["gross"], "200.000")
+            self.assertEqual(invoice["outstanding"], "200.000")
+            self.assertEqual(invoice["applied_receipts"], "0")
+            self.assertEqual(invoice["currency"], "SAR")
+
+            # A signed token alone never grants a different company.
+            code, _, denied = request("/api/v1/operations/receivables",
+                tenant=uuid4(), as_of=self.sale_invoice_day)
+            self.assertEqual(code, "403 Forbidden")
+            self.assertNotIn(str(self.doc_id), str(denied))
+            code, _, denied = request("/api/v1/operations/sales",
+                                      authorized=False)
+            self.assertEqual(code, "401 Unauthorized")
+            self.assertNotIn(str(self.sales_order), str(denied))
+            code, _, _ = request("/api/v1/operations/sales", method="POST")
+            self.assertEqual(code, "405 Method Not Allowed")
+            code, _, _ = request("/api/v1/finance/internal-documents",
+                                  method="POST")
+            self.assertEqual(code, "404 Not Found")
+
+            # Reconnecting with the same approved invoice reference replays
+            # but never posts a second journal.
+            with self.connect() as conn:
+                again = self.execute(conn)
+                self.assertTrue(again.replayed)
+                self.assertEqual(conn.execute(
+                    "SELECT count(*) FROM one_invoice_docs "
+                    "WHERE tenant_id=%s AND id=%s",
+                    (self.tenant, self.doc_id)).fetchone()[0], 1)
+                self.assertEqual(conn.execute(
+                    "SELECT count(*) FROM one_journal_entries "
+                    "WHERE tenant_id=%s AND id IN (%s,%s,%s)",
+                    (self.tenant, self.purchase_journal,
+                     self.cost_journal, self.doc_id)).fetchone()[0], 3)
+                totals = dict(conn.execute(
+                    "SELECT l.account_id, sum(l.debit-l.credit) "
+                    "FROM one_journal_lines l "
+                    "JOIN one_journal_entries j "
+                    " ON j.tenant_id=l.tenant_id AND j.id=l.entry_id "
+                    "WHERE l.tenant_id=%s AND j.status='posted' "
+                    "GROUP BY l.account_id", (self.tenant,)).fetchall())
+                self.assertEqual(totals, {
+                    "inventory": Decimal("400.000"),
+                    "grni": Decimal("-500.000"),
+                    "cogs": Decimal("100.000"),
+                    "ar": Decimal("200.000"),
+                    "sales": Decimal("-200.000"),
+                })
+        finally:
+            # CI-only role cleanup: no persistent service privileges.
+            with self.connect() as admin:
+                for login in reversed(created):
+                    ident = self.sql.Identifier(login)
+                    admin.execute(self.sql.SQL("DROP OWNED BY {}").format(ident))
+                    admin.execute(self.sql.SQL("DROP ROLE {}").format(ident))
+
+
 if __name__=="__main__":
     unittest.main()
