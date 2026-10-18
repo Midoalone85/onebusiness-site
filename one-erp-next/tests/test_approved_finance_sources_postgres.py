@@ -3,7 +3,7 @@
 Creates and destroys a disposable database in GitHub CI ONLY. No customer
 records, bank payments, ZATCA action or deployed HTTP server.
 """
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 import json
 import os
@@ -70,10 +70,16 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
         self.tenant,self.actor,self.reviewer=uuid4(),uuid4(),uuid4()
         self.doc_id,self.period_id=uuid4(),uuid4()
         self.loader=ApprovedPostgresFinanceSourceLoader()
+        # Test sale timestamps must be after real CI confirmation dates.
+        # Never weaken the production pre-confirmation invoice check.
+        self.sale_invoice_day=date.today()
+        self.sale_invoice_due=self.sale_invoice_day+timedelta(days=31)
         self.payload={
             "kind":"customer_invoice","number":"CI-"+uuid4().hex[:12],
-            "partner_id":"customer-ci","issued_on":"2026-10-17",
-            "due_on":"2026-11-17","currency":"SAR","source_invoice_id":None,
+            "partner_id":"customer-ci",
+            "issued_on":self.sale_invoice_day.isoformat(),
+            "due_on":self.sale_invoice_due.isoformat(),
+            "currency":"SAR","source_invoice_id":None,
             "accounts":{
                 "receivable_id":"ar","payable_id":"ap",
                 "output_vat_id":"outputvat","input_vat_id":"inputvat",
@@ -94,8 +100,10 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                        VALUES(%s,%s,'accountant')""",(self.tenant,actor))
             conn.execute(
                 """INSERT INTO one_periods(tenant_id,id,begins,ends_exclusive)
-                   VALUES(%s,%s,'2026-01-01','2027-01-01')""",
-                (self.tenant,self.period_id))
+                   VALUES(%s,%s,%s,%s)""",
+                (self.tenant,self.period_id,
+                 date(self.sale_invoice_day.year,1,1),
+                 date(self.sale_invoice_day.year+1,1,1)))
             for key,kind in (
                 ("ar","asset"),("ap","liability"),("sales","revenue"),
                 ("outputvat","liability"),("inputvat","asset"),
@@ -859,11 +867,13 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                        revenue_account_id,output_vat_account_id,input_vat_account_id,
                        tax_category,tax_rate,tax_code,tax_policy_reference,
                        tax_policy_reviewed_by,requested_by)
-                       VALUES (%s,%s,%s,%s,%s,'2026-10-17','2026-11-17',
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,
                        'ar','ap','sales','outputvat','inputvat',
                        'out_of_scope',0,'NONE','INTERNAL-CI-NOT-ZATCA',%s,%s)""",
                     (self.tenant,invoice_id,self.sales_order,self.period_id,
-                     "REAL-INV-"+uuid4().hex[:12],reviewer,self.actor),
+                     "REAL-INV-"+uuid4().hex[:12],
+                     self.sale_invoice_day,self.sale_invoice_due,
+                     reviewer,self.actor),
                 )
         return invoice_id
 
@@ -1165,7 +1175,7 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             payment_id=uuid4()
             payment=PaymentRequest(
                 id=payment_id,tenant_id=self.tenant,partner_id="customer-ci",
-                occurred_on=date(2026,10,19),currency="SAR",
+                occurred_on=self.sale_invoice_day+timedelta(days=2),currency="SAR",
                 direction=PaymentDirection.CUSTOMER_RECEIPT,
                 amount=Decimal("60.00"),
                 allocations=(PaymentAllocation(self.doc_id,Decimal("60.00")),),
@@ -1175,7 +1185,7 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 conn,payment=payment,
                 invoices=(OpenInvoice(
                     self.doc_id,self.tenant,"customer-ci","SAR",
-                    date(2026,10,17),Decimal("200.00"),True,
+                    self.sale_invoice_day,Decimal("200.00"),True,
                 ),),
                 accounts=PaymentLedgerAccounts("bank","ar","ap"),
                 chart=source.chart,period=source.period,
@@ -1220,7 +1230,8 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
             with self.pg.connect(**args,autocommit=True) as readonly:
                 historical=load_operations_page(
                     readonly,tenant_id=self.tenant,actor_id=self.actor,
-                    module="receivables",as_of=date(2026,10,18),limit=20)
+                    module="receivables",
+                    as_of=self.sale_invoice_day+timedelta(days=1),limit=20)
                 self.assertEqual(len(historical["items"]),1)
                 before=historical["items"][0]
                 self.assertEqual(before["gross"],"200.000")
@@ -1229,8 +1240,10 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 self.assertEqual(before["aging_bucket"],"current")
                 current=load_operations_page(
                     readonly,tenant_id=self.tenant,actor_id=self.actor,
-                    module="receivables",as_of=date(2026,10,20),limit=20)
-                self.assertEqual(current["as_of"],"2026-10-20")
+                    module="receivables",
+                    as_of=self.sale_invoice_day+timedelta(days=3),limit=20)
+                self.assertEqual(current["as_of"],
+                                 (self.sale_invoice_day+timedelta(days=3)).isoformat())
                 self.assertEqual(current["read_only"],True)
                 self.assertEqual(len(current["items"]),1)
                 ar=current["items"][0]
@@ -1239,16 +1252,19 @@ class ApprovedSourcePostgresTests(unittest.TestCase):
                 self.assertEqual(ar["status"],"open")
                 overdue=load_operations_page(
                     readonly,tenant_id=self.tenant,actor_id=self.actor,
-                    module="receivables",as_of=date(2026,12,31),limit=20)
+                    module="receivables",
+                    as_of=self.sale_invoice_due+timedelta(days=44),limit=20)
                 self.assertEqual(overdue["items"][0]["aging_bucket"],"31_60")
                 empty=load_operations_page(
                     readonly,tenant_id=self.tenant,actor_id=self.actor,
-                    module="receivables",as_of=date(2026,10,16),limit=20)
+                    module="receivables",
+                    as_of=self.sale_invoice_day-timedelta(days=1),limit=20)
                 self.assertEqual(empty["items"],[])
                 with self.assertRaises(PermissionError):
                     load_operations_page(
                         readonly,tenant_id=self.tenant,actor_id=uuid4(),
-                        module="receivables",as_of=date(2026,10,20))
+                        module="receivables",
+                        as_of=self.sale_invoice_day+timedelta(days=3))
                 with self.assertRaises(self.pg.errors.InsufficientPrivilege):
                     with readonly.transaction():
                         readonly.execute(
