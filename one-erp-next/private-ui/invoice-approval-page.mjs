@@ -5,6 +5,7 @@ const LABELS=Object.freeze({
   en:{heading:"Review internal invoice source",source:"Invoice reference",tenant:"Company",review:"Trusted source details",loading:"Loading reviewer data…",confirm:"I reviewed the source and supporting evidence",approve:"Approve as independent reviewer",approved:"Internal source approved",unavailable:"Trusted source unavailable. Approval blocked.",denied:"Approval denied or unavailable",clear:"Clear review",notice:"Internal accounting approval only, not a tax invoice or ZATCA clearance."}
 });
 function safeText(v){return typeof v==="string"||typeof v==="number"?String(v):"";}
+let approvalCheckboxSequence=0;
 /** Private source-only UI, not deployed. loadSummary must use a protected server,
  * independently verify tenant/source lineage and show authentic reviewer evidence.
  * Missing loader or unreviewable source FAILS CLOSED. Server is final authority.
@@ -28,6 +29,11 @@ export function mountInvoiceApprovalPage({root,baseUrl,getToken,loadSummary,fetc
   const details=doc.createElement("section");details.setAttribute("aria-label",words.review);
   const confirm=doc.createElement("input");confirm.type="checkbox";confirm.checked=false;
   const confirmLabel=doc.createElement("label");confirmLabel.textContent=words.confirm;
+  // The text must be linked to its checkbox for keyboard/screen readers;
+  // each independently mounted reviewer needs a unique control ID.
+  const checkboxId="one-private-approval-ack-"+(++approvalCheckboxSequence);
+  confirm.setAttribute("id",checkboxId);
+  confirmLabel.setAttribute("for",checkboxId);
   const approve=doc.createElement("button");approve.type="button";approve.textContent=words.approve;
   const clear=doc.createElement("button");clear.type="button";clear.textContent=words.clear;
   function update(){approve.disabled=disposed||busy||!openRequest||!reviewAcknowledged||approved;confirm.disabled=disposed||busy||!openRequest||approved;}
