@@ -221,6 +221,53 @@ class RuntimeReadOnlyRoleAuditPostgresTests(unittest.TestCase):
                 self.sql.SQL("REVOKE {} FROM {}").format(
                     self.sql.Identifier(self.group),self.sql.Identifier(self.reader)))
 
+    def test_column_only_select_on_private_table_is_not_invisible(self):
+        self.statement(
+            self.sql.SQL("GRANT SELECT(id) ON public.one_private_rows TO {}")
+            .format(self.sql.Identifier(self.reader)))
+        try:
+            with self.assertRaisesRegex(AccountingError, "Unapproved SELECT"):
+                self.inspect()
+        finally:
+            self.statement(
+                self.sql.SQL("REVOKE SELECT(id) ON public.one_private_rows FROM {}")
+                .format(self.sql.Identifier(self.reader)))
+
+    def test_column_only_select_does_not_satisfy_approved_full_table(self):
+        self.statement(
+            self.sql.SQL("REVOKE SELECT ON public.one_demo_rows FROM {}")
+            .format(self.sql.Identifier(self.reader)))
+        self.statement(
+            self.sql.SQL("GRANT SELECT(id) ON public.one_demo_rows TO {}")
+            .format(self.sql.Identifier(self.reader)))
+        try:
+            with self.assertRaisesRegex(AccountingError, "Partial-column SELECT"):
+                self.inspect()
+        finally:
+            self.statement(
+                self.sql.SQL("REVOKE SELECT(id) ON public.one_demo_rows FROM {}")
+                .format(self.sql.Identifier(self.reader)))
+            self.statement(
+                self.sql.SQL("GRANT SELECT ON public.one_demo_rows TO {}")
+                .format(self.sql.Identifier(self.reader)))
+
+    def test_column_only_mutation_acl_is_rejected(self):
+        for action,column in (("INSERT","id"),("UPDATE","tenant_id"),
+                              ("REFERENCES","id")):
+            # SQL words come exclusively from the static test cases above.
+            permission=action+"("+column+")"
+            with self.subTest(action=action):
+                self.statement(
+                    self.sql.SQL("GRANT {} ON public.one_private_rows TO {}")
+                    .format(self.sql.SQL(permission),self.sql.Identifier(self.reader)))
+                try:
+                    with self.assertRaisesRegex(AccountingError,"modify a column"):
+                        self.inspect()
+                finally:
+                    self.statement(
+                        self.sql.SQL("REVOKE {} ON public.one_private_rows FROM {}")
+                        .format(self.sql.SQL(permission),self.sql.Identifier(self.reader)))
+
     def test_nonpublic_schema_table_grants_are_not_invisible_to_audit(self):
         self.statement("CREATE SCHEMA one_ci_private")
         try:
