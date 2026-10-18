@@ -16,7 +16,7 @@ At the earlier inspection, `main..#53` was **587 commits ahead and 0 behind**, r
 
 ## Exact-file comparison of sibling work (not a substitute for code review)
 
-For the 12 paths changed directly in #51, compare the file SHA in the #51 HEAD with #53 HEAD. The following **eight exact SHA matches** were verified at inspection:
+For the 12 paths changed directly in #51, compare the file SHA in the #51 HEAD with #53 HEAD. The following **seven exact SHA matches** were verified at inspection:
 - `db/062_invoice_source_review_permission.sql`
 - `ops/INVOICE_REVIEW_SOURCE_062_20261017.md`
 - `private-ui/invoice-review-client.test.mjs`
@@ -24,7 +24,6 @@ For the 12 paths changed directly in #51, compare the file SHA in the #51 HEAD w
 - `src/one_erp_core/invoice_review_wsgi.py`
 - `tests/test_invoice_review_source.py`
 - `tests/test_invoice_review_wsgi.py`
-- plus the common source-review implementation artifact count is **seven?** Verify the list against the exact filenames below before declaring a full 8/12 equivalence.
 
 The four #51 paths whose blobs **are NOT identical** in #53 are:
 - `private-ui/invoice-approval-page.mjs`: consolidated stricter source validation and post-approval timeline refresh.
@@ -32,7 +31,7 @@ The four #51 paths whose blobs **are NOT identical** in #53 are:
 - `src/one_erp_core/staging_router.py`: adds receivables and activity routing, independent reader registry; independently verify the actor/tenant/readiness boundary.
 - `tests/test_approved_finance_sources_postgres.py` and `tests/test_staging_router.py`: updated tests and extended acceptance cases.
 
-**Correction:** this is actually **7 identical / 5 changed** paths when counted against the 12-file list. The exact counted list above has 7 items. Use this corrected count in release discussions. A quick line-set difference does NOT establish complete semantic preservation of the 5 changed paths. Keep independent code review blocking.
+**Result: 7 identical / 5 changed paths.** A quick line-set difference does NOT establish complete semantic preservation of the changed paths. Keep independent code review blocking.
 
 For #52's four files, `receivables-client.mjs`, `receivables-client.test.mjs` and `receivables-page.mjs` were **identical SHA** to #53. Its `private-ui/README.md` in #53 was expanded, with original lines present. This is a text-level comparison, not an API security audit.
 
