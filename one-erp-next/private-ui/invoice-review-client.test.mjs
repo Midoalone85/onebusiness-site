@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readInternalInvoiceSource} from "./invoice-review-client.mjs";
+import {readInternalInvoiceSource,validateInternalInvoiceSource} from "./invoice-review-client.mjs";
 import {mountInvoiceApprovalPage} from "./invoice-approval-page.mjs";
 
 const tenant="11111111-1111-4111-8111-111111111111";
@@ -84,6 +84,27 @@ test("denied HTTP, HTML and network failures never return reviewer source",async
   }));
 });
 
+test("invoice reviewer rejects forged numeric text, impossible line totals and tax categories",()=>{
+  const cases=[
+    {gross:"Infinity"},{net:"NaN"},{tax:"1e309"},{quantity:"0"},
+    {quantity:"-2"},{quantity:"2,000"},{unit_price:"-100.00"},
+    {discount_amount:"abc"},{net:"190.00",gross:"219.50"},
+    {tax_category:"invented"},{tax_category:"exempt",tax_rate:"0.150000"},
+    {tax_rate:"1.25"},{tax_rate:"-0.1"},{tax_rate:"0"},
+    {tax_code:""},{tax_code:"NONE"},
+  ];
+  for(const edits of cases){
+    const altered={...source,lines:[{...lines[0],...edits}]};
+    assert.throws(()=>validateInternalInvoiceSource(altered,{tenant,document_id}),
+      {name:"InternalApprovalError"},JSON.stringify(edits));
+  }
+  assert.deepEqual(validateInternalInvoiceSource(source,{tenant,document_id}).lines,lines);
+  const noTax={...lines[0],tax_category:"out_of_scope",tax_rate:"0",
+    net:"190.00",tax:"0.00",gross:"190.00",tax_code:"NONE"};
+  const valid={...source,lines:[noTax]};
+  assert.equal(validateInternalInvoiceSource(valid,{tenant,document_id}).reviewable,true);
+});
+
 class Element {
   constructor(ownerDocument,tag){this.ownerDocument=ownerDocument;this.tagName=tag;this.children=[];this.attributes={};this.textContent="";this.listeners={};this.disabled=false;this.checked=false;}
   setAttribute(k,v){this.attributes[k]=v;}
@@ -119,6 +140,24 @@ test("Arabic private reviewer loads verified line evidence and requires explicit
   await approve.listeners.click();
   assert.equal(log.length,2);assert.equal(log[1].opts.method,"POST");
   assert.equal(page.snapshot().approved,true);assert.equal(approve.disabled,true);
+  page.dispose();
+});
+
+test("unreconciled invoice source cannot enable approval even when custom loader returns a trusted marker",async()=>{
+  const root=document.createElement("main");
+  let calls=0;
+  const page=mountInvoiceApprovalPage({root,baseUrl:"https://erp.example.test/",
+    getToken:async()=> "a.b.c",
+    loadSummary:async()=>({...source,lines:[{...lines[0],gross:"999999.99"}]}),
+    fetchImpl:async()=>{calls++;return ok({ok:true,status:"approved_internal_source",tenant,document_id});}
+  });
+  assert.equal(await page.open({tenant,document_id}),false);
+  assert.equal(page.snapshot().ready,false);
+  const approve=root.children[7],ack=root.children[6];
+  ack.checked=true;ack.listeners.change();
+  assert.equal(approve.disabled,true);
+  await approve.listeners.click();
+  assert.equal(calls,0);
   page.dispose();
 });
 
