@@ -7,10 +7,12 @@ on:
       - integration/one-erp-next-finance-20261017
     paths:
       - "one-erp-next/**"
+      - "one-erp-next-integration/**"
       - ".github/workflows/one-erp-next-finance-tests.yml"
   pull_request:
     paths:
       - "one-erp-next/**"
+      - "one-erp-next-integration/**"
       - ".github/workflows/one-erp-next-finance-tests.yml"
 
 permissions:
@@ -53,8 +55,10 @@ jobs:
       - name: Compile sources
         working-directory: one-erp-next
         run: python -m compileall -q src tests
-      - name: Run unit and isolated PostgreSQL integration tests
+      - name: Self-test fail-closed finance CI gate
+        run: python -m unittest discover -s one-erp-next-integration -p 'test_strict_ci_runner.py' -v
+      - name: Strict finance and disposable PostgreSQL acceptance (no skips)
         working-directory: one-erp-next
         env:
           PYTHONPATH: src
-        run: python -m unittest discover -s tests -v
+        run: python ../one-erp-next-integration/strict_ci_runner.py
