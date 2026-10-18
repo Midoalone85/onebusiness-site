@@ -63,6 +63,20 @@ class StrictCIGateTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertTrue(gate.validate_ci_db(env, self.valid_db()))
 
+    def test_libpq_environment_cannot_redirect_disposable_ci_connection(self):
+        for key, value in (
+            ("PGHOSTADDR", "192.0.2.15"),
+            ("PGSERVICE", "production"),
+            ("PGSERVICEFILE", "/tmp/production-service.conf"),
+            ("PGOPTIONS", "-c search_path=unreviewed"),
+        ):
+            with self.subTest(key=key):
+                env = {**self.valid_env(), key: value}
+                self.assertTrue(gate.validate_ci_db(env, self.valid_db()))
+        # Empty defaults do not override libpq parameters.
+        clean = {**self.valid_env(), "PGHOSTADDR": ""}
+        self.assertEqual(gate.validate_ci_db(clean, self.valid_db()), [])
+
     def test_collector_retains_exact_case_identifiers(self):
         suite = unittest.TestSuite((
             unittest.TestSuite((SampleCase("test_one"),)),
