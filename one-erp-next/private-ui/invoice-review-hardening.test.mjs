@@ -114,3 +114,29 @@ test("custom loader with mismatched invoice totals cannot enable financial appro
   assert.equal(requests,0);
   page.dispose();
 });
+
+test("reviewer can inspect authentic tax category, rate and code before approval",async()=>{
+  for(const language of ["ar","en"]){
+    const root=document.createElement("main");
+    const page=mountInvoiceApprovalPage({root,
+      baseUrl:"https://erp.example.test/",language,
+      getToken:async()=> "a.b.c",loadSummary:async()=>source,
+    });
+    assert.equal(await page.open({tenant,document_id}),true);
+    const table=root.children[4].children.at(-1);
+    assert.equal(table.tagName,"table");
+    const [header,values]=table.children;
+    const columnLabels=header.children.map(cell=>cell.textContent);
+    const cells=values.children.map(cell=>cell.textContent);
+    assert.equal(columnLabels.length,11);
+    assert.deepEqual(columnLabels.slice(5,8),language==="ar"
+      ? ["تصنيف الضريبة","معدل الضريبة (عشري)","رمز الضريبة"]
+      : ["Tax category","Tax rate (decimal)","Tax code"]);
+    assert.equal(cells[5],language==="ar"
+      ? "أساسية (standard)":"Standard (standard)");
+    assert.equal(cells[6],"0.150000");
+    assert.equal(cells[7],"KSA_STANDARD");
+    assert.equal(root.children[7].disabled,true);
+    page.dispose();
+  }
+});
