@@ -140,14 +140,32 @@ def inspect_restricted_reader(connection, *, expected_database: str,
                 # Include every reachable member role, even a NOINHERIT member
                 # that could switch identity with SET ROLE.
                 principals = (policy.login_role, *sorted(groups))
+                # A future/custom schema can be another path to confidential
+                # objects. Inspect its CREATE rights, not only public schema.
+                cur.execute(
+                    """SELECT oid,nspname FROM pg_catalog.pg_namespace
+                       WHERE nspname NOT IN ('pg_catalog','information_schema')
+                         AND nspname NOT LIKE 'pg_toast%'
+                         AND nspname NOT LIKE 'pg_temp%'""")
+                namespaces = cur.fetchall()
+                for schema_oid,_schema_name in namespaces:
+                    for role in principals:
+                        cur.execute(
+                            "SELECT has_schema_privilege(%s,%s,'CREATE')",
+                            (role,schema_oid),
+                        )
+                        if cur.fetchone()[0]:
+                            raise AccountingError("Reader can create objects in custom schema")
                 cur.execute(
                     """SELECT c.oid,c.relname,c.relkind,c.relrowsecurity,
                               c.relforcerowsecurity
                        FROM pg_catalog.pg_class c
                        JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
-                       WHERE n.nspname='public'
+                       WHERE n.nspname NOT IN ('pg_catalog','information_schema')
+                         AND n.nspname NOT LIKE 'pg_toast%'
+                         AND n.nspname NOT LIKE 'pg_temp%'
                          AND c.relkind IN ('r','p','v','m','f','S')
-                       ORDER BY c.relname""")
+                       ORDER BY n.nspname,c.relname""")
                 relations = cur.fetchall()
                 tables_seen = set()
                 for oid,name,kind,rls,force in relations:
@@ -174,6 +192,14 @@ def inspect_restricted_reader(connection, *, expected_database: str,
                         )
                         can_select = cur.fetchone()[0]
                         if can_select:
+                            cur.execute(
+                                """SELECT n.nspname FROM pg_catalog.pg_class c
+                                   JOIN pg_catalog.pg_namespace n
+                                     ON n.oid=c.relnamespace
+                                   WHERE c.oid=%s""",(oid,))
+                            nsrow=cur.fetchone()
+                            if not nsrow or nsrow[0] != "public":
+                                raise AccountingError("Reader can SELECT a nonpublic relation")
                             if name not in policy.allowed_tables:
                                 raise AccountingError("Unapproved SELECT grant on a relation")
                             # Views and materialized views can sidestep the
@@ -193,7 +219,10 @@ def inspect_restricted_reader(connection, *, expected_database: str,
                     """SELECT p.oid,p.oid::regprocedure::text
                        FROM pg_catalog.pg_proc p
                        JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
-                       WHERE n.nspname='public' ORDER BY p.oid""")
+                       WHERE n.nspname NOT IN ('pg_catalog','information_schema')
+                         AND n.nspname NOT LIKE 'pg_toast%'
+                         AND n.nspname NOT LIKE 'pg_temp%'
+                       ORDER BY p.oid""")
                 routines = cur.fetchall()
                 allowed_seen = set()
                 for oid, signature in routines:
