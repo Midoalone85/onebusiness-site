@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_construction_manager" model="res.groups">
+        <field name="name">ONE Construction Manager</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+    <record id="rule_construction_project_company" model="ir.rule">
+        <field name="name">Construction project company isolation</field>
+        <field name="model_id" ref="model_one_construction_project"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_construction_boq_company" model="ir.rule">
+        <field name="name">Construction work item company isolation</field>
+        <field name="model_id" ref="model_one_construction_boq_line"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_construction_certificate_company" model="ir.rule">
+        <field name="name">Construction certificate company isolation</field>
+        <field name="model_id" ref="model_one_construction_certificate"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_construction_certificate_line_company" model="ir.rule">
+        <field name="name">Construction certificate line company isolation</field>
+        <field name="model_id" ref="model_one_construction_certificate_line"/>
+        <field name="domain_force">[('certificate_id.company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

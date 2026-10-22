@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="sequence_one_construction_project" model="ir.sequence">
+    <field name="name">ONE Construction Project</field>
+    <field name="code">one.construction.project</field>
+    <field name="prefix">PRJ/%(year)s/</field>
+    <field name="padding">5</field>
+  </record>
+  <record id="sequence_one_construction_certificate" model="ir.sequence">
+    <field name="name">ONE Construction Certificate</field>
+    <field name="code">one.construction.certificate</field>
+    <field name="prefix">CERT/%(year)s/</field>
+    <field name="padding">5</field>
+  </record>
+</odoo>

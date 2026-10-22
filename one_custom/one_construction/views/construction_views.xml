@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_one_construction_project_list" model="ir.ui.view">
+    <field name="name">one.construction.project.list</field>
+    <field name="model">one.construction.project</field>
+    <field name="arch" type="xml">
+      <list string="Construction Projects">
+        <field name="code"/><field name="name"/><field name="partner_id"/>
+        <field name="contract_amount" sum="Contract"/><field name="approved_amount"/>
+        <field name="remaining_amount"/><field name="actual_cost_amount"/>
+        <field name="state" widget="badge"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_one_construction_project_form" model="ir.ui.view">
+    <field name="name">one.construction.project.form</field>
+    <field name="model">one.construction.project</field>
+    <field name="arch" type="xml">
+      <form string="Construction Project">
+        <header>
+          <button name="action_activate" type="object" string="Start Project" class="btn-primary" invisible="state != 'draft'"/>
+          <button name="action_finish" type="object" string="Complete Project" invisible="state != 'active'"/>
+          <field name="state" widget="statusbar" statusbar_visible="draft,active,done"/>
+        </header>
+        <sheet>
+          <div class="oe_title"><h1><field name="name" placeholder="Project name"/></h1></div>
+          <group>
+            <group>
+              <field name="code" readonly="1"/>
+              <field name="partner_id"/>
+              <field name="company_id" groups="base.group_multi_company"/>
+              <field name="analytic_account_id"/>
+            </group>
+            <group>
+              <field name="contract_date"/>
+              <field name="date_start"/>
+              <field name="date_end"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+          <group string="Project Financial Snapshot">
+            <group><field name="contract_amount" readonly="1"/><field name="approved_amount" readonly="1"/></group>
+            <group><field name="remaining_amount" readonly="1"/><field name="actual_cost_amount" readonly="1"/>
+              <field name="contribution_to_date" readonly="1"/></group>
+          </group>
+          <notebook>
+            <page string="Contract Work Items">
+              <field name="boq_line_ids" readonly="state in ('done','cancelled')">
+                <list editable="bottom">
+                  <field name="sequence" widget="handle"/>
+                  <field name="phase"/>
+                  <field name="product_id"/>
+                  <field name="name"/>
+                  <field name="uom_id"/>
+                  <field name="quantity"/>
+                  <field name="price_unit"/>
+                  <field name="price_subtotal" readonly="1" sum="Contract"/>
+                  <field name="approved_quantity" readonly="1"/>
+                  <field name="remaining_quantity" readonly="1"/>
+                </list>
+              </field>
+            </page>
+            <page string="Progress Certificates">
+              <button name="action_open_certificates" type="object" string="Open Certificates" class="btn-secondary"/>
+              <field name="certificate_ids" readonly="1">
+                <list><field name="name"/><field name="date"/><field name="work_amount"/>
+                  <field name="net_amount"/><field name="state" widget="badge"/></list>
+              </field>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+  <record id="view_one_construction_certificate_list" model="ir.ui.view">
+    <field name="name">one.construction.certificate.list</field>
+    <field name="model">one.construction.certificate</field>
+    <field name="arch" type="xml">
+      <list string="Progress Certificates">
+        <field name="name"/><field name="project_id"/><field name="partner_id"/>
+        <field name="date"/><field name="work_amount" sum="Work Total"/>
+        <field name="net_amount"/><field name="state" widget="badge"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_one_construction_certificate_form" model="ir.ui.view">
+    <field name="name">one.construction.certificate.form</field>
+    <field name="model">one.construction.certificate</field>
+    <field name="arch" type="xml">
+      <form string="Progress Certificate">
+        <header>
+          <button name="action_submit" type="object" string="Submit" class="btn-primary" invisible="state != 'draft'"/>
+          <button name="action_approve" type="object" string="Approve" class="btn-primary"
+                  groups="one_construction.group_construction_manager,base.group_system"
+                  invisible="state != 'submitted'"/>
+          <button name="action_create_draft_invoice" type="object" string="Create Draft Invoice"
+                  class="btn-primary" groups="account.group_account_invoice,base.group_system"
+                  invisible="state != 'approved'"/>
+          <button name="action_cancel" type="object" string="Cancel" invisible="state not in ('draft','submitted')"/>
+          <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved,invoiced"/>
+        </header>
+        <sheet>
+          <group>
+            <group><field name="name" readonly="1"/><field name="project_id" readonly="state != 'draft'"/>
+              <field name="partner_id" readonly="1"/><field name="company_id" invisible="1"/></group>
+            <group><field name="date" readonly="state != 'draft'"/>
+              <field name="currency_id" invisible="1"/><field name="invoice_id" readonly="1"/>
+              <field name="approved_by_id" readonly="1"/></group>
+          </group>
+          <notebook>
+            <page string="Executed Work">
+              <field name="line_ids" readonly="state not in ('draft','submitted')">
+                <list editable="bottom">
+                  <field name="boq_line_id" domain="[('project_id', '=', parent.project_id)]"/>
+                  <field name="quantity"/><field name="uom_id" readonly="1"/>
+                  <field name="price_unit"/><field name="subtotal" readonly="1" sum="Executed"/>
+                </list>
+              </field>
+            </page>
+            <page string="Deductions / Notes">
+              <group><field name="retention_percent" readonly="state != 'draft'"/>
+                <field name="advance_deduction" readonly="state != 'draft'"/></group>
+              <div class="text-muted">Retention and advance deductions are tracked; draft invoice generation is blocked when nonzero until the related accounting policy is configured.</div>
+            </page>
+          </notebook>
+          <group>
+            <group><field name="work_amount" readonly="1"/></group>
+            <group><field name="retention_amount" readonly="1"/><field name="net_amount" readonly="1"/></group>
+          </group>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+  <record id="action_one_construction_project" model="ir.actions.act_window">
+    <field name="name">Construction Projects</field>
+    <field name="res_model">one.construction.project</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <record id="action_one_construction_certificate" model="ir.actions.act_window">
+    <field name="name">Progress Certificates</field>
+    <field name="res_model">one.construction.certificate</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <menuitem id="menu_one_construction_root" name="ONE Construction" sequence="36" groups="base.group_user"/>
+  <menuitem id="menu_one_construction_projects" name="Projects" parent="menu_one_construction_root"
+            action="action_one_construction_project" sequence="10"/>
+  <menuitem id="menu_one_construction_certificates" name="Progress Certificates"
+            parent="menu_one_construction_root" action="action_one_construction_certificate" sequence="20"/>
+</odoo>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_one_construction_settings" model="ir.ui.view">
+    <field name="name">res.config.settings.one.construction</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//form" position="inside">
+        <app name="one_construction" string="Construction" data-string="Construction">
+          <block title="Construction Policies">
+            <setting string="Default retention percentage" help="Default retention for construction progress certificates.">
+              <field name="one_construction_default_retention"/>
+            </setting>
+            <setting string="Accounting integrity">
+              <div class="text-muted">Invoices are drafts. Retention and advance recovery require an approved accounting policy before automated invoicing.</div>
+            </setting>
+          </block>
+        </app>
+      </xpath>
+    </field>
+  </record>
+  <record id="action_one_construction_settings" model="ir.actions.act_window">
+    <field name="name">Construction Settings</field>
+    <field name="res_model">res.config.settings</field>
+    <field name="view_mode">form</field>
+    <field name="target">inline</field>
+    <field name="context">{'module': 'one_construction'}</field>
+  </record>
+  <menuitem id="menu_one_construction_settings" name="Settings"
+            parent="menu_one_construction_root" action="action_one_construction_settings"
+            groups="base.group_system" sequence="90"/>
+</odoo>

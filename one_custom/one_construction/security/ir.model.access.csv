@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_one_construction_project_user,one.construction.project user,model_one_construction_project,base.group_user,1,1,1,0
+access_one_construction_boq_user,one.construction.boq.line user,model_one_construction_boq_line,base.group_user,1,1,1,0
+access_one_construction_certificate_user,one.construction.certificate user,model_one_construction_certificate,base.group_user,1,1,1,0
+access_one_construction_certificate_line_user,one.construction.certificate.line user,model_one_construction_certificate_line,base.group_user,1,1,1,0
+access_one_construction_project_manager,one.construction.project manager,model_one_construction_project,one_construction.group_construction_manager,1,1,1,1
+access_one_construction_boq_manager,one.construction.boq.line manager,model_one_construction_boq_line,one_construction.group_construction_manager,1,1,1,1
+access_one_construction_certificate_manager,one.construction.certificate manager,model_one_construction_certificate,one_construction.group_construction_manager,1,1,1,1
+access_one_construction_certificate_line_manager,one.construction.certificate.line manager,model_one_construction_certificate_line,one_construction.group_construction_manager,1,1,1,1
