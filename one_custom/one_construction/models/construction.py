@@ -181,7 +181,13 @@ class OneConstructionCertificate(models.Model):
     line_ids = fields.One2many("one.construction.certificate.line", "certificate_id", string="Executed Work")
     work_amount = fields.Monetary(compute="_compute_amounts", store=True, currency_field="currency_id")
     retention_percent = fields.Float(string="Retention %", digits=(5, 2),
+        default=lambda self: self.env.company.one_construction_default_retention,
         help="For tracking only in MVP. Automatic invoicing of retained amounts requires fiscal configuration.")
+
+    @api.onchange("project_id")
+    def _onchange_project_retention(self):
+        if self.project_id:
+            self.retention_percent = self.project_id.company_id.one_construction_default_retention
     advance_deduction = fields.Monetary(currency_field="currency_id",
         help="For tracking only in MVP. Automatic advance recovery needs configured accounting entries.")
     retention_amount = fields.Monetary(compute="_compute_amounts", currency_field="currency_id")
@@ -218,7 +224,29 @@ class OneConstructionCertificate(models.Model):
             for cert in self:
                 if cert.state in ("approved", "invoiced"):
                     raise UserError(_("An approved certificate cannot be edited."))
+        target_state = vals.get("state")
+        if target_state == "approved":
+            if not (self.env.user.has_group("one_construction.group_construction_manager")
+                    or self.env.user.has_group("base.group_system")):
+                raise AccessError(_("A construction manager is required to approve certificates."))
+            for cert in self:
+                if cert.state != "submitted":
+                    raise UserError(_("Only submitted certificates can be approved."))
+                cert._check_executed_work()
+        elif target_state == "invoiced":
+            if not (self.env.user.has_group("account.group_account_invoice")
+                    or self.env.user.has_group("base.group_system")):
+                raise AccessError(_("Invoicing permission is required."))
+            for cert in self:
+                if cert.state != "approved" or not vals.get("invoice_id"):
+                    raise UserError(_("A valid approved certificate and its new draft invoice are required."))
         return super().write(vals)
+
+    def unlink(self):
+        for cert in self:
+            if cert.state in ("approved", "invoiced"):
+                raise UserError(_("Approved or invoiced certificates cannot be deleted."))
+        return super().unlink()
 
     def _check_executed_work(self):
         self.ensure_one()
@@ -338,6 +366,10 @@ class OneConstructionCertificateLine(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            if vals.get("certificate_id"):
+                certificate = self.env["one.construction.certificate"].browse(vals["certificate_id"])
+                if certificate.state not in ("draft", "submitted"):
+                    raise UserError(_("Cannot add work to an approved or invoiced certificate."))
             if vals.get("boq_line_id") and "price_unit" not in vals:
                 item = self.env["one.construction.boq.line"].browse(vals["boq_line_id"])
                 vals["price_unit"] = item.price_unit
