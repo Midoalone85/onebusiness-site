@@ -427,7 +427,12 @@ PY
 }
 
 run_deployment_smoke_test() {
-  if [[ "${RENDER_SERVICE_NAME:-}" != "one-erp-staging" && "${RENDER_SERVICE_NAME:-}" != "one-erp-live" ]]; then
+  local service_name="${RENDER_SERVICE_NAME:-}"
+  if [[ "$service_name" == "one-erp-live" && "${ONE_RUN_LIVE_SMOKE:-0}" != "1" ]]; then
+    echo "ONE ERP: skipping deployment smoke tests on production."
+    return 0
+  fi
+  if [[ "$service_name" != "one-erp-staging" && "$service_name" != "one-erp-live" ]]; then
     return 0
   fi
 
