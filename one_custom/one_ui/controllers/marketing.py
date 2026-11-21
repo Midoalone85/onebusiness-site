@@ -221,57 +221,15 @@ class OneMarketing(Controller):
 
     @route("/one/health", type="http", auth="none", methods=["GET"])
     def health(self, **kw):
+        """Minimal public readiness endpoint; keep internal diagnostics private."""
         ensure_db()
-        env = request.env
-        required_refs = [
-            "one_ui.action_one_dashboard",
-            "one_ui.plan_professional",
-            "sales_team.group_sale_salesman",
-            "purchase.group_purchase_user",
-            "stock.group_stock_user",
-            "account.group_account_user",
-            "mrp.group_mrp_user",
-            "hr.group_hr_user",
-            "point_of_sale.group_pos_user",
-        ]
-        refs_ready = all(env.ref(xmlid, raise_if_not_found=False) for xmlid in required_refs)
-        navigation_refs = [
-            "one_ui.action_one_contacts",
-            "one_ui.action_one_products",
-            "one_ui.action_one_control_center",
-            "one_ui.action_one_company_profile",
-            "one_ui.action_one_users",
-            "one_ui.action_one_warehouses",
-            "one_ui.action_one_settings",
-        ]
-        navigation_ready = all(
-            env.ref(xmlid, raise_if_not_found=False)
-            for xmlid in navigation_refs
+        module = request.env["ir.module.module"].sudo().search(
+            [("name", "=", "one_ui")],
+            limit=1,
         )
-        cron = env.ref("one_ui.ir_cron_expire_one_trial_users", raise_if_not_found=False)
-        plans = env["one.subscription.plan"].sudo().search([("active", "=", True)], order="sequence, id")
-        plan_prices = {
-            plan.code: (None if plan.code == "enterprise" and not plan.monthly_price else plan.monthly_price)
-            for plan in plans
-        }
-        smoke = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test")
-        smoke_at = env["ir.config_parameter"].sudo().get_str("one.trial_smoke_test_at")
-        attachment_storage = env["ir.config_parameter"].sudo().get_str("ir_attachment.location") or "file"
-        module = env["ir.module.module"].sudo().search([("name", "=", "one_ui")], limit=1)
-        healthy = refs_ready and navigation_ready and bool(cron) and len(plans) >= 6 and smoke == "passed" and attachment_storage == "db"
+        installed = bool(module and module.state == "installed")
         return request.make_json_response({
             "service": "ONE ERP",
-            "status": "ok" if healthy else "degraded",
-            "version": module.latest_version or "20.0.1.35.0",
-            "trial_hours": TRIAL_HOURS,
-            "trial_days": TRIAL_DAYS,
-            "trial_prerequisites": bool(refs_ready and cron),
-            "action_navigation_ready": bool(navigation_ready),
-            "attachment_storage": attachment_storage,
-            "trial_smoke_test": smoke or "not_run",
-            "trial_smoke_test_at": smoke_at or None,
-            "plans": len(plans),
-            "plan_prices_sar": plan_prices,
-            "ask_one_lite": "ready",
-            "paid_ai_api_required": False,
+            "status": "ok" if installed else "degraded",
+            "version": module.latest_version or "unknown",
         })
