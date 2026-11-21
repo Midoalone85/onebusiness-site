@@ -432,7 +432,11 @@ run_deployment_smoke_test() {
   fi
 
   echo "ONE ERP: running staging smoke test across core business modules."
-  odoo shell "${ODOO_DB_ARGS[@]}" \
+  local smoke_marker="/tmp/one-erp-smoke-pass"
+  local smoke_status=0
+  rm -f "$smoke_marker"
+  set +e
+  timeout --signal=TERM --kill-after=5s 45s odoo shell "${ODOO_DB_ARGS[@]}" \
     -d "$DB_NAME" \
     --db-filter="^${DB_NAME//./\\.}$" \
     --no-http \
@@ -475,8 +479,26 @@ else:
 
 if failures:
     raise RuntimeError("ONE ERP smoke test failed: " + " | ".join(failures))
+open("/tmp/one-erp-smoke-pass", "w", encoding="utf-8").write("PASS\\n")
 print("ONE ERP SMOKE RESULT: PASS")
 PY
+  smoke_status=$?
+  set -e
+
+  if [[ "$smoke_status" -eq 0 && -f "$smoke_marker" ]]; then
+    rm -f "$smoke_marker"
+    return 0
+  fi
+
+  if [[ "$smoke_status" -eq 124 && -f "$smoke_marker" ]]; then
+    echo "ONE ERP: smoke assertions passed; cleaned up a non-exiting Odoo shell after timeout."
+    rm -f "$smoke_marker"
+    return 0
+  fi
+
+  rm -f "$smoke_marker"
+  echo "ONE ERP: deployment smoke shell failed with status $smoke_status." >&2
+  return "$smoke_status"
 }
 
 upgrade_one_ui_if_needed() {
